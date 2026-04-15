@@ -4,6 +4,7 @@ import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="pyparsing")
 
 from fastapi import FastAPI
+from starlette.requests import Request
 from fastapi.middleware.cors import CORSMiddleware
 from routers import meals, recipes, shopping, pantry, eatout, profile
 
@@ -31,3 +32,18 @@ app.include_router(profile.router,  prefix="/profile")
 @app.get("/")
 def root():
     return {"status": "MealMind API is running", "docs": "/docs"}
+
+
+@app.get("/debug/headers")
+async def debug_headers(request: Request):
+    """Temporary: shows exactly what headers Railway receives from the frontend."""
+    from routers.auth import _extract_sub
+    auth = request.headers.get("authorization", "")
+    sub = None
+    if auth.startswith("Bearer "):
+        sub = _extract_sub(auth.removeprefix("Bearer "))
+    return {
+        "authorization_present": bool(auth),
+        "authorization_prefix": auth[:40] if auth else None,
+        "extracted_sub": sub,
+    }

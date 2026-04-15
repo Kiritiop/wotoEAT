@@ -52,17 +52,17 @@ async def get_optional_user_id(
     authorization: Optional[str] = Header(None),
 ) -> Optional[str]:
     if not authorization or not authorization.startswith("Bearer "):
+        print(f"[auth] No Bearer token. authorization={repr(authorization)}")
         return None
-    return _extract_sub(authorization.removeprefix("Bearer "))
+    token = authorization.removeprefix("Bearer ")
+    sub = _extract_sub(token)
+    print(f"[auth] token_prefix={token[:20]}... sub={sub}")
+    return sub
 
 
 async def require_user_id(
     authorization: Optional[str] = Header(None),
 ) -> str:
-    """
-    Dependency: same as get_optional_user_id but raises 401 if missing.
-    Use on endpoints that must be authenticated.
-    """
     from fastapi import HTTPException
     user_id = await get_optional_user_id(authorization)
     if not user_id:
