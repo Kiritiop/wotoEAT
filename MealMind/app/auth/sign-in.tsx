@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
+import { LanguageToggle } from "@/components/LanguageToggle";
 
 export default function SignInScreen() {
   const c = useTheme();
@@ -47,6 +48,9 @@ export default function SignInScreen() {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
+      <View style={styles.langRow}>
+        <LanguageToggle />
+      </View>
       <View style={styles.inner}>
         <View style={styles.logoWrap}>
           <Ionicons name="leaf" size={36} color={c.primary} />
@@ -104,6 +108,7 @@ export default function SignInScreen() {
 function makeStyles(c: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: c.bg },
+    langRow: { alignItems: "flex-end", paddingHorizontal: 20, paddingTop: 56 },
     inner: { flex: 1, justifyContent: "center", paddingHorizontal: 28, gap: 12 },
     logoWrap: {
       width: 80, height: 80, borderRadius: 40,

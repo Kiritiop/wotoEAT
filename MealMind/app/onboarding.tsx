@@ -21,6 +21,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { saveProfile, upsertPantry } from "@/services/api";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useTheme } from "@/hooks/useTheme";
+import { LanguageToggle } from "@/components/LanguageToggle";
 
 const HEALTH_GOALS = [
   "lose weight", "maintain weight", "build muscle",
@@ -88,6 +89,11 @@ export default function OnboardingScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      {/* Language toggle */}
+      <View style={styles.langRow}>
+        <LanguageToggle />
+      </View>
+
       {/* Progress bar */}
       <View style={styles.progressBar}>
         {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
@@ -318,6 +324,7 @@ export default function OnboardingScreen() {
 function makeStyles(c: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.bg },
+    langRow: { alignItems: "flex-end", paddingHorizontal: 20, paddingTop: 4 },
     progressBar: { flexDirection: "row", gap: 6, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 8 },
     progressSegment: { flex: 1, height: 4, borderRadius: 2, backgroundColor: c.border },
     progressActive: { backgroundColor: c.primary },
