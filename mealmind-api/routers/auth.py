@@ -39,12 +39,15 @@ def _extract_sub(token: str) -> Optional[str]:
     try:
         parts = token.split(".")
         if len(parts) != 3:
+            print(f"[auth] bad JWT: {len(parts)} parts")
             return None
         # Add padding so base64 decode doesn't fail
         padded = parts[1] + "=" * (-len(parts[1]) % 4)
         payload = json.loads(base64.urlsafe_b64decode(padded))
+        print(f"[auth] payload keys: {list(payload.keys())}")
         return payload.get("sub")
-    except Exception:
+    except Exception as e:
+        print(f"[auth] decode error: {e}")
         return None
 
 
