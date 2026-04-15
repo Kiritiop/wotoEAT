@@ -15,11 +15,13 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { getSavedRecipes, deleteRecipe } from "@/services/api";
+import { useAppStore } from "@/store/useAppStore";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import type { SavedRecipe } from "@/services/api";
 
 export default function RecipesScreen() {
+  const { authReady } = useAppStore();
   const c = useTheme();
   const { t, strings } = useTranslation();
   const [recipes, setRecipes] = useState<SavedRecipe[]>([]);
@@ -31,6 +33,7 @@ export default function RecipesScreen() {
   const router = useRouter();
 
   const loadRecipes = useCallback(async (isRefresh = false) => {
+    if (!authReady) return;
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
       const data = await getSavedRecipes();
@@ -41,7 +44,7 @@ export default function RecipesScreen() {
       setRefreshing(false);
       setLoading(false);
     }
-  }, []);
+  }, [authReady]);
 
   useFocusEffect(
     useCallback(() => {

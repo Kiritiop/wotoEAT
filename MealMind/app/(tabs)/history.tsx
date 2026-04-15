@@ -24,7 +24,7 @@ const SLOT_COLOR: Record<string, string> = {
 };
 
 export default function HistoryScreen() {
-  const { profile } = useAppStore();
+  const { profile, authReady } = useAppStore();
   const [history, setHistory] = useState<PlanHistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -33,6 +33,7 @@ export default function HistoryScreen() {
   const { t } = useTranslation();
 
   const load = useCallback(async (isRefresh = false) => {
+    if (!authReady) return;
     if (isRefresh) setRefreshing(true); else setLoading(true);
     setError(null);
     try {
@@ -44,7 +45,7 @@ export default function HistoryScreen() {
       setRefreshing(false);
       setLoading(false);
     }
-  }, []);
+  }, [authReady]);
 
   useFocusEffect(useCallback(() => { void load(); }, [load]));
 
