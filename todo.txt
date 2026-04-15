@@ -1,0 +1,5 @@
+Ok, the project seems to be going really well for now, here are a list of things I need you to correct:
+1. the tags should have clickable options i dont know what to choose i cant type them down
+2. the dish recommendation should come with recipes
+3. for the thumbs up thumbs down and change recmmendation buttons, just make the thumbs down button change a recommendation because the user dislikes the dish and also make it not show anymore
+4. also sync the recommendations and items in shopping cart with the user's language settings. currently everything else is synced except for the generated recommendations and items in shopping cart, i assume this also applies to pantry

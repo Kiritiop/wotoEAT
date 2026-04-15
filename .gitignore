@@ -1,0 +1,28 @@
+# Environment variables — NEVER commit these
+.env
+.env.*
+!.env.example
+
+# Node / Expo
+node_modules/
+.expo/
+dist/
+web-build/
+*.log
+.DS_Store
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+mealmind-api/venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+.claude/
