@@ -23,6 +23,7 @@ RULES:
 - Include a mix of familiar and slightly adventurous dishes
 - difficulty must be one of: "easy", "medium", "hard"
 - prep_time_mins is realistic total time including cooking
+- tags must ALWAYS be in English regardless of any language setting (e.g. "high-protein", "gluten-free", "vegan", "quick", "one-pot")
 
 Respond with ONLY a valid JSON array. No explanation, no markdown fences.
 Each element must have exactly these keys:
@@ -93,6 +94,7 @@ RULES:
 6. difficulty must be one of: "easy", "medium", "hard"
 7. slot must be exactly: "breakfast", "lunch", or "dinner"
 8. nutrition_note should be one sentence explaining how the day meets the user's health goals
+9. tags must ALWAYS be in English regardless of the response language (e.g. "high-protein", "low-carb", "gluten-free", "quick", "one-pot")
 
 Respond with ONLY valid JSON, no markdown fences:
 {{
@@ -291,6 +293,7 @@ RULES:
 2. Must be meaningfully different from the current {slot} meal
 3. Must contain a vegetable, protein, and staple
 4. difficulty: "easy", "medium", or "hard"
+5. tags must ALWAYS be in English (e.g. "high-protein", "quick", "one-pot")
 
 Respond with ONLY a single valid JSON object, no markdown:
 {{

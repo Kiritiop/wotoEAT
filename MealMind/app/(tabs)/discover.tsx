@@ -16,6 +16,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAppStore } from "@/store/useAppStore";
+import { translateTag } from "@/constants/filters";
 import { getDailyPlan, generatePlanShoppingList, swapMeal } from "@/services/api";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useTheme } from "@/hooks/useTheme";
@@ -56,6 +57,7 @@ function MealSlotCard({
   const [expanded, setExpanded] = useState(false);
   const c = useTheme();
   const { t } = useTranslation();
+  const { language } = useAppStore();
   const accent = SLOT_COLOUR[meal.slot] ?? "#2E7D32";
   const icon = SLOT_ICON[meal.slot] ?? "restaurant";
 
@@ -170,7 +172,7 @@ function MealSlotCard({
               <View style={cardStyles.tags}>
                 {(meal.tags ?? []).map((tag) => (
                   <View key={tag} style={[cardStyles.tag, { backgroundColor: c.chipBg }]}>
-                    <Text style={[cardStyles.tagText, { color: c.textMuted }]}>{tag}</Text>
+                    <Text style={[cardStyles.tagText, { color: c.textMuted }]}>{translateTag(tag, language)}</Text>
                   </View>
                 ))}
               </View>

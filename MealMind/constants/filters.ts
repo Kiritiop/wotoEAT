@@ -79,6 +79,61 @@ export const PANTRY_UNITS = [
   "can",
 ];
 
+// Chinese translations for AI-generated tags (tags are always returned in English)
+export const TAG_ZH: Record<string, string> = {
+  "high-protein": "高蛋白",
+  "high protein": "高蛋白",
+  "low-carb": "低碳水",
+  "low carb": "低碳水",
+  "low-fat": "低脂",
+  "low fat": "低脂",
+  "low-calorie": "低卡",
+  "low calorie": "低卡",
+  "high-fibre": "高纤维",
+  "high fibre": "高纤维",
+  "high-fiber": "高纤维",
+  "high fiber": "高纤维",
+  "low-sodium": "低钠",
+  "low sodium": "低钠",
+  "gluten-free": "无麸质",
+  "dairy-free": "无乳制品",
+  "nut-free": "无坚果",
+  "vegan": "纯素",
+  "vegetarian": "素食",
+  "keto": "生酮",
+  "paleo": "原始饮食",
+  "halal": "清真",
+  "kosher": "犹太洁食",
+  "spicy": "辣",
+  "mild": "清淡",
+  "umami": "鲜味",
+  "sweet": "甜",
+  "sour": "酸",
+  "smoky": "烟熏",
+  "fresh": "清爽",
+  "quick": "快手",
+  "easy": "简单",
+  "one-pot": "一锅",
+  "one pot": "一锅",
+  "meal prep": "备餐",
+  "comfort food": "家常菜",
+  "healthy": "健康",
+  "balanced": "均衡",
+  "heart-healthy": "护心",
+  "anti-inflammatory": "抗炎",
+  "high-energy": "高能量",
+  "light": "清淡",
+  "hearty": "丰盛",
+  "breakfast": "早餐",
+  "lunch": "午餐",
+  "dinner": "晚餐",
+};
+
+export function translateTag(tag: string, language: string): string {
+  if (language !== "zh") return tag;
+  return TAG_ZH[tag.toLowerCase()] ?? tag;
+}
+
 // Approximate gram weights for non-standard units — used by the AI
 // to understand how much of an ingredient the user actually has.
 export const UNIT_GRAM_ESTIMATES: Record<string, string> = {

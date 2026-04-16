@@ -6,8 +6,9 @@ import {
   StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { DIFFICULTY_COLORS, DIFFICULTY_LABELS } from "@/constants/filters";
+import { DIFFICULTY_COLORS, DIFFICULTY_LABELS, translateTag } from "@/constants/filters";
 import { useTheme } from "@/hooks/useTheme";
+import { useAppStore } from "@/store/useAppStore";
 import type { MealSuggestion } from "@/services/api";
 
 interface Props {
@@ -17,6 +18,7 @@ interface Props {
 
 export function MealCard({ meal, onPress }: Props) {
   const c = useTheme();
+  const { language } = useAppStore();
   const difficultyColor = DIFFICULTY_COLORS[meal.difficulty] ?? "#999";
   const difficultyLabel = DIFFICULTY_LABELS[meal.difficulty] ?? meal.difficulty;
 
@@ -64,7 +66,7 @@ export function MealCard({ meal, onPress }: Props) {
         <View style={styles.tags}>
           {meal.tags.slice(0, 3).map((tag) => (
             <View key={tag} style={[styles.tag, { backgroundColor: c.chipBg }]}>
-              <Text style={[styles.tagText, { color: c.chipText }]}>{tag}</Text>
+              <Text style={[styles.tagText, { color: c.chipText }]}>{translateTag(tag, language)}</Text>
             </View>
           ))}
         </View>
