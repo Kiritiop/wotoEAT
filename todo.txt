@@ -1,5 +1,8 @@
-Ok, the project seems to be going really well for now, here are a list of things I need you to correct:
-1. the tags should have clickable options i dont know what to choose i cant type them down
-2. the dish recommendation should come with recipes
-3. for the thumbs up thumbs down and change recmmendation buttons, just make the thumbs down button change a recommendation because the user dislikes the dish and also make it not show anymore
-4. also sync the recommendations and items in shopping cart with the user's language settings. currently everything else is synced except for the generated recommendations and items in shopping cart, i assume this also applies to pantry
+Based on user feedback:
+
+Need to add editing in pantry: 要添加编辑，录错了可以修改
+All the tags need to be changed, they dont have chinese for literally all the tags: 单位要有中文、鸡蛋的单位是个
+Also, add an error message or something that prompts the user to enter a quantity if they didnt for the pantry
+Shopping cart should perma be updated: 已生成的购物车中有鱼肉，我在食材录了巴沙鱼，购物车可以自动删除鱼肉吗
+重新生成购物车，鱼肉不认食材库里的巴沙鱼柳
+For all the units, add an estimate for how many grams an item has: for example, if I input 1 bag of shrimp the recipe still detects I need shrimp because it doesnt have the weight in grams

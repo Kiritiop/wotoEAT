@@ -65,12 +65,33 @@ export const PANTRY_UNITS = [
   "kg",
   "ml",
   "L",
+  "个",
+  "条",
+  "块",
+  "袋",
+  "瓶",
+  "盒",
   "cup",
   "tbsp",
   "tsp",
   "piece",
-  "slice",
   "bunch",
   "can",
-  "pack",
 ];
+
+// Approximate gram weights for non-standard units — used by the AI
+// to understand how much of an ingredient the user actually has.
+export const UNIT_GRAM_ESTIMATES: Record<string, string> = {
+  "个": "≈60g each (e.g. 1 egg≈60g, 1 medium fruit≈150g)",
+  "条": "≈200g each (e.g. 1 fish fillet≈200g, 1 carrot≈80g)",
+  "块": "≈150g each (e.g. 1 piece of meat/tofu≈150g)",
+  "袋": "≈300g per bag (e.g. 1 bag shrimp≈300g, 1 bag spinach≈200g)",
+  "瓶": "≈500ml per bottle",
+  "盒": "≈250g per box/carton",
+  "piece": "≈150g each",
+  "bunch": "≈200g",
+  "can": "≈400g",
+  "cup": "≈240ml or ≈150g for dry goods",
+  "tbsp": "≈15g",
+  "tsp": "≈5g",
+};

@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Modal,
   RefreshControl,
+  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -27,10 +28,13 @@ export default function PantryScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [showAdd, setShowAdd] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [editingItem, setEditingItem] = useState<PantryItem | null>(null);
   const [newName, setNewName] = useState("");
   const [newAmount, setNewAmount] = useState("");
   const [newUnit, setNewUnit] = useState("g");
+  const [nameError, setNameError] = useState(false);
+  const [amountError, setAmountError] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -40,7 +44,7 @@ export default function PantryScreen() {
       const items = await getPantry();
       setPantry(items);
     } catch {
-      // Silently ignore — user might be offline or backend not yet running
+      // Silently ignore — user might be offline
     } finally {
       setRefreshing(false);
       setLoading(false);
@@ -52,25 +56,72 @@ export default function PantryScreen() {
     loadPantry();
   }, [loadPantry, authReady]);
 
-  async function handleAdd() {
-    if (!newName.trim() || !newAmount.trim()) {
-      setFormError(t("missing_fields"));
+  function openAdd() {
+    setEditingItem(null);
+    setNewName("");
+    setNewAmount("");
+    setNewUnit("g");
+    setNameError(false);
+    setAmountError(false);
+    setFormError(null);
+    setShowModal(true);
+    Haptics.selectionAsync();
+  }
+
+  function openEdit(item: PantryItem) {
+    setEditingItem(item);
+    setNewName(item.name);
+    setNewAmount(String(item.amount));
+    setNewUnit(item.unit);
+    setNameError(false);
+    setAmountError(false);
+    setFormError(null);
+    setShowModal(true);
+    Haptics.selectionAsync();
+  }
+
+  async function handleSave() {
+    let hasError = false;
+    if (!newName.trim()) { setNameError(true); hasError = true; }
+    else setNameError(false);
+    if (!newAmount.trim()) { setAmountError(true); hasError = true; }
+    else setAmountError(false);
+
+    if (hasError) {
+      if (!newName.trim() && !newAmount.trim()) {
+        setFormError(t("missing_fields"));
+      } else if (!newName.trim()) {
+        setFormError(t("missing_name"));
+      } else {
+        setFormError(t("missing_amount"));
+      }
       return;
     }
+
+    const parsed = parseFloat(newAmount);
+    if (isNaN(parsed) || parsed <= 0) {
+      setAmountError(true);
+      setFormError(t("invalid_amount"));
+      return;
+    }
+
     const item: PantryItem = {
       name: newName.trim().toLowerCase(),
-      amount: parseFloat(newAmount),
+      amount: parsed,
       unit: newUnit,
     };
+
     setFormError(null);
     setSaving(true);
     try {
+      // If editing and name changed, delete the old entry first
+      if (editingItem && editingItem.name !== item.name) {
+        await deletePantryItem(editingItem.name);
+        setPantry(pantry.filter((p) => p.name !== editingItem.name));
+      }
       await upsertPantry([item]);
       setPantry([...pantry.filter((p) => p.name !== item.name), item]);
-      setNewName("");
-      setNewAmount("");
-      setNewUnit("g");
-      setShowAdd(false);
+      setShowModal(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : "Could not save.");
@@ -105,10 +156,7 @@ export default function PantryScreen() {
         ListHeaderComponent={
           <View>
             <Text style={styles.intro}>{t("pantry_intro")}</Text>
-            <TouchableOpacity
-              style={styles.addBtn}
-              onPress={() => { setShowAdd(true); Haptics.selectionAsync(); }}
-            >
+            <TouchableOpacity style={styles.addBtn} onPress={openAdd}>
               <Ionicons name="add" size={20} color="#FFF" />
               <Text style={styles.addBtnText}>{t("add_ingredient")}</Text>
             </TouchableOpacity>
@@ -144,6 +192,13 @@ export default function PantryScreen() {
               </Text>
             </View>
             <TouchableOpacity
+              onPress={() => openEdit(item)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={{ marginRight: 12 }}
+            >
+              <Ionicons name="pencil-outline" size={18} color={c.textMuted} />
+            </TouchableOpacity>
+            <TouchableOpacity
               onPress={() => handleDelete(item.name)}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
@@ -154,34 +209,47 @@ export default function PantryScreen() {
         showsVerticalScrollIndicator={false}
       />
 
-      {/* Add item modal */}
-      <Modal visible={showAdd} animationType="slide" transparent>
+      {/* Add / Edit modal */}
+      <Modal visible={showModal} animationType="slide" transparent>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <Text style={[styles.modalTitle, { color: c.text }]}>{t("add_to_pantry")}</Text>
+            <Text style={[styles.modalTitle, { color: c.text }]}>
+              {editingItem ? t("edit_ingredient") : t("add_to_pantry")}
+            </Text>
 
             <Text style={[styles.fieldLabel, { color: c.textMuted }]}>{t("ingredient_name")}</Text>
             <TextInput
-              style={[styles.input, { borderColor: c.border, backgroundColor: c.inputBg, color: c.text }]}
+              style={[
+                styles.input,
+                { borderColor: nameError ? c.error : c.border, backgroundColor: c.inputBg, color: c.text },
+              ]}
               placeholder={t("ingredient_name_placeholder")}
               placeholderTextColor={c.textPlaceholder}
               value={newName}
-              onChangeText={setNewName}
-              autoFocus
+              onChangeText={(v) => { setNewName(v); if (v.trim()) setNameError(false); }}
+              autoFocus={!editingItem}
             />
 
             <Text style={[styles.fieldLabel, { color: c.textMuted }]}>{t("amount")}</Text>
             <TextInput
-              style={[styles.input, { borderColor: c.border, backgroundColor: c.inputBg, color: c.text }]}
+              style={[
+                styles.input,
+                { borderColor: amountError ? c.error : c.border, backgroundColor: c.inputBg, color: c.text },
+              ]}
               placeholder={t("amount_placeholder")}
               keyboardType="decimal-pad"
               placeholderTextColor={c.textPlaceholder}
               value={newAmount}
-              onChangeText={setNewAmount}
+              onChangeText={(v) => { setNewAmount(v); if (v.trim()) setAmountError(false); }}
             />
 
             <Text style={[styles.fieldLabel, { color: c.textMuted }]}>{t("unit")}</Text>
-            <View style={styles.unitRow}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.unitScroll}
+              contentContainerStyle={styles.unitScrollContent}
+            >
               {PANTRY_UNITS.map((u) => (
                 <TouchableOpacity
                   key={u}
@@ -201,7 +269,7 @@ export default function PantryScreen() {
                   </Text>
                 </TouchableOpacity>
               ))}
-            </View>
+            </ScrollView>
 
             {formError && (
               <View style={styles.errorBanner}>
@@ -213,17 +281,17 @@ export default function PantryScreen() {
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={[styles.cancelBtn, { backgroundColor: c.surfaceAlt }]}
-                onPress={() => setShowAdd(false)}
+                onPress={() => setShowModal(false)}
               >
                 <Text style={[styles.cancelText, { color: c.textMuted }]}>{t("cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.saveBtn, { backgroundColor: c.primary }, saving && { backgroundColor: c.disabled }]}
-                onPress={handleAdd}
+                onPress={handleSave}
                 disabled={saving}
               >
                 <Text style={styles.saveBtnText}>
-                  {saving ? t("saving") : t("add")}
+                  {saving ? t("saving") : editingItem ? t("save") : t("add")}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -288,7 +356,8 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
       paddingHorizontal: 14, paddingVertical: 12,
       fontSize: 15, marginTop: 4,
     },
-    unitRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 },
+    unitScroll: { marginTop: 4 },
+    unitScrollContent: { flexDirection: "row", gap: 8, paddingRight: 8 },
     unitChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10 },
     unitChipText: { fontSize: 13 },
     modalActions: { flexDirection: "row", gap: 12, marginTop: 20 },

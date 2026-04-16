@@ -120,6 +120,10 @@ const zh = {
   pantry_empty_body: "添加您已有的食材，我们会在购物清单中自动跳过它们。",
   pantry_count: (n: number) => `共 ${n} 种食材`,
   missing_fields: "请输入食材名称和数量。",
+  missing_name: "请输入食材名称。",
+  missing_amount: "请输入数量。",
+  invalid_amount: "数量必须为大于0的数字。",
+  edit_ingredient: "编辑食材",
   saving: "保存中…",
 
   // ── Shopping ──────────────────────────────────────────────────────────────

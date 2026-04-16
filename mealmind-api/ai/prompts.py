@@ -126,6 +126,31 @@ Respond with ONLY valid JSON, no markdown fences:
 }}"""
 
 
+_UNIT_WEIGHTS = """
+UNIT WEIGHT GUIDE (use these to convert pantry quantities to grams for comparison):
+- 个 (gè/piece): eggs≈60g, medium fruit≈150g, onion≈120g, tomato≈100g, potato≈150g
+- 条 (tiáo/strip): fish fillet≈200g (basa/巴沙鱼/tilapia/鲈鱼 all count), carrot≈80g, cucumber≈200g
+- 块 (kuài/chunk): meat/tofu piece≈150g
+- 袋 (dài/bag): shrimp≈300g, leafy greens≈200g, frozen veg≈500g
+- 瓶 (píng/bottle): ≈500ml liquid
+- 盒 (hé/box): ≈250g
+- piece: ≈150g, bunch: ≈200g, can: ≈400g, cup: ≈240ml or 150g dry
+"""
+
+_MATCHING_RULES = """
+SEMANTIC INGREDIENT MATCHING (critical — read carefully):
+- Match by ingredient TYPE, not exact name. Examples:
+  - Pantry has "巴沙鱼" or "basa fish" → satisfies need for "fish", "white fish", "fish fillet", "鱼肉", "鱼柳"
+  - Pantry has "虾" or "对虾" → satisfies "shrimp", "prawns", "虾仁"
+  - Pantry has "鸡胸肉" → satisfies "chicken", "chicken breast"
+  - Pantry has "生抽" → satisfies "soy sauce", "酱油"
+  - Pantry has "食用油" → satisfies "oil", "vegetable oil", "cooking oil"
+- If the pantry quantity (converted to grams) is enough for the recipe need, remove from shopping list
+- If pantry has some but not enough, reduce the shopping amount accordingly
+- When in doubt about a match, prefer to REMOVE from shopping list (avoid duplicate buying)
+"""
+
+
 def plan_shopping_prompt(plan: dict, pantry: list, language: str = "en") -> str:
     lang_note = _LANG_INSTRUCTION.get(language, _LANG_INSTRUCTION["en"])
     return f"""You are a smart shopping list assistant.
@@ -140,9 +165,12 @@ DAILY MEAL PLAN:
 USER'S PANTRY (already owned — subtract these):
 {json.dumps(pantry, indent=2)}
 
+{_UNIT_WEIGHTS}
+{_MATCHING_RULES}
+
 RULES:
 1. List every ingredient needed across all 3 meals with realistic amounts
-2. Remove anything the user already has in their pantry (exact or reasonable match)
+2. Remove anything the user already has in their pantry (semantic match, not just exact name)
 3. Group items into: Produce, Meat & Fish, Dairy & Eggs, Bakery, Pantry & Dry Goods, Other
 4. Use sensible units: grams/kg for weight, ml/L for liquid, pieces for countables
 5. Include estimated calories where possible
@@ -204,9 +232,12 @@ SELECTED RECIPES:
 USER'S PANTRY (already owned — subtract these):
 {json.dumps(pantry, indent=2)}
 
+{_UNIT_WEIGHTS}
+{_MATCHING_RULES}
+
 RULES:
 1. Combine identical ingredients across recipes (sum their quantities)
-2. Remove anything the user already owns (exact or reasonable match)
+2. Remove anything the user already owns (semantic match — see matching rules above)
 3. Group items into these categories: Produce, Meat & Fish, Dairy & Eggs,
    Bakery, Pantry & Dry Goods, Frozen, Beverages, Other
 4. Use sensible units: grams/kg for weight, ml/L for liquid, pieces for countables
