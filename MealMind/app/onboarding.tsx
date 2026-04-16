@@ -22,16 +22,12 @@ import { saveProfile, upsertPantry } from "@/services/api";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useTheme } from "@/hooks/useTheme";
 import { LanguageToggle } from "@/components/LanguageToggle";
-
-const HEALTH_GOALS = [
-  "lose weight", "maintain weight", "build muscle",
-  "eat healthier", "more energy", "better sleep",
-  "manage diabetes", "heart health",
-];
-const RESTRICTIONS = [
-  "vegetarian", "vegan", "gluten-free", "dairy-free",
-  "nut-free", "halal", "kosher", "keto",
-];
+import {
+  HEALTH_GOAL_OPTIONS,
+  DIETARY_RESTRICTION_OPTIONS,
+  optionLabel,
+} from "@/constants/profileOptions";
+import { getPantryUnits } from "@/constants/filters";
 
 const TOTAL_STEPS = 3;
 
@@ -39,7 +35,7 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const c = useTheme();
-  const { profile, setProfile, setHasOnboarded, pantry, setPantry } = useAppStore();
+  const { profile, setProfile, setHasOnboarded, pantry, setPantry, language } = useAppStore();
 
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
@@ -48,13 +44,13 @@ export default function OnboardingScreen() {
   const [itemAmount, setItemAmount] = useState("");
   const [itemUnit, setItemUnit] = useState("g");
 
-  function toggleGoal(g: string) {
+  function toggleGoal(value: string) {
     const cur = profile.health_goals ?? [];
-    setProfile({ health_goals: cur.includes(g) ? cur.filter((x) => x !== g) : [...cur, g] });
+    setProfile({ health_goals: cur.includes(value) ? cur.filter((x) => x !== value) : [...cur, value] });
   }
-  function toggleRestriction(r: string) {
+  function toggleRestriction(value: string) {
     const cur = profile.dietary_restrictions ?? [];
-    setProfile({ dietary_restrictions: cur.includes(r) ? cur.filter((x) => x !== r) : [...cur, r] });
+    setProfile({ dietary_restrictions: cur.includes(value) ? cur.filter((x) => x !== value) : [...cur, value] });
   }
   function addPantryItem() {
     if (!itemName.trim() || !itemAmount.trim()) return;
@@ -184,16 +180,16 @@ export default function OnboardingScreen() {
 
             <Text style={styles.sectionLabel}>{t("health_goals")}</Text>
             <View style={styles.chips}>
-              {HEALTH_GOALS.map((g) => {
-                const active = (profile.health_goals ?? []).includes(g);
+              {HEALTH_GOAL_OPTIONS.map((g) => {
+                const active = (profile.health_goals ?? []).includes(g.value);
                 return (
                   <TouchableOpacity
-                    key={g}
+                    key={g.value}
                     style={[styles.chip, active && { backgroundColor: c.primary, borderColor: c.primary }]}
-                    onPress={() => toggleGoal(g)}
+                    onPress={() => toggleGoal(g.value)}
                   >
                     <Text style={[styles.chipText, active && { color: "#FFF", fontWeight: "600" }]}>
-                      {g}
+                      {optionLabel(g, language)}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -202,16 +198,16 @@ export default function OnboardingScreen() {
 
             <Text style={[styles.sectionLabel, { marginTop: 20 }]}>{t("dietary_restrictions")}</Text>
             <View style={styles.chips}>
-              {RESTRICTIONS.map((r) => {
-                const active = (profile.dietary_restrictions ?? []).includes(r);
+              {DIETARY_RESTRICTION_OPTIONS.map((r) => {
+                const active = (profile.dietary_restrictions ?? []).includes(r.value);
                 return (
                   <TouchableOpacity
-                    key={r}
+                    key={r.value}
                     style={[styles.chip, active && { backgroundColor: c.primary, borderColor: c.primary }]}
-                    onPress={() => toggleRestriction(r)}
+                    onPress={() => toggleRestriction(r.value)}
                   >
                     <Text style={[styles.chipText, active && { color: "#FFF", fontWeight: "600" }]}>
-                      {r}
+                      {optionLabel(r, language)}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -254,7 +250,7 @@ export default function OnboardingScreen() {
 
             {/* Unit chips */}
             <View style={[styles.chips, { marginBottom: 16 }]}>
-              {["g", "kg", "ml", "L", "pcs", "tbsp", "tsp"].map((u) => (
+              {getPantryUnits(language).map((u) => (
                 <TouchableOpacity
                   key={u}
                   style={[styles.chip, itemUnit === u && { backgroundColor: c.primary, borderColor: c.primary }]}

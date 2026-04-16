@@ -16,30 +16,16 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { useTheme } from "@/hooks/useTheme";
 import { saveProfile } from "@/services/api";
 import { supabase } from "@/lib/supabase";
+import {
+  HEALTH_GOAL_OPTIONS,
+  DIETARY_RESTRICTION_OPTIONS,
+  ALLERGEN_OPTIONS,
+  ACTIVITY_LEVEL_OPTIONS,
+  optionLabel,
+} from "@/constants/profileOptions";
 import type { Language } from "@/store/useAppStore";
 
-const ACTIVITY_LEVELS = [
-  { value: "sedentary", label: "Sedentary", sub: "Little or no exercise" },
-  { value: "light",    label: "Light",    sub: "1–3 days/week" },
-  { value: "moderate", label: "Moderate", sub: "3–5 days/week" },
-  { value: "active",   label: "Active",   sub: "6–7 days/week" },
-  { value: "very_active", label: "Very Active", sub: "Twice a day" },
-] as const;
-
-const ALLERGENS = [
-  "Peanuts", "Tree nuts", "Shellfish", "Fish", "Dairy", "Eggs", "Gluten", "Soy", "Sesame",
-];
-
-const HEALTH_GOALS = [
-  "Lose weight", "Maintain weight", "Build muscle", "Eat healthier",
-  "More energy", "Better sleep", "Manage diabetes", "Heart health",
-];
-const RESTRICTIONS = [
-  "Vegetarian", "Vegan", "Gluten-free", "Dairy-free",
-  "Nut-free", "Halal", "Kosher", "Keto",
-];
-
-type ActivityLevel = "sedentary" | "light" | "moderate" | "active" | "very_active";
+import type { ActivityLevelValue } from "@/constants/profileOptions";
 
 export default function ProfileScreen() {
   const { profile, setProfile, language, setLanguage } = useAppStore();
@@ -49,16 +35,14 @@ export default function ProfileScreen() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function toggleGoal(goal: string) {
-    const lower = goal.toLowerCase();
+  function toggleGoal(value: string) {
     const cur = profile.health_goals ?? [];
-    setProfile({ health_goals: cur.includes(lower) ? cur.filter((g) => g !== lower) : [...cur, lower] });
+    setProfile({ health_goals: cur.includes(value) ? cur.filter((g) => g !== value) : [...cur, value] });
     setSaved(false);
   }
-  function toggleRestriction(r: string) {
-    const lower = r.toLowerCase();
+  function toggleRestriction(value: string) {
     const cur = profile.dietary_restrictions ?? [];
-    setProfile({ dietary_restrictions: cur.includes(lower) ? cur.filter((v) => v !== lower) : [...cur, lower] });
+    setProfile({ dietary_restrictions: cur.includes(value) ? cur.filter((v) => v !== value) : [...cur, value] });
     setSaved(false);
   }
 
@@ -157,7 +141,7 @@ export default function ProfileScreen() {
                     onPress={() => { setProfile({ sex: s }); setSaved(false); Haptics.selectionAsync(); }}
                   >
                     <Text style={[styles.segmentText, { color: c.textMuted }, profile.sex === s && { color: "#FFF" }]}>
-                      {s.charAt(0).toUpperCase() + s.slice(1)}
+                      {t(s as "male" | "female" | "other")}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -222,7 +206,7 @@ export default function ProfileScreen() {
         <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border }]}>
           <Text style={[styles.sectionTitle, { color: c.text }]}>{t("activity_level")}</Text>
           <View style={styles.activityList}>
-            {ACTIVITY_LEVELS.map((level) => (
+            {ACTIVITY_LEVEL_OPTIONS.map((level) => (
               <TouchableOpacity
                 key={level.value}
                 style={[
@@ -231,16 +215,18 @@ export default function ProfileScreen() {
                   profile.activity_level === level.value && { borderColor: c.primary, backgroundColor: c.successBg },
                 ]}
                 onPress={() => {
-                  setProfile({ activity_level: level.value as ActivityLevel });
+                  setProfile({ activity_level: level.value as ActivityLevelValue });
                   setSaved(false);
                   Haptics.selectionAsync();
                 }}
               >
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.activityLabel, { color: c.textSecondary }, profile.activity_level === level.value && { color: c.primaryText }]}>
-                    {level.label}
+                    {optionLabel(level, language)}
                   </Text>
-                  <Text style={[styles.activitySub, { color: c.textMuted }]}>{level.sub}</Text>
+                  <Text style={[styles.activitySub, { color: c.textMuted }]}>
+                    {language === "zh" ? level.zh_sub : level.en_sub}
+                  </Text>
                 </View>
                 {profile.activity_level === level.value && (
                   <Ionicons name="checkmark-circle" size={20} color={c.primary} />
@@ -254,15 +240,15 @@ export default function ProfileScreen() {
         <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border }]}>
           <Text style={[styles.sectionTitle, { color: c.text }]}>{t("health_goals")}</Text>
           <View style={styles.chipWrap}>
-            {HEALTH_GOALS.map((goal) => {
-              const active = (profile.health_goals ?? []).includes(goal.toLowerCase());
+            {HEALTH_GOAL_OPTIONS.map((goal) => {
+              const active = (profile.health_goals ?? []).includes(goal.value);
               return (
                 <TouchableOpacity
-                  key={goal}
+                  key={goal.value}
                   style={[styles.chip, { backgroundColor: c.chipBg, borderColor: c.border }, active && { backgroundColor: c.primary, borderColor: c.primary }]}
-                  onPress={() => { toggleGoal(goal); Haptics.selectionAsync(); }}
+                  onPress={() => { toggleGoal(goal.value); Haptics.selectionAsync(); }}
                 >
-                  <Text style={[styles.chipText, { color: c.chipText }, active && { color: "#FFF", fontWeight: "600" }]}>{goal}</Text>
+                  <Text style={[styles.chipText, { color: c.chipText }, active && { color: "#FFF", fontWeight: "600" }]}>{optionLabel(goal, language)}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -273,15 +259,15 @@ export default function ProfileScreen() {
         <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border }]}>
           <Text style={[styles.sectionTitle, { color: c.text }]}>{t("dietary_restrictions")}</Text>
           <View style={styles.chipWrap}>
-            {RESTRICTIONS.map((r) => {
-              const active = (profile.dietary_restrictions ?? []).includes(r.toLowerCase());
+            {DIETARY_RESTRICTION_OPTIONS.map((r) => {
+              const active = (profile.dietary_restrictions ?? []).includes(r.value);
               return (
                 <TouchableOpacity
-                  key={r}
+                  key={r.value}
                   style={[styles.chip, { backgroundColor: c.chipBg, borderColor: c.border }, active && { backgroundColor: c.primary, borderColor: c.primary }]}
-                  onPress={() => { toggleRestriction(r); Haptics.selectionAsync(); }}
+                  onPress={() => { toggleRestriction(r.value); Haptics.selectionAsync(); }}
                 >
-                  <Text style={[styles.chipText, { color: c.chipText }, active && { color: "#FFF", fontWeight: "600" }]}>{r}</Text>
+                  <Text style={[styles.chipText, { color: c.chipText }, active && { color: "#FFF", fontWeight: "600" }]}>{optionLabel(r, language)}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -293,21 +279,20 @@ export default function ProfileScreen() {
           <Text style={[styles.sectionTitle, { color: c.text }]}>{t("allergies")}</Text>
           <Text style={[styles.fieldHint, { color: c.textPlaceholder }]}>{t("allergies_hint")}</Text>
           <View style={styles.chipWrap}>
-            {ALLERGENS.map((a) => {
-              const active = (profile.allergies ?? []).includes(a.toLowerCase());
+            {ALLERGEN_OPTIONS.map((a) => {
+              const active = (profile.allergies ?? []).includes(a.value);
               return (
                 <TouchableOpacity
-                  key={a}
+                  key={a.value}
                   style={[styles.chip, { backgroundColor: c.chipBg, borderColor: c.border }, active && { backgroundColor: c.error + "22", borderColor: c.error }]}
                   onPress={() => {
-                    const lower = a.toLowerCase();
                     const cur = profile.allergies ?? [];
-                    setProfile({ allergies: cur.includes(lower) ? cur.filter((x) => x !== lower) : [...cur, lower] });
+                    setProfile({ allergies: cur.includes(a.value) ? cur.filter((x) => x !== a.value) : [...cur, a.value] });
                     setSaved(false);
                     Haptics.selectionAsync();
                   }}
                 >
-                  <Text style={[styles.chipText, { color: c.chipText }, active && { color: c.error, fontWeight: "600" }]}>{a}</Text>
+                  <Text style={[styles.chipText, { color: c.chipText }, active && { color: c.error, fontWeight: "600" }]}>{optionLabel(a, language)}</Text>
                 </TouchableOpacity>
               );
             })}

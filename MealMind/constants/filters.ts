@@ -61,23 +61,16 @@ export const DIFFICULTY_COLORS: Record<string, string> = {
 };
 
 export const PANTRY_UNITS = [
-  "g",
-  "kg",
-  "ml",
-  "L",
-  "个",
-  "条",
-  "块",
-  "袋",
-  "瓶",
-  "盒",
-  "cup",
-  "tbsp",
-  "tsp",
-  "piece",
-  "bunch",
-  "can",
+  "g", "kg", "ml", "L", "个", "条", "块", "袋", "瓶", "盒",
+  "cup", "tbsp", "tsp", "piece", "bunch", "can",
 ];
+
+const PANTRY_UNITS_EN = ["g", "kg", "ml", "L", "cup", "tbsp", "tsp", "piece", "bunch", "can"];
+
+/** Returns the unit list appropriate for the current language. */
+export function getPantryUnits(language: string): string[] {
+  return language === "zh" ? PANTRY_UNITS : PANTRY_UNITS_EN;
+}
 
 // Chinese translations for AI-generated tags (tags are always returned in English)
 export const TAG_ZH: Record<string, string> = {

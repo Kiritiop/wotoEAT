@@ -15,26 +15,31 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAppStore } from "@/store/useAppStore";
 import { getPantry, upsertPantry, deletePantryItem } from "@/services/api";
-import { PANTRY_UNITS } from "@/constants/filters";
+import { getPantryUnits } from "@/constants/filters";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import type { PantryItem } from "@/services/api";
 
-/** Heuristic unit recommendation based on ingredient name. */
-function recommendUnit(name: string): string {
+/** Heuristic unit recommendation based on ingredient name and language. */
+function recommendUnit(name: string, language: string): string {
   const n = name.toLowerCase();
-  if (/oil|sauce|milk|juice|broth|stock|vinegar|wine|beer|cream|liquid|油|汁|奶|醋|汤|汁/.test(n)) return "ml";
-  if (/egg|鸡蛋|蛋|apple|banana|orange|lemon|lime|onion|garlic head|potato|avocado|mango|苹果|香蕉|橙|柠檬|洋葱|马铃薯/.test(n)) return "个";
-  if (/fish|basa|tilapia|salmon|fillet|巴沙|鱼|胡萝卜|carrot|cucumber|黄瓜/.test(n)) return "条";
-  if (/shrimp|prawn|虾|spinach|kale|greens|lettuce|菠菜|生菜|frozen|冷冻/.test(n)) return "袋";
-  if (/tofu|豆腐|yogurt|酸奶|box|carton/.test(n)) return "盒";
-  if (/soy sauce|生抽|老抽|oyster sauce|蚝油|bottle/.test(n)) return "瓶";
-  if (/meat|beef|pork|chicken|lamb|tofu block|肉|牛|猪|鸡|羊|豆腐块/.test(n)) return "g";
+  // Liquids — same in both languages
+  if (/oil|sauce|milk|juice|broth|stock|vinegar|wine|beer|cream|liquid|油|汁|奶|醋|汤/.test(n)) return "ml";
+  if (language === "zh") {
+    if (/egg|鸡蛋|蛋|apple|banana|orange|lemon|lime|onion|potato|avocado|mango|苹果|香蕉|橙|柠檬|洋葱|马铃薯/.test(n)) return "个";
+    if (/fish|basa|tilapia|salmon|fillet|巴沙|鱼|carrot|胡萝卜|cucumber|黄瓜/.test(n)) return "条";
+    if (/shrimp|prawn|虾|spinach|kale|greens|lettuce|菠菜|生菜|frozen|冷冻/.test(n)) return "袋";
+    if (/tofu|豆腐|yogurt|酸奶/.test(n)) return "盒";
+    if (/soy sauce|生抽|老抽|oyster sauce|蚝油/.test(n)) return "瓶";
+  } else {
+    if (/egg|apple|banana|orange|lemon|lime|onion|potato|avocado|mango|tomato|carrot|cucumber/.test(n)) return "piece";
+    if (/fish|basa|tilapia|salmon|fillet|shrimp|prawn/.test(n)) return "g";
+  }
   return "g";
 }
 
 export default function PantryScreen() {
-  const { pantry, setPantry, authReady } = useAppStore();
+  const { pantry, setPantry, authReady, language } = useAppStore();
   const c = useTheme();
   const { t, strings } = useTranslation();
   const [loading, setLoading] = useState(false);
@@ -55,7 +60,7 @@ export default function PantryScreen() {
   // Auto-recommend unit whenever name changes and user hasn't manually picked one
   useEffect(() => {
     if (!unitManuallySet && newName.trim().length > 1) {
-      setNewUnit(recommendUnit(newName));
+      setNewUnit(recommendUnit(newName, language));
     }
   }, [newName, unitManuallySet]);
 
@@ -279,7 +284,7 @@ export default function PantryScreen() {
             {/* Inline unit dropdown */}
             {showUnitPicker && (
               <View style={[styles.unitDropdown, { backgroundColor: c.surface, borderColor: c.border }]}>
-                {PANTRY_UNITS.map((u) => (
+                {getPantryUnits(language).map((u) => (
                   <TouchableOpacity
                     key={u}
                     style={[
