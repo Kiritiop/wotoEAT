@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   Modal,
   RefreshControl,
-  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,6 +19,19 @@ import { PANTRY_UNITS } from "@/constants/filters";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import type { PantryItem } from "@/services/api";
+
+/** Heuristic unit recommendation based on ingredient name. */
+function recommendUnit(name: string): string {
+  const n = name.toLowerCase();
+  if (/oil|sauce|milk|juice|broth|stock|vinegar|wine|beer|cream|liquid|油|汁|奶|醋|汤|汁/.test(n)) return "ml";
+  if (/egg|鸡蛋|蛋|apple|banana|orange|lemon|lime|onion|garlic head|potato|avocado|mango|苹果|香蕉|橙|柠檬|洋葱|马铃薯/.test(n)) return "个";
+  if (/fish|basa|tilapia|salmon|fillet|巴沙|鱼|胡萝卜|carrot|cucumber|黄瓜/.test(n)) return "条";
+  if (/shrimp|prawn|虾|spinach|kale|greens|lettuce|菠菜|生菜|frozen|冷冻/.test(n)) return "袋";
+  if (/tofu|豆腐|yogurt|酸奶|box|carton/.test(n)) return "盒";
+  if (/soy sauce|生抽|老抽|oyster sauce|蚝油|bottle/.test(n)) return "瓶";
+  if (/meat|beef|pork|chicken|lamb|tofu block|肉|牛|猪|鸡|羊|豆腐块/.test(n)) return "g";
+  return "g";
+}
 
 export default function PantryScreen() {
   const { pantry, setPantry, authReady } = useAppStore();
@@ -33,10 +45,19 @@ export default function PantryScreen() {
   const [newName, setNewName] = useState("");
   const [newAmount, setNewAmount] = useState("");
   const [newUnit, setNewUnit] = useState("g");
+  const [unitManuallySet, setUnitManuallySet] = useState(false);
+  const [showUnitPicker, setShowUnitPicker] = useState(false);
   const [nameError, setNameError] = useState(false);
   const [amountError, setAmountError] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Auto-recommend unit whenever name changes and user hasn't manually picked one
+  useEffect(() => {
+    if (!unitManuallySet && newName.trim().length > 1) {
+      setNewUnit(recommendUnit(newName));
+    }
+  }, [newName, unitManuallySet]);
 
   const loadPantry = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
@@ -61,6 +82,8 @@ export default function PantryScreen() {
     setNewName("");
     setNewAmount("");
     setNewUnit("g");
+    setUnitManuallySet(false);
+    setShowUnitPicker(false);
     setNameError(false);
     setAmountError(false);
     setFormError(null);
@@ -73,6 +96,8 @@ export default function PantryScreen() {
     setNewName(item.name);
     setNewAmount(String(item.amount));
     setNewUnit(item.unit);
+    setUnitManuallySet(true); // keep existing unit when editing
+    setShowUnitPicker(false);
     setNameError(false);
     setAmountError(false);
     setFormError(null);
@@ -82,19 +107,13 @@ export default function PantryScreen() {
 
   async function handleSave() {
     let hasError = false;
-    if (!newName.trim()) { setNameError(true); hasError = true; }
-    else setNameError(false);
-    if (!newAmount.trim()) { setAmountError(true); hasError = true; }
-    else setAmountError(false);
+    if (!newName.trim()) { setNameError(true); hasError = true; } else setNameError(false);
+    if (!newAmount.trim()) { setAmountError(true); hasError = true; } else setAmountError(false);
 
     if (hasError) {
-      if (!newName.trim() && !newAmount.trim()) {
-        setFormError(t("missing_fields"));
-      } else if (!newName.trim()) {
-        setFormError(t("missing_name"));
-      } else {
-        setFormError(t("missing_amount"));
-      }
+      if (!newName.trim() && !newAmount.trim()) setFormError(t("missing_fields"));
+      else if (!newName.trim()) setFormError(t("missing_name"));
+      else setFormError(t("missing_amount"));
       return;
     }
 
@@ -105,16 +124,10 @@ export default function PantryScreen() {
       return;
     }
 
-    const item: PantryItem = {
-      name: newName.trim().toLowerCase(),
-      amount: parsed,
-      unit: newUnit,
-    };
-
+    const item: PantryItem = { name: newName.trim().toLowerCase(), amount: parsed, unit: newUnit };
     setFormError(null);
     setSaving(true);
     try {
-      // If editing and name changed, delete the old entry first
       if (editingItem && editingItem.name !== item.name) {
         await deletePantryItem(editingItem.name);
         setPantry(pantry.filter((p) => p.name !== editingItem.name));
@@ -143,6 +156,7 @@ export default function PantryScreen() {
   }
 
   const styles = makeStyles(c);
+  const isRecommended = !unitManuallySet && newName.trim().length > 1;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -244,32 +258,55 @@ export default function PantryScreen() {
             />
 
             <Text style={[styles.fieldLabel, { color: c.textMuted }]}>{t("unit")}</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.unitScroll}
-              contentContainerStyle={styles.unitScrollContent}
-            >
-              {PANTRY_UNITS.map((u) => (
-                <TouchableOpacity
-                  key={u}
-                  style={[
-                    styles.unitChip,
-                    { backgroundColor: c.chipBg },
-                    newUnit === u && { backgroundColor: c.primary },
-                  ]}
-                  onPress={() => { setNewUnit(u); Haptics.selectionAsync(); }}
-                >
-                  <Text style={[
-                    styles.unitChipText,
-                    { color: c.chipText },
-                    newUnit === u && { color: "#FFF", fontWeight: "600" },
-                  ]}>
-                    {u}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+
+            {/* Unit selector: recommended badge + dropdown trigger */}
+            <View style={styles.unitRow}>
+              <TouchableOpacity
+                style={[styles.unitBtn, { backgroundColor: c.primary }]}
+                onPress={() => { setShowUnitPicker((v) => !v); Haptics.selectionAsync(); }}
+              >
+                <Text style={styles.unitBtnText}>{newUnit}</Text>
+                <Ionicons name={showUnitPicker ? "chevron-up" : "chevron-down"} size={14} color="#FFF" />
+              </TouchableOpacity>
+              {isRecommended && (
+                <View style={[styles.suggestedBadge, { backgroundColor: c.primaryLight }]}>
+                  <Ionicons name="sparkles" size={11} color={c.primary} />
+                  <Text style={[styles.suggestedText, { color: c.primary }]}>suggested</Text>
+                </View>
+              )}
+            </View>
+
+            {/* Inline unit dropdown */}
+            {showUnitPicker && (
+              <View style={[styles.unitDropdown, { backgroundColor: c.surface, borderColor: c.border }]}>
+                {PANTRY_UNITS.map((u) => (
+                  <TouchableOpacity
+                    key={u}
+                    style={[
+                      styles.unitOption,
+                      u === newUnit && { backgroundColor: c.primaryLight },
+                    ]}
+                    onPress={() => {
+                      setNewUnit(u);
+                      setUnitManuallySet(true);
+                      setShowUnitPicker(false);
+                      Haptics.selectionAsync();
+                    }}
+                  >
+                    <Text style={[
+                      styles.unitOptionText,
+                      { color: u === newUnit ? c.primary : c.text },
+                      u === newUnit && { fontWeight: "700" },
+                    ]}>
+                      {u}
+                    </Text>
+                    {u === newUnit && (
+                      <Ionicons name="checkmark" size={14} color={c.primary} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
 
             {formError && (
               <View style={styles.errorBanner}>
@@ -308,22 +345,13 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     content: { padding: 16, paddingBottom: 40 },
     intro: { fontSize: 14, color: c.textMuted, lineHeight: 20, marginBottom: 14 },
     addBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: c.primary,
-      borderRadius: 14,
-      paddingVertical: 13,
-      gap: 8,
-      marginBottom: 16,
+      flexDirection: "row", alignItems: "center", justifyContent: "center",
+      backgroundColor: c.primary, borderRadius: 14, paddingVertical: 13, gap: 8, marginBottom: 16,
     },
     addBtnText: { color: "#FFF", fontSize: 15, fontWeight: "700" },
     countLabel: { fontSize: 13, color: c.textPlaceholder, fontWeight: "600", marginBottom: 8 },
     emptyState: { alignItems: "center", paddingVertical: 48, gap: 10 },
-    emptyIconWrap: {
-      width: 80, height: 80, borderRadius: 40,
-      alignItems: "center", justifyContent: "center", marginBottom: 4,
-    },
+    emptyIconWrap: { width: 80, height: 80, borderRadius: 40, alignItems: "center", justifyContent: "center", marginBottom: 4 },
     emptyTitle: { fontSize: 18, fontWeight: "700" },
     errorBanner: {
       flexDirection: "row", alignItems: "center", gap: 6,
@@ -332,11 +360,9 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     errorText: { fontSize: 13, flex: 1 },
     emptyText: { fontSize: 14, textAlign: "center", lineHeight: 20, paddingHorizontal: 16 },
     itemRow: {
-      flexDirection: "row", alignItems: "center",
-      backgroundColor: c.surface, borderRadius: 12,
+      flexDirection: "row", alignItems: "center", backgroundColor: c.surface, borderRadius: 12,
       padding: 14, marginBottom: 8,
-      shadowColor: c.shadow, shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.04, shadowRadius: 4, elevation: 2,
+      shadowColor: c.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 2,
     },
     itemInfo: { flex: 1 },
     itemName: { fontSize: 15, fontWeight: "600", textTransform: "capitalize" },
@@ -356,14 +382,28 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
       paddingHorizontal: 14, paddingVertical: 12,
       fontSize: 15, marginTop: 4,
     },
-    unitScroll: { marginTop: 4 },
-    unitScrollContent: { flexDirection: "row", gap: 8, paddingRight: 8 },
-    unitChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10 },
-    unitChipText: { fontSize: 13 },
-    modalActions: { flexDirection: "row", gap: 12, marginTop: 20 },
-    cancelBtn: {
-      flex: 1, borderRadius: 14, paddingVertical: 14, alignItems: "center",
+    unitRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 6 },
+    unitBtn: {
+      flexDirection: "row", alignItems: "center", gap: 6,
+      paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10,
     },
+    unitBtnText: { fontSize: 15, fontWeight: "700", color: "#FFF" },
+    suggestedBadge: {
+      flexDirection: "row", alignItems: "center", gap: 4,
+      paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8,
+    },
+    suggestedText: { fontSize: 11, fontWeight: "600" },
+    unitDropdown: {
+      borderWidth: 1, borderRadius: 12, marginTop: 4,
+      flexDirection: "row", flexWrap: "wrap", gap: 2, padding: 6,
+    },
+    unitOption: {
+      flexDirection: "row", alignItems: "center", gap: 4,
+      paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8,
+    },
+    unitOptionText: { fontSize: 14 },
+    modalActions: { flexDirection: "row", gap: 12, marginTop: 20 },
+    cancelBtn: { flex: 1, borderRadius: 14, paddingVertical: 14, alignItems: "center" },
     cancelText: { fontSize: 15, fontWeight: "600" },
     saveBtn: { flex: 1, borderRadius: 14, paddingVertical: 14, alignItems: "center" },
     saveBtnText: { fontSize: 15, fontWeight: "700", color: "#FFF" },
