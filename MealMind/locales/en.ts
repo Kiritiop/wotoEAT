@@ -4,7 +4,7 @@ const en = {
   tab_shopping: "Shopping",
   tab_pantry: "Pantry",
   tab_recipes: "Recipes",
-  tab_eatout: "Eat Out",
+
   tab_profile: "Profile",
   tab_history: "History",
 
@@ -148,24 +148,49 @@ const en = {
   parse_url_placeholder: "https://www.bbcgoodfood.com/recipes/...",
   parse_invalid_url: "Enter a full URL starting with https://",
 
-  // ── Eat Out ───────────────────────────────────────────────────────────────
-  eatout_heading: "Find somewhere to eat",
-  eatout_subtitle: "Based on your preferences, AI ranks nearby restaurants and explains why each one matches.",
-  find_nearby: "Find nearby restaurants",
-  eatout_empty_title: "No results yet",
-  eatout_empty_body: "Tap the button above to find nearby restaurants matching your preferences.",
-  top_matches: (n: number) => `Top ${n} matches near you`,
-
   // ── History ───────────────────────────────────────────────────────────────
   history_heading: "Meal History",
   history_subtitle: "Your last 7 daily plans.",
   history_empty_title: "No history yet",
   history_empty_body: "Generate your first daily plan and it will appear here.",
   calories_label: "kcal",
+  search_history: "Search history…",
+
+  // ── My Recipes ────────────────────────────────────────────────────────────
+  tab_my_recipes: "My Recipes",
+  saved_tab: "Saved",
+  favorites_tab: "Favorites",
+  frequent_tab: "Frequent",
+  done_tab: "Made",
+  mark_favorite: "Favorite",
+  mark_frequent: "Frequent",
+  mark_done: "Mark as Made",
+  done_reduces_pantry: "Pantry inventory will be reduced for matching ingredients.",
+  remove_label: "Remove",
+
+  // ── Servings ──────────────────────────────────────────────────────────────
+  servings: "Servings",
+  servings_people: (n: number) => `${n} ${n === 1 ? "person" : "people"}`,
+
+  // ── Plan settings ─────────────────────────────────────────────────────────
+  plan_settings: "Settings",
+  all_meals: "All",
+  snack: "Snack",
+  show_settings: "Filters & Options",
+
+  // ── Profile complete ───────────────────────────────────────────────────────
+  complete_profile: "Complete Your Profile",
+  complete_profile_sub: "Add your health details for smarter meal recommendations.",
+  complete_profile_btn: "Set Up Now",
+
+  // ── Shopping (in pantry) ──────────────────────────────────────────────────
+  shopping_list: "Shopping List",
+  cart_empty: "Your cart is empty",
+  cart_empty_sub: "Add recipes from My Recipes, then generate a shopping list.",
 
   // ── Onboarding ────────────────────────────────────────────────────────────
   onboarding_welcome: "Welcome to MealMind",
-  onboarding_welcome_sub: "Let's set up your profile so we can personalise your meal plans.",
+  onboarding_welcome_sub: "Smart meals, less stress. Let's get started.",
   onboarding_step1: "Your Body",
   onboarding_step2: "Your Goals",
   onboarding_step3: "Your Pantry",
@@ -173,6 +198,7 @@ const en = {
   onboarding_step2_sub: "What are you trying to achieve?",
   onboarding_step3_sub: "Add what you already have at home.",
   onboarding_finish: "Start Planning",
+  onboarding_get_started: "Get Started",
   onboarding_age_placeholder: "e.g. 28",
   onboarding_weight_placeholder: "e.g. 70",
   onboarding_height_placeholder: "e.g. 170",

@@ -9,28 +9,33 @@ import {
   RefreshControl,
   Modal,
   ScrollView,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { getSavedRecipes, deleteRecipe } from "@/services/api";
+import { getSavedRecipes, deleteRecipe, upsertPantry } from "@/services/api";
 import { useAppStore } from "@/store/useAppStore";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import type { SavedRecipe } from "@/services/api";
 
+type RecipeTab = "saved" | "favorites" | "frequent" | "done";
+
 export default function RecipesScreen() {
-  const { authReady } = useAppStore();
+  const { authReady, recipeLabels, addRecipeLabel, removeRecipeLabel, pantry, setPantry, language } = useAppStore();
   const c = useTheme();
   const { t, strings } = useTranslation();
+  const router = useRouter();
+
   const [recipes, setRecipes] = useState<SavedRecipe[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [selectedRecipe, setSelectedRecipe] = useState<SavedRecipe | null>(null);
-  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<RecipeTab>("saved");
 
   const loadRecipes = useCallback(async (isRefresh = false) => {
     if (!authReady) return;
@@ -46,11 +51,7 @@ export default function RecipesScreen() {
     }
   }, [authReady]);
 
-  useFocusEffect(
-    useCallback(() => {
-      void loadRecipes();
-    }, [loadRecipes])
-  );
+  useFocusEffect(useCallback(() => { void loadRecipes(); }, [loadRecipes]));
 
   async function handleDelete(id: string) {
     setDeleteError(null);
@@ -65,12 +66,93 @@ export default function RecipesScreen() {
     }
   }
 
+  function toggleLabel(recipeId: string, label: string) {
+    const labels = recipeLabels[recipeId] ?? [];
+    if (labels.includes(label)) {
+      removeRecipeLabel(recipeId, label);
+    } else {
+      addRecipeLabel(recipeId, label);
+    }
+    Haptics.selectionAsync();
+  }
+
+  async function handleMarkDone(recipe: SavedRecipe) {
+    // Reduce pantry inventory for matching ingredients
+    if (!recipe.ingredients?.length) {
+      addRecipeLabel(recipe.id, "done");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      return;
+    }
+
+    const newPantry = [...pantry];
+    const reduced: string[] = [];
+
+    for (const ing of recipe.ingredients) {
+      const idx = newPantry.findIndex(
+        (p) => p.name.toLowerCase().includes(ing.name.toLowerCase()) ||
+               ing.name.toLowerCase().includes(p.name.toLowerCase())
+      );
+      if (idx !== -1) {
+        const pantryItem = newPantry[idx];
+        const newAmount = Math.max(0, pantryItem.amount - ing.amount);
+        newPantry[idx] = { ...pantryItem, amount: Math.round(newAmount * 10) / 10 };
+        reduced.push(ing.name);
+      }
+    }
+
+    // Filter out items at 0
+    const filteredPantry = newPantry.filter((p) => p.amount > 0);
+    setPantry(filteredPantry);
+    try { await upsertPantry(filteredPantry); } catch { /* best-effort */ }
+
+    addRecipeLabel(recipe.id, "done");
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    if (reduced.length > 0) {
+      Alert.alert(
+        t("mark_done"),
+        `${t("done_reduces_pantry")}\n\n${reduced.join(", ")}`,
+        [{ text: "OK" }]
+      );
+    }
+  }
+
+  // Filter recipes by active tab
+  const filteredRecipes = recipes.filter((r) => {
+    const labels = recipeLabels[r.id] ?? [];
+    if (activeTab === "saved") return true;
+    return labels.includes(activeTab === "favorites" ? "favorite" : activeTab === "frequent" ? "frequent" : "done");
+  });
+
+  const TABS: { key: RecipeTab; label: string; icon: React.ComponentProps<typeof Ionicons>["name"] }[] = [
+    { key: "saved", label: t("saved_tab"), icon: "bookmark" },
+    { key: "favorites", label: t("favorites_tab"), icon: "heart" },
+    { key: "frequent", label: t("frequent_tab"), icon: "repeat" },
+    { key: "done", label: t("done_tab"), icon: "checkmark-circle" },
+  ];
+
   const styles = makeStyles(c);
 
   return (
     <SafeAreaView style={styles.safe}>
+      {/* Sub-tab bar */}
+      <View style={[styles.tabBar, { borderBottomColor: c.border, backgroundColor: c.surface }]}>
+        {TABS.map(({ key, label, icon }) => (
+          <TouchableOpacity
+            key={key}
+            style={[styles.tab, activeTab === key && { borderBottomColor: c.primary, borderBottomWidth: 2 }]}
+            onPress={() => { setActiveTab(key); Haptics.selectionAsync(); }}
+          >
+            <Ionicons name={icon} size={14} color={activeTab === key ? c.primary : c.textMuted} />
+            <Text style={[styles.tabLabel, { color: activeTab === key ? c.primary : c.textMuted }, activeTab === key && { fontWeight: "700" }]}>
+              {label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <FlatList
-        data={recipes}
+        data={filteredRecipes}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.content}
         refreshControl={
@@ -78,25 +160,20 @@ export default function RecipesScreen() {
         }
         ListHeaderComponent={
           <View>
-            <TouchableOpacity
-              style={styles.uploadBtn}
-              onPress={() => router.push("/recipe/upload")}
-            >
+            <TouchableOpacity style={styles.uploadBtn} onPress={() => router.push("/recipe/upload")}>
               <Ionicons name="link" size={18} color="#FFF" />
               <Text style={styles.uploadBtnText}>{t("add_recipe_url")}</Text>
             </TouchableOpacity>
-            {loading && (
-              <ActivityIndicator style={{ marginTop: 24 }} color={c.primary} />
-            )}
+            {loading && <ActivityIndicator style={{ marginTop: 24 }} color={c.primary} />}
             {deleteError && (
               <View style={styles.errorBanner}>
                 <Ionicons name="alert-circle-outline" size={15} color={c.error} />
                 <Text style={[styles.errorText, { color: c.error }]}>{deleteError}</Text>
               </View>
             )}
-            {recipes.length > 0 && (
+            {filteredRecipes.length > 0 && (
               <Text style={[styles.countLabel, { color: c.textPlaceholder }]}>
-                {strings.recipe_count(recipes.length)}
+                {strings.recipe_count(filteredRecipes.length)}
               </Text>
             )}
           </View>
@@ -112,65 +189,98 @@ export default function RecipesScreen() {
             </View>
           ) : null
         }
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <TouchableOpacity style={styles.cardInfo} onPress={() => setSelectedRecipe(item)} activeOpacity={0.7}>
-            <Text style={[styles.cardTitle, { color: c.text }]} numberOfLines={2}>
-                {item.title}
-              </Text>
-              {item.source_name && (
-                <Text style={[styles.sourceName, { color: c.primary }]}>{item.source_name}</Text>
-              )}
-              <View style={styles.cardMeta}>
-                {item.prep_time_mins != null && (
-                  <View style={styles.metaItem}>
-                    <Ionicons name="time-outline" size={12} color={c.textMuted} />
-                    <Text style={[styles.metaText, { color: c.textMuted }]}>{item.prep_time_mins} min</Text>
-                  </View>
+        renderItem={({ item }) => {
+          const labels = recipeLabels[item.id] ?? [];
+          const isFavorite = labels.includes("favorite");
+          const isFrequent = labels.includes("frequent");
+          const isDone = labels.includes("done");
+          return (
+            <View style={[styles.card, { backgroundColor: c.surface }]}>
+              <TouchableOpacity style={styles.cardInfo} onPress={() => setSelectedRecipe(item)} activeOpacity={0.7}>
+                <Text style={[styles.cardTitle, { color: c.text }]} numberOfLines={2}>{item.title}</Text>
+                {item.source_name && (
+                  <Text style={[styles.sourceName, { color: c.primary }]}>{item.source_name}</Text>
                 )}
-                {item.calories_per_serving != null && (
-                  <View style={styles.metaItem}>
-                    <Ionicons name="flame-outline" size={12} color={c.textMuted} />
-                    <Text style={[styles.metaText, { color: c.textMuted }]}>{item.calories_per_serving} kcal</Text>
-                  </View>
-                )}
-              </View>
-              {(item.tags?.length ?? 0) > 0 && (
-                <View style={styles.tags}>
-                  {item.tags!.slice(0, 3).map((tag) => (
-                    <View key={tag} style={[styles.tag, { backgroundColor: c.chipBg }]}>
-                      <Text style={[styles.tagText, { color: c.chipText }]}>{tag}</Text>
+                <View style={styles.cardMeta}>
+                  {item.prep_time_mins != null && (
+                    <View style={styles.metaItem}>
+                      <Ionicons name="time-outline" size={12} color={c.textMuted} />
+                      <Text style={[styles.metaText, { color: c.textMuted }]}>{item.prep_time_mins} min</Text>
                     </View>
-                  ))}
+                  )}
+                  {item.calories_per_serving != null && (
+                    <View style={styles.metaItem}>
+                      <Ionicons name="flame-outline" size={12} color={c.textMuted} />
+                      <Text style={[styles.metaText, { color: c.textMuted }]}>{item.calories_per_serving} kcal</Text>
+                    </View>
+                  )}
                 </View>
-              )}
-            </TouchableOpacity>
-
-            {pendingDelete === item.id ? (
-              <View style={styles.confirmRow}>
-                <TouchableOpacity
-                  style={[styles.confirmDeleteBtn, { backgroundColor: c.error }]}
-                  onPress={() => handleDelete(item.id)}
-                >
-                  <Text style={styles.confirmDeleteText}>{t("delete")}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.confirmCancelBtn, { backgroundColor: c.surfaceAlt }]}
-                  onPress={() => setPendingDelete(null)}
-                >
-                  <Text style={[styles.confirmCancelText, { color: c.textMuted }]}>{t("cancel")}</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <TouchableOpacity
-                onPress={() => { setPendingDelete(item.id); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); }}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="trash-outline" size={20} color={c.error} />
+                {/* Label chips */}
+                <View style={styles.labelRow}>
+                  {isFavorite && <LabelChip icon="heart" label={t("mark_favorite")} color="#EF4444" bg="#FEF2F2" />}
+                  {isFrequent && <LabelChip icon="repeat" label={t("mark_frequent")} color="#8B5CF6" bg="#F5F3FF" />}
+                  {isDone && <LabelChip icon="checkmark-circle" label={t("done_tab")} color="#16A34A" bg="#F0FDF4" />}
+                </View>
+                {(item.tags?.length ?? 0) > 0 && (
+                  <View style={styles.tags}>
+                    {item.tags!.slice(0, 3).map((tag) => (
+                      <View key={tag} style={[styles.tag, { backgroundColor: c.chipBg }]}>
+                        <Text style={[styles.tagText, { color: c.chipText }]}>{tag}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </TouchableOpacity>
-            )}
-          </View>
-        )}
+
+              {/* Action buttons column */}
+              <View style={styles.cardActions}>
+                {pendingDelete === item.id ? (
+                  <>
+                    <TouchableOpacity
+                      style={[styles.actionBtn, { backgroundColor: c.error }]}
+                      onPress={() => handleDelete(item.id)}
+                    >
+                      <Ionicons name="trash" size={14} color="#FFF" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.actionBtn, { backgroundColor: c.surfaceAlt }]}
+                      onPress={() => setPendingDelete(null)}
+                    >
+                      <Ionicons name="close" size={14} color={c.textMuted} />
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    <TouchableOpacity
+                      style={[styles.actionBtn, { backgroundColor: isFavorite ? "#FEF2F2" : c.surfaceAlt }]}
+                      onPress={() => toggleLabel(item.id, "favorite")}
+                    >
+                      <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={16} color={isFavorite ? "#EF4444" : c.textMuted} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.actionBtn, { backgroundColor: isFrequent ? "#F5F3FF" : c.surfaceAlt }]}
+                      onPress={() => toggleLabel(item.id, "frequent")}
+                    >
+                      <Ionicons name="repeat" size={16} color={isFrequent ? "#8B5CF6" : c.textMuted} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.actionBtn, { backgroundColor: isDone ? "#F0FDF4" : c.surfaceAlt }]}
+                      onPress={() => handleMarkDone(item)}
+                    >
+                      <Ionicons name={isDone ? "checkmark-circle" : "checkmark-circle-outline"} size={16} color={isDone ? "#16A34A" : c.textMuted} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => { setPendingDelete(item.id); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); }}
+                      style={[styles.actionBtn, { backgroundColor: c.surfaceAlt }]}
+                    >
+                      <Ionicons name="trash-outline" size={16} color={c.error} />
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            </View>
+          );
+        }}
         showsVerticalScrollIndicator={false}
       />
 
@@ -204,7 +314,6 @@ export default function RecipesScreen() {
                   </View>
                 )}
               </View>
-
               {(selectedRecipe.ingredients?.length ?? 0) > 0 && (
                 <>
                   <Text style={[styles.detailSectionLabel, { color: c.textPlaceholder }]}>
@@ -218,7 +327,6 @@ export default function RecipesScreen() {
                   ))}
                 </>
               )}
-
               {(selectedRecipe.steps?.length ?? 0) > 0 && (
                 <>
                   <Text style={[styles.detailSectionLabel, { color: c.textPlaceholder }]}>
@@ -242,9 +350,26 @@ export default function RecipesScreen() {
   );
 }
 
+function LabelChip({ icon, label, color, bg }: { icon: React.ComponentProps<typeof Ionicons>["name"]; label: string; color: string; bg: string }) {
+  return (
+    <View style={[{ flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8, backgroundColor: bg }]}>
+      <Ionicons name={icon} size={10} color={color} />
+      <Text style={{ fontSize: 10, fontWeight: "700", color }}>{label}</Text>
+    </View>
+  );
+}
+
 function makeStyles(c: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.bg },
+    tabBar: {
+      flexDirection: "row", borderBottomWidth: StyleSheet.hairlineWidth,
+    },
+    tab: {
+      flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
+      gap: 4, paddingVertical: 10,
+    },
+    tabLabel: { fontSize: 11, fontWeight: "600" },
     content: { padding: 16, paddingBottom: 40 },
     uploadBtn: {
       flexDirection: "row", alignItems: "center", justifyContent: "center",
@@ -259,32 +384,28 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     },
     errorText: { fontSize: 13, flex: 1 },
     emptyState: { alignItems: "center", paddingVertical: 48, gap: 10 },
-    emptyIconWrap: {
-      width: 88, height: 88, borderRadius: 44,
-      alignItems: "center", justifyContent: "center", marginBottom: 4,
-    },
+    emptyIconWrap: { width: 88, height: 88, borderRadius: 44, alignItems: "center", justifyContent: "center", marginBottom: 4 },
     emptyTitle: { fontSize: 18, fontWeight: "700" },
     emptyText: { fontSize: 14, textAlign: "center", lineHeight: 20, paddingHorizontal: 16 },
     card: {
       flexDirection: "row", alignItems: "flex-start",
-      backgroundColor: c.surface, borderRadius: 14, padding: 14, marginBottom: 10,
+      borderRadius: 14, padding: 14, marginBottom: 10,
       shadowColor: c.shadow, shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.05, shadowRadius: 4, elevation: 2, gap: 12,
     },
     cardInfo: { flex: 1 },
     cardTitle: { fontSize: 15, fontWeight: "700", marginBottom: 2 },
     sourceName: { fontSize: 12, fontWeight: "600", marginBottom: 6 },
-    cardMeta: { flexDirection: "row", gap: 12 },
+    cardMeta: { flexDirection: "row", gap: 12, marginBottom: 6 },
     metaItem: { flexDirection: "row", alignItems: "center", gap: 3 },
     metaText: { fontSize: 12 },
-    tags: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 },
+    labelRow: { flexDirection: "row", flexWrap: "wrap", gap: 5, marginBottom: 6 },
+    tags: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 },
     tag: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
     tagText: { fontSize: 11 },
-    confirmRow: { flexDirection: "column", gap: 4, alignItems: "flex-end" },
-    confirmDeleteBtn: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
-    confirmDeleteText: { color: "#FFF", fontSize: 12, fontWeight: "700" },
-    confirmCancelBtn: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
-    confirmCancelText: { fontSize: 12, fontWeight: "600" },
+    cardActions: { flexDirection: "column", gap: 6, alignItems: "center" },
+    actionBtn: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+    // Detail modal
     modalHeader: {
       flexDirection: "row", alignItems: "center", justifyContent: "space-between",
       paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: StyleSheet.hairlineWidth,
@@ -303,11 +424,11 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
       flexDirection: "row", justifyContent: "space-between", alignItems: "center",
       paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth,
     },
-    detailIngName: { fontSize: 14, fontWeight: "500", flex: 1 },
+    detailIngName: { fontSize: 14, flex: 1 },
     detailIngAmt: { fontSize: 13 },
-    detailStep: { flexDirection: "row", gap: 12, marginBottom: 12 },
-    detailStepNum: { width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center", marginTop: 1 },
-    detailStepNumText: { color: "#FFF", fontSize: 12, fontWeight: "700" },
-    detailStepText: { fontSize: 14, lineHeight: 21, flex: 1 },
+    detailStep: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 10 },
+    detailStepNum: { width: 22, height: 22, borderRadius: 11, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+    detailStepNumText: { fontSize: 11, fontWeight: "800", color: "#FFF" },
+    detailStepText: { fontSize: 13, lineHeight: 18, flex: 1 },
   });
 }

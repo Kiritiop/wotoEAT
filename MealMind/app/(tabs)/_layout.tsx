@@ -19,8 +19,6 @@ function TabIcon({ name, focused, color }: { name: IoniconName; focused: boolean
 export default function TabsLayout() {
   const c = useTheme();
   const { t } = useTranslation();
-  const selectedRecipes = useAppStore((s) => s.selectedRecipes);
-  const recipeCount = selectedRecipes.length;
 
   return (
     <Tabs
@@ -34,7 +32,9 @@ export default function TabsLayout() {
           backgroundColor: c.tabBar,
           borderTopWidth: 1,
           borderTopColor: c.tabBorder,
-          paddingTop: 4,
+          paddingTop: 6,
+          height: 72,
+          paddingBottom: 10,
         },
         tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
       }}
@@ -45,17 +45,6 @@ export default function TabsLayout() {
           title: t("tab_today"),
           tabBarIcon: ({ focused, color }) => (
             <TabIcon name="calendar" focused={focused} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="shopping"
-        options={{
-          title: t("tab_shopping"),
-          tabBarBadge: recipeCount > 0 ? recipeCount : undefined,
-          tabBarBadgeStyle: { backgroundColor: c.accent, color: "#FFF", fontSize: 10 },
-          tabBarIcon: ({ focused, color }) => (
-            <TabIcon name="cart" focused={focused} color={color} />
           ),
         }}
       />
@@ -71,18 +60,9 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="recipes"
         options={{
-          title: t("tab_recipes"),
+          title: t("tab_my_recipes"),
           tabBarIcon: ({ focused, color }) => (
-            <TabIcon name="book" focused={focused} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="eatout"
-        options={{
-          title: t("tab_eatout"),
-          tabBarIcon: ({ focused, color }) => (
-            <TabIcon name="restaurant" focused={focused} color={color} />
+            <TabIcon name="heart" focused={focused} color={color} />
           ),
         }}
       />
@@ -102,6 +82,14 @@ export default function TabsLayout() {
           tabBarIcon: ({ focused, color }) => (
             <TabIcon name="person" focused={focused} color={color} />
           ),
+        }}
+      />
+      {/* Shopping is accessible via cart icon in Pantry — hidden from tab bar */}
+      <Tabs.Screen
+        name="shopping"
+        options={{
+          href: null,
+          title: t("shopping_list"),
         }}
       />
     </Tabs>

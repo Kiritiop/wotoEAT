@@ -9,7 +9,6 @@ import {
   TextInput,
   Share,
 } from "react-native";
-// Cuisine presets — user taps to fill the cuisine field
 const CUISINES = ["Chinese", "Japanese", "Korean", "Italian", "Mexican", "Indian", "Thai", "Mediterranean", "American", "French"];
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -17,13 +16,14 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAppStore } from "@/store/useAppStore";
 import { translateTag } from "@/constants/filters";
-import { getDailyPlan, generatePlanShoppingList, swapMeal } from "@/services/api";
+import { getDailyPlan, swapMeal } from "@/services/api";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useTheme } from "@/hooks/useTheme";
 import type { Rating } from "@/store/useAppStore";
 import type { DailyMealPlan, DailyPlanMeal } from "@/services/api";
 
-type MealRating = Rating; // alias
+type MealRating = Rating;
+type SlotFilter = "all" | "breakfast" | "lunch" | "dinner";
 
 const SLOT_COLOUR: Record<string, string> = {
   breakfast: "#F59E0B",
@@ -42,11 +42,7 @@ const DIFFICULTY_COLOUR: Record<string, string> = {
 };
 
 function MealSlotCard({
-  meal,
-  onRate,
-  onSwap,
-  swapping,
-  onFindRecipe,
+  meal, onRate, onSwap, swapping, onFindRecipe,
 }: {
   meal: DailyPlanMeal;
   onRate: (r: MealRating) => void;
@@ -63,7 +59,6 @@ function MealSlotCard({
 
   return (
     <View style={[cardStyles.card, { backgroundColor: c.surface }]}>
-      {/* Slot header */}
       <View style={[cardStyles.slotHeader, { backgroundColor: accent + "18" }]}>
         <View style={[cardStyles.slotIconWrap, { backgroundColor: accent }]}>
           <Ionicons name={icon} size={16} color="#FFF" />
@@ -90,14 +85,12 @@ function MealSlotCard({
           </View>
         </View>
 
-        {/* Components */}
         <View style={cardStyles.compsRow}>
           <CompChip icon="leaf" label={meal.components.vegetable} color="#16A34A" />
           <CompChip icon="fish" label={meal.components.protein} color="#2563EB" />
           <CompChip icon="ellipse" label={meal.components.staple} color="#D97706" />
         </View>
 
-        {/* Pantry items */}
         {meal.uses_pantry_items.length > 0 && (
           <View style={[cardStyles.pantryRow, { backgroundColor: c.successBg }]}>
             <Ionicons name="checkmark-circle" size={13} color="#16A34A" />
@@ -107,15 +100,10 @@ function MealSlotCard({
           </View>
         )}
 
-        {/* Dislike (swap) + expand buttons */}
         <View style={cardStyles.ratingRow}>
           <TouchableOpacity
             style={[cardStyles.dislikeBtn, { borderColor: swapping ? c.error : c.border, backgroundColor: swapping ? c.errorBg : "transparent" }]}
-            onPress={() => {
-              onRate("down");
-              onSwap();
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            }}
+            onPress={() => { onRate("down"); onSwap(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); }}
             disabled={swapping}
           >
             {swapping ? (
@@ -207,16 +195,31 @@ function CompChip({ icon, label, color }: {
 }
 
 export default function TodayScreen() {
-  const { profile, pantry, dailyPlan, setDailyPlan, clearDailyPlan, setShoppingList, language, ratings, setRating } = useAppStore();
+  const { profile, pantry, dailyPlan, setDailyPlan, clearDailyPlan, language, ratings, setRating, servings, setServings } = useAppStore();
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, strings } = useTranslation();
   const c = useTheme();
+
   const [loading, setLoading] = useState(false);
-  const [shopping, setShopping] = useState(false);
   const [swappingSlot, setSwappingSlot] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cuisine, setCuisine] = useState("");
   const [maxTime, setMaxTime] = useState("");
+  const [showSettings, setShowSettings] = useState(false);
+  const [slotFilter, setSlotFilter] = useState<SlotFilter>("all");
+
+  const SLOT_FILTERS: { key: SlotFilter; label: string }[] = [
+    { key: "all", label: t("all_meals") },
+    { key: "breakfast", label: t("breakfast") },
+    { key: "lunch", label: t("lunch") },
+    { key: "dinner", label: t("dinner") },
+  ];
+
+  const filteredMeals = dailyPlan
+    ? slotFilter === "all"
+      ? dailyPlan.meals
+      : dailyPlan.meals.filter((m) => m.slot === slotFilter)
+    : [];
 
   async function handleGenerate() {
     setLoading(true);
@@ -228,8 +231,10 @@ export default function TodayScreen() {
         maxTime ? parseInt(maxTime) : undefined,
         language,
         Object.keys(ratings).length > 0 ? ratings : undefined,
+        servings,
       );
       setDailyPlan(plan);
+      setSlotFilter("all");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not generate plan.");
@@ -262,34 +267,8 @@ export default function TodayScreen() {
     const lines = dailyPlan.meals.map(
       (m) => `${m.slot.charAt(0).toUpperCase() + m.slot.slice(1)}: ${m.name} (${m.calories_per_serving} kcal, ${m.prep_time_mins} min)`
     );
-    const text = [
-      "My MealMind Plan",
-      "",
-      ...lines,
-      "",
-      `Total: ${dailyPlan.total_calories} kcal`,
-    ].join("\n");
-    try {
-      await Share.share({ message: text });
-    } catch {
-      // User dismissed share sheet
-    }
-  }
-
-  async function handleShopForPlan() {
-    if (!dailyPlan) return;
-    setShopping(true);
-    setError(null);
-    try {
-      const list = await generatePlanShoppingList(dailyPlan, pantry, language);
-      setShoppingList(list);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      router.push("/(tabs)/shopping");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not generate shopping list.");
-    } finally {
-      setShopping(false);
-    }
+    const text = ["My MealMind Plan", "", ...lines, "", `Total: ${dailyPlan.total_calories} kcal`].join("\n");
+    try { await Share.share({ message: text }); } catch { /* dismissed */ }
   }
 
   const styles = makeStyles(c);
@@ -298,64 +277,19 @@ export default function TodayScreen() {
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.heading}>{t("todays_plan")}</Text>
-          <Text style={styles.subheading}>{t("plan_subtitle")}</Text>
-        </View>
-
-        {/* Filters card */}
-        <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-          <View style={styles.filterRow}>
-            <View style={styles.filterField}>
-              <Text style={[styles.filterLabel, { color: c.textMuted }]}>{t("cuisine_pref")}</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 6 }}>
-                <View style={{ flexDirection: "row", gap: 6 }}>
-                  {CUISINES.map((cu) => {
-                    const active = cuisine.trim().toLowerCase() === cu.toLowerCase();
-                    return (
-                      <TouchableOpacity
-                        key={cu}
-                        style={[styles.cuisineChip, { backgroundColor: c.chipBg, borderColor: c.border }, active && { backgroundColor: c.primary, borderColor: c.primary }]}
-                        onPress={() => { setCuisine(active ? "" : cu); Haptics.selectionAsync(); }}
-                      >
-                        <Text style={[styles.cuisineChipText, { color: c.chipText }, active && { color: "#FFF", fontWeight: "700" }]}>{cu}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </ScrollView>
-              <TextInput
-                style={[styles.filterInput, { borderColor: c.border, backgroundColor: c.inputBg, color: c.text }]}
-                placeholder={t("cuisine_placeholder")}
-                placeholderTextColor={c.textPlaceholder}
-                value={cuisine}
-                onChangeText={setCuisine}
-                autoCapitalize="words"
-              />
-            </View>
-            <View style={styles.filterField}>
-              <Text style={[styles.filterLabel, { color: c.textMuted }]}>{t("max_prep")}</Text>
-              <TextInput
-                style={[styles.filterInput, { borderColor: c.border, backgroundColor: c.inputBg, color: c.text }]}
-                placeholder="e.g. 30"
-                placeholderTextColor={c.textPlaceholder}
-                value={maxTime}
-                onChangeText={setMaxTime}
-                keyboardType="number-pad"
-              />
-            </View>
-          </View>
-
-          {error && (
-            <View style={[styles.errorBanner, { backgroundColor: c.errorBg }]}>
-              <Ionicons name="alert-circle-outline" size={15} color={c.error} />
-              <Text style={[styles.errorText, { color: c.error }]}>{error}</Text>
-            </View>
-          )}
+        {/* ── Top bar: settings toggle + generate ── */}
+        <View style={styles.topBar}>
+          <TouchableOpacity
+            style={[styles.settingsToggle, { backgroundColor: c.surface, borderColor: c.border }]}
+            onPress={() => { setShowSettings((v) => !v); Haptics.selectionAsync(); }}
+          >
+            <Ionicons name="options-outline" size={16} color={c.textMuted} />
+            <Text style={[styles.settingsToggleText, { color: c.textMuted }]}>{t("show_settings")}</Text>
+            <Ionicons name={showSettings ? "chevron-up" : "chevron-down"} size={14} color={c.textMuted} />
+          </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.generateBtn, { backgroundColor: c.primary }, loading && styles.btnDisabled]}
+            style={[styles.generateBtn, { backgroundColor: loading ? c.disabled : c.primary }]}
             onPress={handleGenerate}
             disabled={loading}
           >
@@ -363,25 +297,92 @@ export default function TodayScreen() {
               <ActivityIndicator color="#FFF" size="small" />
             ) : (
               <>
-                <Ionicons name="sparkles" size={17} color="#FFF" />
+                <Ionicons name="sparkles" size={15} color="#FFF" />
                 <Text style={styles.generateBtnText}>
-                  {dailyPlan ? t("regenerate_plan") : t("generate_plan")}
+                  {dailyPlan ? t("regenerate") : t("generate")}
                 </Text>
               </>
             )}
           </TouchableOpacity>
         </View>
 
-        {/* Plan */}
+        {/* ── Collapsible settings panel ── */}
+        {showSettings && (
+          <View style={[styles.settingsPanel, { backgroundColor: c.surface, borderColor: c.border }]}>
+            {/* Cuisine chips */}
+            <Text style={[styles.filterLabel, { color: c.textMuted }]}>{t("cuisine_pref")}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 6 }}>
+              <View style={{ flexDirection: "row", gap: 6 }}>
+                {CUISINES.map((cu) => {
+                  const active = cuisine.trim().toLowerCase() === cu.toLowerCase();
+                  return (
+                    <TouchableOpacity
+                      key={cu}
+                      style={[styles.cuisineChip, { backgroundColor: c.chipBg, borderColor: c.border }, active && { backgroundColor: c.primary, borderColor: c.primary }]}
+                      onPress={() => { setCuisine(active ? "" : cu); Haptics.selectionAsync(); }}
+                    >
+                      <Text style={[styles.cuisineChipText, { color: c.chipText }, active && { color: "#FFF", fontWeight: "700" }]}>{cu}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
+            <TextInput
+              style={[styles.filterInput, { borderColor: c.border, backgroundColor: c.inputBg, color: c.text }]}
+              placeholder={t("cuisine_placeholder")}
+              placeholderTextColor={c.textPlaceholder}
+              value={cuisine}
+              onChangeText={setCuisine}
+              autoCapitalize="words"
+            />
+
+            {/* Max prep time */}
+            <Text style={[styles.filterLabel, { color: c.textMuted, marginTop: 10 }]}>{t("max_prep")}</Text>
+            <TextInput
+              style={[styles.filterInput, { borderColor: c.border, backgroundColor: c.inputBg, color: c.text }]}
+              placeholder="e.g. 30"
+              placeholderTextColor={c.textPlaceholder}
+              value={maxTime}
+              onChangeText={setMaxTime}
+              keyboardType="number-pad"
+            />
+
+            {/* Servings picker */}
+            <Text style={[styles.filterLabel, { color: c.textMuted, marginTop: 10 }]}>{t("servings")}</Text>
+            <View style={styles.servingsRow}>
+              {[1, 2, 3, 4, 5, 6].map((n) => (
+                <TouchableOpacity
+                  key={n}
+                  style={[styles.servingsChip, { backgroundColor: c.chipBg, borderColor: c.border }, servings === n && { backgroundColor: c.primary, borderColor: c.primary }]}
+                  onPress={() => { setServings(n); Haptics.selectionAsync(); }}
+                >
+                  <Text style={[styles.servingsChipText, { color: c.chipText }, servings === n && { color: "#FFF", fontWeight: "700" }]}>
+                    {strings.servings_people(n)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* ── Error banner ── */}
+        {error && (
+          <View style={[styles.errorBanner, { backgroundColor: c.errorBg }]}>
+            <Ionicons name="alert-circle-outline" size={15} color={c.error} />
+            <Text style={[styles.errorText, { color: c.error }]}>{error}</Text>
+          </View>
+        )}
+
+        {/* ── Plan section ── */}
         {dailyPlan && (
           <View style={styles.planSection}>
-            {/* Total calories + share + clear */}
-            <View style={styles.totalRow}>
+            {/* Summary row */}
+            <View style={styles.summaryRow}>
               <View style={styles.totalBadge}>
-                <Ionicons name="flame" size={15} color="#F59E0B" />
+                <Ionicons name="flame" size={14} color="#F59E0B" />
                 <Text style={styles.totalText}>{dailyPlan.total_calories} {t("total_calories")}</Text>
               </View>
-              <View style={styles.totalActions}>
+              <View style={styles.summaryActions}>
                 <TouchableOpacity onPress={handleShare} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                   <Ionicons name="share-outline" size={18} color={c.textMuted} />
                 </TouchableOpacity>
@@ -391,7 +392,25 @@ export default function TodayScreen() {
               </View>
             </View>
 
-            {dailyPlan.meals.map((meal) => (
+            {/* Meal slot filter chips */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.slotFilterRow}>
+                {SLOT_FILTERS.map(({ key, label }) => (
+                  <TouchableOpacity
+                    key={key}
+                    style={[styles.slotChip, { borderColor: c.border, backgroundColor: c.chipBg }, slotFilter === key && { backgroundColor: c.primary, borderColor: c.primary }]}
+                    onPress={() => { setSlotFilter(key); Haptics.selectionAsync(); }}
+                  >
+                    <Text style={[styles.slotChipText, { color: c.chipText }, slotFilter === key && { color: "#FFF", fontWeight: "700" }]}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+
+            {/* Meal cards */}
+            {filteredMeals.map((meal) => (
               <MealSlotCard
                 key={meal.slot}
                 meal={meal}
@@ -400,13 +419,9 @@ export default function TodayScreen() {
                 swapping={swappingSlot === meal.slot}
                 onFindRecipe={() => {
                   const mealParam = JSON.stringify({
-                    name: meal.name,
-                    cuisine: meal.cuisine,
-                    description: meal.description,
-                    prep_time_mins: meal.prep_time_mins,
-                    calories_per_serving: meal.calories_per_serving,
-                    difficulty: meal.difficulty,
-                    tags: meal.tags ?? [],
+                    name: meal.name, cuisine: meal.cuisine, description: meal.description,
+                    prep_time_mins: meal.prep_time_mins, calories_per_serving: meal.calories_per_serving,
+                    difficulty: meal.difficulty, tags: meal.tags ?? [],
                   });
                   router.push({ pathname: "/meal/[id]", params: { id: meal.slot, meal: mealParam } });
                 }}
@@ -417,7 +432,7 @@ export default function TodayScreen() {
             {!!dailyPlan.nutrition_note && (
               <View style={[styles.noteCard, { backgroundColor: c.surfaceAlt }]}>
                 <Ionicons name="information-circle-outline" size={16} color={c.primary} />
-                <Text style={styles.noteText}>{dailyPlan.nutrition_note}</Text>
+                <Text style={[styles.noteText, { color: c.textSecondary }]}>{dailyPlan.nutrition_note}</Text>
               </View>
             )}
 
@@ -425,7 +440,7 @@ export default function TodayScreen() {
             {dailyPlan.shopping_reminders.length > 0 && (
               <View style={[styles.remindersCard, { backgroundColor: c.surface, borderColor: c.border }]}>
                 <View style={styles.remindersHeader}>
-                  <Ionicons name="cart-outline" size={18} color={c.primary} />
+                  <Ionicons name="cart-outline" size={16} color={c.primary} />
                   <Text style={[styles.remindersTitle, { color: c.text }]}>{t("shopping_reminders")}</Text>
                 </View>
                 {dailyPlan.shopping_reminders.map((r) => (
@@ -439,26 +454,10 @@ export default function TodayScreen() {
                 ))}
               </View>
             )}
-
-            {/* Shop for plan CTA */}
-            <TouchableOpacity
-              style={[styles.shopBtn, { backgroundColor: c.accent }, shopping && styles.btnDisabled]}
-              onPress={handleShopForPlan}
-              disabled={shopping}
-            >
-              {shopping ? (
-                <ActivityIndicator color="#FFF" size="small" />
-              ) : (
-                <>
-                  <Ionicons name="cart" size={17} color="#FFF" />
-                  <Text style={styles.generateBtnText}>{t("shop_for_plan")}</Text>
-                </>
-              )}
-            </TouchableOpacity>
           </View>
         )}
 
-        {/* Empty state */}
+        {/* ── Empty state ── */}
         {!dailyPlan && !loading && (
           <View style={styles.empty}>
             <View style={[styles.emptyIconWrap, { backgroundColor: c.successBg }]}>
@@ -473,7 +472,7 @@ export default function TodayScreen() {
   );
 }
 
-// ── Shared card styles (no theme dependency) ─────────────────────────────────
+// ── Shared card styles ────────────────────────────────────────────────────────
 const cardStyles = StyleSheet.create({
   card: {
     borderRadius: 16, overflow: "hidden",
@@ -521,44 +520,57 @@ const cardStyles = StyleSheet.create({
 function makeStyles(c: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.bg },
-    content: { padding: 16, paddingBottom: 48, gap: 12 },
-    header: {},
-    heading: { fontSize: 24, fontWeight: "800", color: c.text },
-    subheading: { fontSize: 14, color: c.textMuted, lineHeight: 20, marginTop: 4 },
-    card: {
-      borderRadius: 16, padding: 16, borderWidth: 1,
-      shadowColor: c.shadow, shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
+    content: { padding: 16, paddingBottom: 48, gap: 10 },
+    // Top bar
+    topBar: { flexDirection: "row", alignItems: "center", gap: 10 },
+    settingsToggle: {
+      flex: 1, flexDirection: "row", alignItems: "center", gap: 6,
+      borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10,
     },
-    filterRow: { flexDirection: "column", gap: 0, marginBottom: 12 },
+    settingsToggleText: { fontSize: 13, fontWeight: "600", flex: 1 },
+    generateBtn: {
+      flexDirection: "row", alignItems: "center", justifyContent: "center",
+      borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, gap: 6,
+    },
+    generateBtnText: { color: "#FFF", fontSize: 14, fontWeight: "700" },
+    // Settings panel
+    settingsPanel: {
+      borderRadius: 14, borderWidth: 1, padding: 14,
+    },
+    filterLabel: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 6 },
     cuisineChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
     cuisineChipText: { fontSize: 12, fontWeight: "600" },
-    filterField: {},
-    filterLabel: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 4 },
     filterInput: {
       borderWidth: 1, borderRadius: 10,
       paddingHorizontal: 12, paddingVertical: 9, fontSize: 14,
     },
-    errorBanner: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 10, padding: 10, marginBottom: 12 },
+    servingsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    servingsChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
+    servingsChipText: { fontSize: 12, fontWeight: "600" },
+    // Error
+    errorBanner: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 10, padding: 10 },
     errorText: { fontSize: 13, flex: 1 },
-    generateBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", borderRadius: 14, paddingVertical: 14, gap: 8 },
-    shopBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", borderRadius: 14, paddingVertical: 14, gap: 8 },
-    btnDisabled: { opacity: 0.6 },
-    generateBtnText: { color: "#FFF", fontSize: 15, fontWeight: "700" },
-    planSection: { gap: 12 },
-    totalRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    totalActions: { flexDirection: "row", alignItems: "center", gap: 14 },
+    // Plan
+    planSection: { gap: 10 },
+    summaryRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    summaryActions: { flexDirection: "row", alignItems: "center", gap: 14 },
     totalBadge: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: c.warningBg, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
     totalText: { fontSize: 13, fontWeight: "700", color: c.warning },
+    // Slot filter
+    slotFilterRow: { flexDirection: "row", gap: 8, paddingVertical: 4 },
+    slotChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
+    slotChipText: { fontSize: 13, fontWeight: "600" },
+    // Note / reminders
     noteCard: { flexDirection: "row", alignItems: "flex-start", gap: 8, borderRadius: 12, padding: 12 },
     noteText: { fontSize: 13, color: c.textSecondary, lineHeight: 18, flex: 1 },
     remindersCard: { borderRadius: 16, padding: 14, borderWidth: 1 },
-    remindersHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
-    remindersTitle: { fontSize: 15, fontWeight: "700" },
-    reminderRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 10 },
+    remindersHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
+    remindersTitle: { fontSize: 14, fontWeight: "700" },
+    reminderRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 8 },
     reminderDot: { width: 7, height: 7, borderRadius: 4, marginTop: 5, flexShrink: 0 },
     reminderItem: { fontSize: 14, fontWeight: "600" },
     reminderReason: { fontSize: 12, lineHeight: 17, marginTop: 1 },
+    // Empty state
     empty: { alignItems: "center", paddingVertical: 48, paddingHorizontal: 24, gap: 12 },
     emptyIconWrap: { width: 96, height: 96, borderRadius: 48, alignItems: "center", justifyContent: "center", marginBottom: 8 },
     emptyTitle: { fontSize: 20, fontWeight: "800" },

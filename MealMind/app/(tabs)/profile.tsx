@@ -71,6 +71,17 @@ export default function ProfileScreen() {
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
+        {/* Complete profile banner — shown when key fields are missing */}
+        {(!profile.age || !profile.weight_kg || !profile.height_cm || !(profile.health_goals?.length)) && (
+          <View style={[styles.completeBanner, { backgroundColor: c.primaryLight, borderColor: c.primary + "40" }]}>
+            <Ionicons name="information-circle" size={20} color={c.primary} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.completeBannerTitle, { color: c.primary }]}>{t("complete_profile")}</Text>
+              <Text style={[styles.completeBannerSub, { color: c.primary }]}>{t("complete_profile_sub")}</Text>
+            </View>
+          </View>
+        )}
+
         {/* Avatar */}
         <View style={styles.avatarWrap}>
           <View style={[styles.avatar, { backgroundColor: c.primaryLight }]}>
@@ -338,6 +349,12 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.bg },
     content: { padding: 20, paddingBottom: 48 },
+    completeBanner: {
+      flexDirection: "row", alignItems: "flex-start", gap: 10,
+      borderRadius: 14, borderWidth: 1, padding: 14, marginBottom: 16,
+    },
+    completeBannerTitle: { fontSize: 14, fontWeight: "700", marginBottom: 2 },
+    completeBannerSub: { fontSize: 12, lineHeight: 17, opacity: 0.85 },
     avatarWrap: { alignItems: "center", marginBottom: 28 },
     avatar: {
       width: 80, height: 80, borderRadius: 40,

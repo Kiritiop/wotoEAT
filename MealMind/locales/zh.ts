@@ -4,7 +4,7 @@ const zh = {
   tab_shopping: "购物",
   tab_pantry: "食材",
   tab_recipes: "食谱",
-  tab_eatout: "外食",
+
   tab_profile: "我的",
   tab_history: "历史",
 
@@ -148,24 +148,49 @@ const zh = {
   parse_url_placeholder: "https://www.example.com/recipe/...",
   parse_invalid_url: "请输入以 https:// 开头的完整链接。",
 
-  // ── Eat Out ───────────────────────────────────────────────────────────────
-  eatout_heading: "附近餐厅推荐",
-  eatout_subtitle: "根据您的偏好，AI为您筛选并推荐附近最匹配的餐厅。",
-  find_nearby: "查找附近餐厅",
-  eatout_empty_title: "暂无结果",
-  eatout_empty_body: "点击上方按钮，查找符合您偏好的附近餐厅。",
-  top_matches: (n: number) => `附近最匹配的 ${n} 家餐厅`,
-
   // ── History ───────────────────────────────────────────────────────────────
   history_heading: "饮食历史",
   history_subtitle: "您最近7天的饮食计划。",
   history_empty_title: "暂无历史记录",
   history_empty_body: "生成第一个每日计划后，它将显示在这里。",
   calories_label: "千卡",
+  search_history: "搜索历史…",
+
+  // ── My Recipes ────────────────────────────────────────────────────────────
+  tab_my_recipes: "我的食谱",
+  saved_tab: "已保存",
+  favorites_tab: "收藏",
+  frequent_tab: "常做",
+  done_tab: "已做",
+  mark_favorite: "收藏",
+  mark_frequent: "常做",
+  mark_done: "标记已做",
+  done_reduces_pantry: "匹配的食材将从库存中扣除。",
+  remove_label: "移除",
+
+  // ── Servings ──────────────────────────────────────────────────────────────
+  servings: "份量",
+  servings_people: (n: number) => `${n}人份`,
+
+  // ── Plan settings ─────────────────────────────────────────────────────────
+  plan_settings: "设置",
+  all_meals: "全部",
+  snack: "零食",
+  show_settings: "筛选与设置",
+
+  // ── Profile complete ───────────────────────────────────────────────────────
+  complete_profile: "完善个人资料",
+  complete_profile_sub: "填写健康信息以获取更精准的饮食建议。",
+  complete_profile_btn: "立即设置",
+
+  // ── Shopping (in pantry) ──────────────────────────────────────────────────
+  shopping_list: "购物清单",
+  cart_empty: "购物清单为空",
+  cart_empty_sub: "在食谱中添加菜品，然后生成购物清单。",
 
   // ── Onboarding ────────────────────────────────────────────────────────────
   onboarding_welcome: "欢迎使用 MealMind",
-  onboarding_welcome_sub: "让我们先设置您的健康档案，以便为您个性化定制饮食计划。",
+  onboarding_welcome_sub: "智能饮食，轻松生活。",
   onboarding_step1: "身体数据",
   onboarding_step2: "健康目标",
   onboarding_step3: "我的食材",
@@ -173,6 +198,7 @@ const zh = {
   onboarding_step2_sub: "您希望通过饮食实现什么目标？",
   onboarding_step3_sub: "添加您家中已有的食材。",
   onboarding_finish: "开始规划",
+  onboarding_get_started: "立即开始",
   onboarding_age_placeholder: "如：28",
   onboarding_weight_placeholder: "如：70",
   onboarding_height_placeholder: "如：170",

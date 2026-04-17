@@ -55,6 +55,15 @@ interface AppState {
   setShoppingList: (list: ShoppingList) => void;
   toggleShoppingItem: (category: string, itemName: string) => void;
   clearShoppingList: () => void;
+
+  // ── Recipe labels (favorite, frequent, done) ──────────────────────────────
+  recipeLabels: Record<string, string[]>;
+  addRecipeLabel: (recipeId: string, label: string) => void;
+  removeRecipeLabel: (recipeId: string, label: string) => void;
+
+  // ── Servings preference ───────────────────────────────────────────────────
+  servings: number;
+  setServings: (n: number) => void;
 }
 
 const DEFAULT_PROFILE: HealthProfile = {};
@@ -127,6 +136,24 @@ export const useAppStore = create<AppState>()(
           return { shoppingList: { ...state.shoppingList, groups } };
         }),
       clearShoppingList: () => set({ shoppingList: null }),
+
+      // ── Recipe labels ─────────────────────────────────────────────────────
+      recipeLabels: {},
+      addRecipeLabel: (recipeId, label) =>
+        set((state) => {
+          const existing = state.recipeLabels[recipeId] ?? [];
+          if (existing.includes(label)) return state;
+          return { recipeLabels: { ...state.recipeLabels, [recipeId]: [...existing, label] } };
+        }),
+      removeRecipeLabel: (recipeId, label) =>
+        set((state) => {
+          const existing = state.recipeLabels[recipeId] ?? [];
+          return { recipeLabels: { ...state.recipeLabels, [recipeId]: existing.filter((l) => l !== label) } };
+        }),
+
+      // ── Servings ──────────────────────────────────────────────────────────
+      servings: 2,
+      setServings: (n) => set({ servings: n }),
     }),
     {
       name: "mealmind-store",
@@ -140,6 +167,8 @@ export const useAppStore = create<AppState>()(
         pantry: state.pantry,
         ratings: state.ratings,
         selectedRecipes: state.selectedRecipes,
+        recipeLabels: state.recipeLabels,
+        servings: state.servings,
       }),
     }
   )

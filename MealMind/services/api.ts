@@ -202,15 +202,6 @@ export interface ShoppingList {
   total_calories?: number;
 }
 
-// ─── Restaurants ─────────────────────────────────────────────────────────────
-
-export interface RestaurantResult {
-  name: string;
-  address: string;
-  rating?: number;
-  reason: string;
-  maps_url: string;
-}
 
 // ─── API functions ────────────────────────────────────────────────────────────
 
@@ -227,7 +218,8 @@ export async function getDailyPlan(
   cuisine_preference?: string,
   max_prep_time_mins?: number,
   language = "en",
-  recent_ratings?: Record<string, "up" | "down">
+  recent_ratings?: Record<string, "up" | "down">,
+  servings = 2,
 ): Promise<{ plan: DailyMealPlan; cached: boolean }> {
   const res = await api.post("/meals/daily-plan", {
     profile,
@@ -236,6 +228,7 @@ export async function getDailyPlan(
     max_prep_time_mins: max_prep_time_mins || null,
     language,
     recent_ratings: recent_ratings || null,
+    servings,
   });
   return res.data;
 }
@@ -313,12 +306,3 @@ export async function swapMeal(
   return res.data as DailyPlanMeal;
 }
 
-export async function getNearbyRestaurants(
-  lat: number,
-  lng: number,
-  filters: MealFilter,
-  radius_m = 1500
-): Promise<{ restaurants: RestaurantResult[] }> {
-  const res = await api.post("/eatout/nearby", { lat, lng, filters, radius_m });
-  return res.data;
-}

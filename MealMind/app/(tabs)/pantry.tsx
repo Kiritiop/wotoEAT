@@ -9,13 +9,17 @@ import {
   ActivityIndicator,
   Modal,
   RefreshControl,
+  Share,
+  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAppStore } from "@/store/useAppStore";
-import { getPantry, upsertPantry, deletePantryItem } from "@/services/api";
+import { getPantry, upsertPantry, deletePantryItem, generateShoppingList } from "@/services/api";
 import { getPantryUnits } from "@/constants/filters";
+import { toGrams, intuitiveHint } from "@/constants/conversions";
+import { IngredientRow } from "@/components/IngredientRow";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import type { PantryItem } from "@/services/api";
@@ -23,7 +27,6 @@ import type { PantryItem } from "@/services/api";
 /** Heuristic unit recommendation based on ingredient name and language. */
 function recommendUnit(name: string, language: string): string {
   const n = name.toLowerCase();
-  // Liquids — same in both languages
   if (/oil|sauce|milk|juice|broth|stock|vinegar|wine|beer|cream|liquid|油|汁|奶|醋|汤/.test(n)) return "ml";
   if (language === "zh") {
     if (/egg|鸡蛋|蛋|apple|banana|orange|lemon|lime|onion|potato|avocado|mango|苹果|香蕉|橙|柠檬|洋葱|马铃薯/.test(n)) return "个";
@@ -39,9 +42,14 @@ function recommendUnit(name: string, language: string): string {
 }
 
 export default function PantryScreen() {
-  const { pantry, setPantry, authReady, language } = useAppStore();
+  const {
+    pantry, setPantry, authReady, language,
+    shoppingList, setShoppingList, clearShoppingList, toggleShoppingItem, selectedRecipes,
+  } = useAppStore();
   const c = useTheme();
   const { t, strings } = useTranslation();
+
+  // ── Pantry state ──────────────────────────────────────────────────────────
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -57,12 +65,17 @@ export default function PantryScreen() {
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // ── Shopping modal state ──────────────────────────────────────────────────
+  const [showShopping, setShowShopping] = useState(false);
+  const [shoppingLoading, setShoppingLoading] = useState(false);
+  const [shoppingError, setShoppingError] = useState<string | null>(null);
+
   // Auto-recommend unit whenever name changes and user hasn't manually picked one
   useEffect(() => {
     if (!unitManuallySet && newName.trim().length > 1) {
       setNewUnit(recommendUnit(newName, language));
     }
-  }, [newName, unitManuallySet]);
+  }, [newName, unitManuallySet, language]);
 
   const loadPantry = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
@@ -84,14 +97,9 @@ export default function PantryScreen() {
 
   function openAdd() {
     setEditingItem(null);
-    setNewName("");
-    setNewAmount("");
-    setNewUnit("g");
-    setUnitManuallySet(false);
-    setShowUnitPicker(false);
-    setNameError(false);
-    setAmountError(false);
-    setFormError(null);
+    setNewName(""); setNewAmount(""); setNewUnit("g");
+    setUnitManuallySet(false); setShowUnitPicker(false);
+    setNameError(false); setAmountError(false); setFormError(null);
     setShowModal(true);
     Haptics.selectionAsync();
   }
@@ -101,11 +109,9 @@ export default function PantryScreen() {
     setNewName(item.name);
     setNewAmount(String(item.amount));
     setNewUnit(item.unit);
-    setUnitManuallySet(true); // keep existing unit when editing
+    setUnitManuallySet(true);
     setShowUnitPicker(false);
-    setNameError(false);
-    setAmountError(false);
-    setFormError(null);
+    setNameError(false); setAmountError(false); setFormError(null);
     setShowModal(true);
     Haptics.selectionAsync();
   }
@@ -116,9 +122,7 @@ export default function PantryScreen() {
     if (!newAmount.trim()) { setAmountError(true); hasError = true; } else setAmountError(false);
 
     if (hasError) {
-      if (!newName.trim() && !newAmount.trim()) setFormError(t("missing_fields"));
-      else if (!newName.trim()) setFormError(t("missing_name"));
-      else setFormError(t("missing_amount"));
+      setFormError(!newName.trim() ? t("missing_name") : t("missing_amount"));
       return;
     }
 
@@ -129,7 +133,12 @@ export default function PantryScreen() {
       return;
     }
 
-    const item: PantryItem = { name: newName.trim().toLowerCase(), amount: parsed, unit: newUnit };
+    // Task 2: auto-convert piece units to grams
+    const gramAmount = toGrams(parsed, newUnit, newName.trim());
+    const finalAmount = gramAmount ?? parsed;
+    const finalUnit = gramAmount != null ? "g" : newUnit;
+
+    const item: PantryItem = { name: newName.trim().toLowerCase(), amount: finalAmount, unit: finalUnit };
     setFormError(null);
     setSaving(true);
     try {
@@ -137,8 +146,15 @@ export default function PantryScreen() {
         await deletePantryItem(editingItem.name);
         setPantry(pantry.filter((p) => p.name !== editingItem.name));
       }
-      await upsertPantry([item]);
-      setPantry([...pantry.filter((p) => p.name !== item.name), item]);
+
+      // Task 3: stack amounts if same ingredient already exists (when adding, not editing)
+      const existing = editingItem ? null : pantry.find((p) => p.name === item.name && p.unit === item.unit);
+      const savedItem = existing
+        ? { ...item, amount: Math.round((existing.amount + item.amount) * 10) / 10 }
+        : item;
+
+      await upsertPantry([savedItem]);
+      setPantry([...pantry.filter((p) => p.name !== savedItem.name), savedItem]);
       setShowModal(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: unknown) {
@@ -160,6 +176,40 @@ export default function PantryScreen() {
     }
   }
 
+  // ── Shopping helpers ──────────────────────────────────────────────────────
+  async function handleGenerateShopping() {
+    if (selectedRecipes.length === 0) {
+      setShoppingError(t("no_recipes_selected"));
+      return;
+    }
+    setShoppingError(null);
+    setShoppingLoading(true);
+    try {
+      const list = await generateShoppingList(selectedRecipes, pantry, language);
+      setShoppingList(list);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (err: unknown) {
+      setShoppingError(err instanceof Error ? err.message : "Failed to generate list.");
+    } finally {
+      setShoppingLoading(false);
+    }
+  }
+
+  async function handleShareShopping() {
+    if (!shoppingList) return;
+    const lines: string[] = [];
+    for (const group of shoppingList.groups) {
+      lines.push(`\n${group.category.toUpperCase()}`);
+      for (const item of group.items) {
+        lines.push(`${item.checked ? "[x]" : "[ ]"} ${item.name} — ${item.amount} ${item.unit}`);
+      }
+    }
+    await Share.share({ message: `MealMind Shopping List\n${lines.join("\n")}` });
+  }
+
+  const totalItems = shoppingList?.groups.reduce((s, g) => s + g.items.length, 0) ?? 0;
+  const checkedItems = shoppingList?.groups.reduce((s, g) => s + g.items.filter((i) => i.checked).length, 0) ?? 0;
+
   const styles = makeStyles(c);
   const isRecommended = !unitManuallySet && newName.trim().length > 1;
 
@@ -174,7 +224,22 @@ export default function PantryScreen() {
         }
         ListHeaderComponent={
           <View>
-            <Text style={styles.intro}>{t("pantry_intro")}</Text>
+            {/* Header row with add + cart buttons */}
+            <View style={styles.headerRow}>
+              <Text style={[styles.intro, { flex: 1 }]}>{t("pantry_intro")}</Text>
+              <TouchableOpacity
+                style={[styles.cartBtn, { backgroundColor: c.surfaceAlt }]}
+                onPress={() => { setShowShopping(true); Haptics.selectionAsync(); }}
+              >
+                <Ionicons name="cart-outline" size={22} color={c.primary} />
+                {selectedRecipes.length > 0 && (
+                  <View style={[styles.cartBadge, { backgroundColor: c.primary }]}>
+                    <Text style={styles.cartBadgeText}>{selectedRecipes.length}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+
             <TouchableOpacity style={styles.addBtn} onPress={openAdd}>
               <Ionicons name="add" size={20} color="#FFF" />
               <Text style={styles.addBtnText}>{t("add_ingredient")}</Text>
@@ -202,33 +267,37 @@ export default function PantryScreen() {
             </View>
           ) : null
         }
-        renderItem={({ item }) => (
-          <View style={styles.itemRow}>
-            <View style={styles.itemInfo}>
-              <Text style={[styles.itemName, { color: c.text }]}>{item.name}</Text>
-              <Text style={[styles.itemAmount, { color: c.textMuted }]}>
-                {item.amount} {item.unit}
-              </Text>
+        renderItem={({ item }) => {
+          const hint = intuitiveHint(item.amount, item.name, language);
+          return (
+            <View style={styles.itemRow}>
+              <View style={styles.itemInfo}>
+                <Text style={[styles.itemName, { color: c.text }]}>{item.name}</Text>
+                <Text style={[styles.itemAmount, { color: c.textMuted }]}>
+                  {item.amount} {item.unit}
+                  {hint ? <Text style={{ color: c.primary }}> {hint}</Text> : null}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => openEdit(item)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                style={{ marginRight: 12 }}
+              >
+                <Ionicons name="pencil-outline" size={18} color={c.textMuted} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => handleDelete(item.name)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="trash-outline" size={20} color={c.error} />
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              onPress={() => openEdit(item)}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              style={{ marginRight: 12 }}
-            >
-              <Ionicons name="pencil-outline" size={18} color={c.textMuted} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => handleDelete(item.name)}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons name="trash-outline" size={20} color={c.error} />
-            </TouchableOpacity>
-          </View>
-        )}
+          );
+        }}
         showsVerticalScrollIndicator={false}
       />
 
-      {/* Add / Edit modal */}
+      {/* ── Add / Edit modal ──────────────────────────────────────────────── */}
       <Modal visible={showModal} animationType="slide" transparent>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
@@ -238,10 +307,7 @@ export default function PantryScreen() {
 
             <Text style={[styles.fieldLabel, { color: c.textMuted }]}>{t("ingredient_name")}</Text>
             <TextInput
-              style={[
-                styles.input,
-                { borderColor: nameError ? c.error : c.border, backgroundColor: c.inputBg, color: c.text },
-              ]}
+              style={[styles.input, { borderColor: nameError ? c.error : c.border, backgroundColor: c.inputBg, color: c.text }]}
               placeholder={t("ingredient_name_placeholder")}
               placeholderTextColor={c.textPlaceholder}
               value={newName}
@@ -251,10 +317,7 @@ export default function PantryScreen() {
 
             <Text style={[styles.fieldLabel, { color: c.textMuted }]}>{t("amount")}</Text>
             <TextInput
-              style={[
-                styles.input,
-                { borderColor: amountError ? c.error : c.border, backgroundColor: c.inputBg, color: c.text },
-              ]}
+              style={[styles.input, { borderColor: amountError ? c.error : c.border, backgroundColor: c.inputBg, color: c.text }]}
               placeholder={t("amount_placeholder")}
               keyboardType="decimal-pad"
               placeholderTextColor={c.textPlaceholder}
@@ -263,8 +326,6 @@ export default function PantryScreen() {
             />
 
             <Text style={[styles.fieldLabel, { color: c.textMuted }]}>{t("unit")}</Text>
-
-            {/* Unit selector: recommended badge + dropdown trigger */}
             <View style={styles.unitRow}>
               <TouchableOpacity
                 style={[styles.unitBtn, { backgroundColor: c.primary }]}
@@ -279,35 +340,29 @@ export default function PantryScreen() {
                   <Text style={[styles.suggestedText, { color: c.primary }]}>suggested</Text>
                 </View>
               )}
+              {/* Show gram conversion preview */}
+              {newAmount.trim() && !isNaN(parseFloat(newAmount)) && (
+                (() => {
+                  const g = toGrams(parseFloat(newAmount), newUnit, newName);
+                  return g != null ? (
+                    <Text style={[styles.conversionHint, { color: c.textMuted }]}>→ {g}g</Text>
+                  ) : null;
+                })()
+              )}
             </View>
 
-            {/* Inline unit dropdown */}
             {showUnitPicker && (
               <View style={[styles.unitDropdown, { backgroundColor: c.surface, borderColor: c.border }]}>
                 {getPantryUnits(language).map((u) => (
                   <TouchableOpacity
                     key={u}
-                    style={[
-                      styles.unitOption,
-                      u === newUnit && { backgroundColor: c.primaryLight },
-                    ]}
-                    onPress={() => {
-                      setNewUnit(u);
-                      setUnitManuallySet(true);
-                      setShowUnitPicker(false);
-                      Haptics.selectionAsync();
-                    }}
+                    style={[styles.unitOption, u === newUnit && { backgroundColor: c.primaryLight }]}
+                    onPress={() => { setNewUnit(u); setUnitManuallySet(true); setShowUnitPicker(false); Haptics.selectionAsync(); }}
                   >
-                    <Text style={[
-                      styles.unitOptionText,
-                      { color: u === newUnit ? c.primary : c.text },
-                      u === newUnit && { fontWeight: "700" },
-                    ]}>
+                    <Text style={[styles.unitOptionText, { color: u === newUnit ? c.primary : c.text }, u === newUnit && { fontWeight: "700" }]}>
                       {u}
                     </Text>
-                    {u === newUnit && (
-                      <Ionicons name="checkmark" size={14} color={c.primary} />
-                    )}
+                    {u === newUnit && <Ionicons name="checkmark" size={14} color={c.primary} />}
                   </TouchableOpacity>
                 ))}
               </View>
@@ -328,7 +383,7 @@ export default function PantryScreen() {
                 <Text style={[styles.cancelText, { color: c.textMuted }]}>{t("cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.saveBtn, { backgroundColor: c.primary }, saving && { backgroundColor: c.disabled }]}
+                style={[styles.saveBtn, { backgroundColor: saving ? c.disabled : c.primary }]}
                 onPress={handleSave}
                 disabled={saving}
               >
@@ -340,6 +395,98 @@ export default function PantryScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ── Shopping list modal ───────────────────────────────────────────── */}
+      <Modal visible={showShopping} animationType="slide" transparent={false} presentationStyle="pageSheet">
+        <SafeAreaView style={[styles.safe, { backgroundColor: c.bg }]}>
+          {/* Header */}
+          <View style={[styles.shoppingHeader, { borderBottomColor: c.border }]}>
+            <Text style={[styles.shoppingTitle, { color: c.text }]}>{t("shopping_list")}</Text>
+            <View style={styles.shoppingHeaderActions}>
+              {shoppingList && (
+                <>
+                  <TouchableOpacity onPress={handleShareShopping} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons name="share-outline" size={22} color={c.primary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => { clearShoppingList(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="trash-outline" size={22} color={c.error} />
+                  </TouchableOpacity>
+                </>
+              )}
+              <TouchableOpacity onPress={() => setShowShopping(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={24} color={c.textMuted} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Generate button */}
+          <View style={styles.shoppingGenRow}>
+            {shoppingError && (
+              <View style={[styles.errorBanner, { marginBottom: 8 }]}>
+                <Ionicons name="alert-circle-outline" size={15} color={c.error} />
+                <Text style={[styles.errorText, { color: c.error }]}>{shoppingError}</Text>
+              </View>
+            )}
+            <TouchableOpacity
+              style={[styles.generateBtn, shoppingLoading && { backgroundColor: c.disabled }]}
+              onPress={handleGenerateShopping}
+              disabled={shoppingLoading}
+            >
+              {shoppingLoading ? (
+                <ActivityIndicator color="#FFF" size="small" />
+              ) : (
+                <>
+                  <Ionicons name="sparkles" size={16} color="#FFF" />
+                  <Text style={styles.generateBtnText}>
+                    {t("generate_list")} ({selectedRecipes.length})
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {!shoppingList && !shoppingLoading && (
+            <View style={styles.emptyState}>
+              <View style={[styles.emptyIconWrap, { backgroundColor: c.successBg }]}>
+                <Ionicons name="cart-outline" size={48} color={c.primaryLight} />
+              </View>
+              <Text style={[styles.emptyTitle, { color: c.text }]}>{t("cart_empty")}</Text>
+              <Text style={[styles.emptyText, { color: c.textMuted }]}>{t("cart_empty_sub")}</Text>
+            </View>
+          )}
+
+          {shoppingList && (
+            <ScrollView contentContainerStyle={styles.shoppingContent} showsVerticalScrollIndicator={false}>
+              <View style={styles.shoppingSummary}>
+                <Text style={[styles.summaryText, { color: c.textMuted }]}>
+                  {strings.items_progress(checkedItems, totalItems)}
+                </Text>
+                {shoppingList.total_calories != null && (
+                  <Text style={[styles.calText, { color: c.accent }]}>
+                    ~{shoppingList.total_calories} kcal
+                  </Text>
+                )}
+              </View>
+              {shoppingList.groups.map((group) => (
+                <View key={group.category} style={styles.shoppingGroup}>
+                  <Text style={[styles.groupLabel, { color: c.textPlaceholder }]}>{group.category}</Text>
+                  {group.items.map((item) => (
+                    <IngredientRow
+                      key={item.name}
+                      item={item}
+                      showCheckbox
+                      onToggle={() => { toggleShoppingItem(group.category, item.name); Haptics.selectionAsync(); }}
+                    />
+                  ))}
+                </View>
+              ))}
+            </ScrollView>
+          )}
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -348,7 +495,15 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.bg },
     content: { padding: 16, paddingBottom: 40 },
-    intro: { fontSize: 14, color: c.textMuted, lineHeight: 20, marginBottom: 14 },
+    headerRow: { flexDirection: "row", alignItems: "center", marginBottom: 12, gap: 10 },
+    intro: { fontSize: 13, color: c.textMuted, lineHeight: 19 },
+    cartBtn: { width: 42, height: 42, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+    cartBadge: {
+      position: "absolute", top: -4, right: -4,
+      width: 16, height: 16, borderRadius: 8,
+      alignItems: "center", justifyContent: "center",
+    },
+    cartBadgeText: { color: "#FFF", fontSize: 9, fontWeight: "700" },
     addBtn: {
       flexDirection: "row", alignItems: "center", justifyContent: "center",
       backgroundColor: c.primary, borderRadius: 14, paddingVertical: 13, gap: 8, marginBottom: 16,
@@ -358,12 +513,12 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     emptyState: { alignItems: "center", paddingVertical: 48, gap: 10 },
     emptyIconWrap: { width: 80, height: 80, borderRadius: 40, alignItems: "center", justifyContent: "center", marginBottom: 4 },
     emptyTitle: { fontSize: 18, fontWeight: "700" },
+    emptyText: { fontSize: 14, textAlign: "center", lineHeight: 20, paddingHorizontal: 16 },
     errorBanner: {
       flexDirection: "row", alignItems: "center", gap: 6,
       backgroundColor: c.errorBg, borderRadius: 10, padding: 10, marginTop: 8,
     },
     errorText: { fontSize: 13, flex: 1 },
-    emptyText: { fontSize: 14, textAlign: "center", lineHeight: 20, paddingHorizontal: 16 },
     itemRow: {
       flexDirection: "row", alignItems: "center", backgroundColor: c.surface, borderRadius: 12,
       padding: 14, marginBottom: 8,
@@ -372,45 +527,57 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     itemInfo: { flex: 1 },
     itemName: { fontSize: 15, fontWeight: "600", textTransform: "capitalize" },
     itemAmount: { fontSize: 13, marginTop: 2 },
+    // Modal (add/edit)
     modalBackdrop: { flex: 1, backgroundColor: c.overlay, justifyContent: "flex-end" },
     modalCard: {
       backgroundColor: c.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24,
       padding: 24, paddingBottom: 40, gap: 6,
     },
     modalTitle: { fontSize: 20, fontWeight: "800", marginBottom: 8 },
-    fieldLabel: {
-      fontSize: 12, fontWeight: "600", textTransform: "uppercase",
-      letterSpacing: 0.4, marginTop: 8,
-    },
+    fieldLabel: { fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.4, marginTop: 8 },
     input: {
       borderWidth: 1, borderRadius: 12,
-      paddingHorizontal: 14, paddingVertical: 12,
-      fontSize: 15, marginTop: 4,
+      paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, marginTop: 4,
     },
-    unitRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 6 },
-    unitBtn: {
-      flexDirection: "row", alignItems: "center", gap: 6,
-      paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10,
-    },
+    unitRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 6, flexWrap: "wrap" },
+    unitBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 },
     unitBtnText: { fontSize: 15, fontWeight: "700", color: "#FFF" },
-    suggestedBadge: {
-      flexDirection: "row", alignItems: "center", gap: 4,
-      paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8,
-    },
+    suggestedBadge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
     suggestedText: { fontSize: 11, fontWeight: "600" },
+    conversionHint: { fontSize: 12, fontWeight: "600" },
     unitDropdown: {
-      borderWidth: 1, borderRadius: 12, marginTop: 4,
-      flexDirection: "row", flexWrap: "wrap", gap: 2, padding: 6,
+      borderRadius: 12, borderWidth: 1, marginTop: 4, overflow: "hidden",
+      flexDirection: "row", flexWrap: "wrap", padding: 6, gap: 4,
     },
-    unitOption: {
-      flexDirection: "row", alignItems: "center", gap: 4,
-      paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8,
-    },
+    unitOption: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flexDirection: "row", alignItems: "center", gap: 4 },
     unitOptionText: { fontSize: 14 },
-    modalActions: { flexDirection: "row", gap: 12, marginTop: 20 },
-    cancelBtn: { flex: 1, borderRadius: 14, paddingVertical: 14, alignItems: "center" },
+    modalActions: { flexDirection: "row", gap: 10, marginTop: 16 },
+    cancelBtn: { flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: "center" },
     cancelText: { fontSize: 15, fontWeight: "600" },
-    saveBtn: { flex: 1, borderRadius: 14, paddingVertical: 14, alignItems: "center" },
-    saveBtnText: { fontSize: 15, fontWeight: "700", color: "#FFF" },
+    saveBtn: { flex: 2, borderRadius: 12, paddingVertical: 14, alignItems: "center" },
+    saveBtnText: { color: "#FFF", fontSize: 15, fontWeight: "700" },
+    // Shopping modal
+    shoppingHeader: {
+      flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+      paddingHorizontal: 20, paddingVertical: 14,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+    },
+    shoppingTitle: { fontSize: 20, fontWeight: "800" },
+    shoppingHeaderActions: { flexDirection: "row", alignItems: "center", gap: 16 },
+    shoppingGenRow: { paddingHorizontal: 16, paddingTop: 12 },
+    generateBtn: {
+      flexDirection: "row", alignItems: "center", justifyContent: "center",
+      backgroundColor: c.primary, borderRadius: 14, paddingVertical: 13, gap: 8,
+    },
+    generateBtnText: { color: "#FFF", fontSize: 14, fontWeight: "700" },
+    shoppingContent: { paddingHorizontal: 16, paddingBottom: 40 },
+    shoppingSummary: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 12 },
+    summaryText: { fontSize: 14, fontWeight: "600" },
+    calText: { fontSize: 14, fontWeight: "600" },
+    shoppingGroup: { marginBottom: 20 },
+    groupLabel: {
+      fontSize: 13, fontWeight: "700", textTransform: "uppercase",
+      letterSpacing: 0.6, marginBottom: 4,
+    },
   });
 }
