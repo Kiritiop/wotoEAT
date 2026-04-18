@@ -143,7 +143,7 @@ export default function ShoppingScreen() {
               </Text>
               {shoppingList.total_calories != null && (
                 <Text style={[styles.calorieText, { color: c.accent }]}>
-                  ~{shoppingList.total_calories} kcal total
+                  ~{shoppingList.total_calories} {t("calories_label")}
                 </Text>
               )}
             </View>

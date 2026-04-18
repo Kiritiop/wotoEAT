@@ -207,13 +207,13 @@ export default function RecipesScreen() {
                   {item.prep_time_mins != null && (
                     <View style={styles.metaItem}>
                       <Ionicons name="time-outline" size={12} color={c.textMuted} />
-                      <Text style={[styles.metaText, { color: c.textMuted }]}>{item.prep_time_mins} min</Text>
+                      <Text style={[styles.metaText, { color: c.textMuted }]}>{item.prep_time_mins} {t("min_label")}</Text>
                     </View>
                   )}
                   {item.calories_per_serving != null && (
                     <View style={styles.metaItem}>
                       <Ionicons name="flame-outline" size={12} color={c.textMuted} />
-                      <Text style={[styles.metaText, { color: c.textMuted }]}>{item.calories_per_serving} kcal</Text>
+                      <Text style={[styles.metaText, { color: c.textMuted }]}>{item.calories_per_serving} {t("calories_label")}</Text>
                     </View>
                   )}
                 </View>
@@ -313,20 +313,20 @@ export default function RecipesScreen() {
                 {selectedRecipe.prep_time_mins != null && (
                   <View style={[styles.detailChip, { backgroundColor: c.surfaceAlt }]}>
                     <Ionicons name="time-outline" size={13} color={c.textMuted} />
-                    <Text style={[styles.detailChipText, { color: c.textMuted }]}>{selectedRecipe.prep_time_mins} min</Text>
+                    <Text style={[styles.detailChipText, { color: c.textMuted }]}>{selectedRecipe.prep_time_mins} {t("min_label")}</Text>
                   </View>
                 )}
                 {selectedRecipe.calories_per_serving != null && (
                   <View style={[styles.detailChip, { backgroundColor: c.surfaceAlt }]}>
                     <Ionicons name="flame-outline" size={13} color={c.textMuted} />
-                    <Text style={[styles.detailChipText, { color: c.textMuted }]}>{selectedRecipe.calories_per_serving} kcal</Text>
+                    <Text style={[styles.detailChipText, { color: c.textMuted }]}>{selectedRecipe.calories_per_serving} {t("calories_label")}</Text>
                   </View>
                 )}
               </View>
               {(selectedRecipe.ingredients?.length ?? 0) > 0 && (
                 <>
                   <Text style={[styles.detailSectionLabel, { color: c.textPlaceholder }]}>
-                    Ingredients ({selectedRecipe.ingredients!.length})
+                    {t("ingredients_label")} ({selectedRecipe.ingredients!.length})
                   </Text>
                   {selectedRecipe.ingredients!.map((ing, i) => (
                     <View key={i} style={[styles.detailIngRow, { borderBottomColor: c.borderLight }]}>
@@ -339,7 +339,7 @@ export default function RecipesScreen() {
               {(selectedRecipe.steps?.length ?? 0) > 0 && (
                 <>
                   <Text style={[styles.detailSectionLabel, { color: c.textPlaceholder }]}>
-                    Steps ({selectedRecipe.steps!.length})
+                    {t("steps_label")} ({selectedRecipe.steps!.length})
                   </Text>
                   {selectedRecipe.steps!.map((step, i) => (
                     <View key={i} style={styles.detailStep}>

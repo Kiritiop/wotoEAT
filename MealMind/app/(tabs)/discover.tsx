@@ -16,7 +16,8 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAppStore } from "@/store/useAppStore";
 import { translateTag, translateCuisine, translateDifficulty } from "@/constants/filters";
-import { getDailyPlan, swapMeal } from "@/services/api";
+import { getDailyPlan, swapMeal, saveRecipe } from "@/services/api";
+import type { Recipe, Ingredient } from "@/services/api";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useTheme } from "@/hooks/useTheme";
 import { useBatchTranslated, useTranslated } from "@/hooks/useDynamicTranslation";
@@ -96,6 +97,40 @@ function MealSlotCard({
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }
 
+  // ── Save meal to My Recipes ───────────────────────────────────────────────
+  const [savedState, setSavedState] = useState<"idle" | "saving" | "saved">("idle");
+
+  function parseIngredient(s: string): Ingredient {
+    // Parses "100g chicken breast" or "2 eggs" → structured ingredient
+    const m = s.match(/^([\d.]+)\s*([a-zA-Z\u4e00-\u9fff]+)?\s+(.+)$/);
+    if (m && m[3]) return { name: m[3].trim(), amount: parseFloat(m[1]) || 1, unit: m[2] ?? "" };
+    return { name: s, amount: 1, unit: "" };
+  }
+
+  async function handleSaveMeal() {
+    if (savedState !== "idle") return;
+    setSavedState("saving");
+    try {
+      const recipe: Recipe = {
+        title: meal.name,
+        servings: 2,
+        prep_time_mins: meal.prep_time_mins,
+        calories_per_serving: meal.calories_per_serving,
+        ingredients: (meal.ingredients ?? []).map(parseIngredient),
+        steps: meal.steps ?? [],
+        tags: meal.tags ?? [],
+        warnings: [],
+        source_name: "MealMind Plan",
+      };
+      await saveRecipe(recipe);
+      setSavedState("saved");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      setSavedState("idle");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  }
+
   return (
     <View style={[cardStyles.card, { backgroundColor: c.surface }]}>
       <View style={[cardStyles.slotHeader, { backgroundColor: accent + "18" }]}>
@@ -161,6 +196,26 @@ function MealSlotCard({
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Ionicons name="information-circle-outline" size={17} color={showInfo ? c.primary : c.textMuted} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[cardStyles.saveIconBtn, {
+              borderColor: savedState === "saved" ? c.primary : c.border,
+              backgroundColor: savedState === "saved" ? c.primaryLight : "transparent",
+            }]}
+            onPress={handleSaveMeal}
+            disabled={savedState !== "idle"}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            {savedState === "saving" ? (
+              <ActivityIndicator size={13} color={c.primary} />
+            ) : (
+              <Ionicons
+                name={savedState === "saved" ? "bookmark" : "bookmark-outline"}
+                size={15}
+                color={savedState === "saved" ? c.primary : c.textMuted}
+              />
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -654,6 +709,7 @@ const cardStyles = StyleSheet.create({
   dislikeBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, borderWidth: 1 },
   dislikeText: { fontSize: 12, fontWeight: "600" },
   infoIconBtn: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  saveIconBtn: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   infoPanel: { borderRadius: 12, borderWidth: 1, padding: 12, gap: 8, marginTop: 2 },
   macroRow: { flexDirection: "row", gap: 12, flexWrap: "wrap" },
   macroCell: { alignItems: "center", minWidth: 48 },

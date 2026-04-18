@@ -137,7 +137,7 @@ export default function HistoryScreen() {
                   </Text>
                   <Text style={[styles.mealName, { color: c.text }]} numberOfLines={1}>{meal.name}</Text>
                   <Text style={[styles.mealMeta, { color: c.textMuted }]}>
-                    {meal.calories_per_serving} kcal · {meal.prep_time_mins} min
+                    {meal.calories_per_serving} {t("calories_label")} · {meal.prep_time_mins} {t("min_label")}
                   </Text>
                 </View>
               </View>

@@ -136,6 +136,10 @@ async def swap_meal(
             tags=meal_raw.get("tags", []),
             ingredients=meal_raw.get("ingredients", []),
             steps=meal_raw.get("steps", []),
+            protein_g=meal_raw.get("protein_g"),
+            carbs_g=meal_raw.get("carbs_g"),
+            fat_g=meal_raw.get("fat_g"),
+            fiber_g=meal_raw.get("fiber_g"),
         )
         return meal.model_dump()
     except ValueError as exc:

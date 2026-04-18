@@ -310,6 +310,7 @@ RULES:
 3. Must contain a vegetable, protein, and staple
 4. difficulty: "easy", "medium", or "hard"
 5. tags must ALWAYS be in English (e.g. "high-protein", "quick", "one-pot")
+6. Include estimated macros per serving
 
 Respond with ONLY a single valid JSON object, no markdown:
 {{
@@ -324,7 +325,11 @@ Respond with ONLY a single valid JSON object, no markdown:
   "uses_pantry_items": ["string"],
   "tags": ["string"],
   "ingredients": ["e.g. '2 eggs', '100g chicken breast'"],
-  "steps": ["concise cooking step", "4-6 steps total"]
+  "steps": ["concise cooking step", "4-6 steps total"],
+  "protein_g": integer,
+  "carbs_g": integer,
+  "fat_g": integer,
+  "fiber_g": integer
 }}"""
 
 

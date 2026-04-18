@@ -1,25 +1,16 @@
-Remove everything to do with the Maps and Eating out functionalities # DONE
+All progress should have this in mind: This app will be made as a publishable APP on the appstore one day so make it mobile focused for features and stuff
+1. hide nutrition information to an info icon to the right of the swap button (user has to click “i” for more information)
+2. Get rid of “Today" on the generate page. furthurmore, target audience is not health conscious demographic, but all people. So “your profile” instead of “your health profile”. Health related data put in a tab under profile 
+3. Enlarge the generate button name it "What to eat today?" and place it right below the filters and options, big button, attracts attention
+4. Get rid of shopping reminder list and add “+” “-“ next to ingredients per meal.  (Also include “add all to shopping list”)
+5. since the user does not necessarily want to generate all meals in a day,
+dont force generate all 3 meals. according to the user's preference: All, Breakfast, Lunch, Dinner; only generate the specified meal and not always default to
+generate all three
+6. Add a "My Protein Goal" in profile and allow the user to configure their base protein goal per day. Adjust the meal recommendations accordingly,
+keep a track of the user's protein intake 
 
-1. 添加质量换算：# DONE
-- 录入单位智能转换成统一的克重 （ex：一个鸡蛋—>80g鸡蛋）
-- 质量换算成直观的单位 （ex：500g白菜—>约等于半颗白菜）
-
-2. 重复录入食材时，同种食材质量叠加（ex：100g虾，100g虾 —>200g虾）# DONE
-3. 添加份量选择。# DONE
-- 几人份（可以有drop down menu来滑动选择）
-- 根据食材质量选择份数（ex：输入18个鸡蛋，自动变成：6人份）
-
-4. 添加"收藏"，"常做""已做"选项, make the History tab include searching and add a My Recipes tab, combine the Pantry and Shopping cart tabs just inclue cart at top right of pantry # DONE
-Inside of My Recipes, it should include
-- 收藏：喜欢，也许会做
-- 常做：熟悉，不需要思考，解决选择困难
-- 已做：根据食材分量减少库存
-
-5. at the top of the main page, put all the settings and options into a dropdown that the user can select to access # DONE
-instead of having it presented on screen. Delete the header saying all meals for the day
-replace it with a dropdown selectable object just like the units for pantry; it should say something like all means, breakfast, lunch, dinner, snack, etc.
-大段字，删掉
-早中晚餐变成选项： 一次只显示一道菜
-底部功能栏增高
-
-6. Change onboarding, make it simple and not too many steps, add a "Complete your profile" thing later but make the onboarding a lot simpler # DONE
+7. The chinese translations need work. Train a local ai/translation tool for this project that specializes in food/ingredient language and all there is to do with my app.
+8. Add recipe by search and enter own recipe instead of by URL. Currently the parsing for url recipes is broken anyways, in the Filters and Options in main page and My Recipes, there should be a "Find Recipe" or add recipe from dish name kind of thing.
+This feature should be present in all tabs in My Recipes. 
+9. For every recipe generated, the user should be able to save the recipe to My Recipes. Add a Save button and the user can click on the dish to save it
+furthurmore, in the saved tab, the recipe should have buttons that allows the user to mark as Favorite, Frequent and Made

@@ -466,7 +466,7 @@ export default function PantryScreen() {
                 </Text>
                 {shoppingList.total_calories != null && (
                   <Text style={[styles.calText, { color: c.accent }]}>
-                    ~{shoppingList.total_calories} kcal
+                    ~{shoppingList.total_calories} {t("calories_label")}
                   </Text>
                 )}
               </View>
