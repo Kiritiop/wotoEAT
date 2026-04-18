@@ -18,6 +18,8 @@ from ai.prompts import (
     eat_out_ranking_prompt,
     plan_shopping_prompt,
     swap_meal_prompt,
+    generate_recipe_prompt,
+    translate_prompt,
 )
 
 load_dotenv()
@@ -78,6 +80,8 @@ async def generate_daily_plan(
     max_prep_time_mins: int | None,
     language: str = "en",
     recent_ratings: dict | None = None,
+    servings: int = 2,
+    slots: list[str] | None = None,
 ) -> tuple[dict, bool]:
     cache_data = {
         "profile": profile,
@@ -85,7 +89,9 @@ async def generate_daily_plan(
         "cuisine": cuisine_preference,
         "max_time": max_prep_time_mins,
         "lang": language,
-        "ratings": recent_ratings,  # Must be in key — different ratings → different plan
+        "ratings": recent_ratings,
+        "servings": servings,
+        "slots": slots,
     }
     key = _cache_key(cache_data)
     cached = cache_get(key)
@@ -100,6 +106,7 @@ async def generate_daily_plan(
             "content": daily_plan_prompt(
                 profile, pantry, cuisine_preference,
                 max_prep_time_mins, language, recent_ratings,
+                servings=servings, slots=slots,
             ),
         }],
     )
@@ -168,6 +175,47 @@ async def swap_single_meal(
         }],
     )
     return json.loads(_clean_json(_extract_text(response)))
+
+
+# ---------------------------------------------------------------------------
+# Recipe generation by dish name
+# ---------------------------------------------------------------------------
+
+async def generate_recipe_by_name(dish_name: str, language: str = "en") -> dict:
+    response = await _client.chat.completions.create(
+        model=MODEL,
+        max_tokens=2000,
+        messages=[{"role": "user", "content": generate_recipe_prompt(dish_name, language)}],
+    )
+    result = json.loads(_clean_json(_extract_text(response)))
+    if "error" in result:
+        raise ValueError(result["error"])
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Batch text translation
+# ---------------------------------------------------------------------------
+
+async def translate_texts(texts: list[str]) -> list[str]:
+    if not texts:
+        return []
+    response = await _client.chat.completions.create(
+        model=MODEL,
+        max_tokens=1000,
+        messages=[{"role": "user", "content": translate_prompt(texts)}],
+    )
+    raw = _extract_text(response).strip()
+    # Parse numbered list: "1. 食材\n2. 配料\n..."
+    translations = []
+    for line in raw.splitlines():
+        line = line.strip()
+        if line and line[0].isdigit() and ". " in line:
+            translations.append(line.split(". ", 1)[1].strip())
+    # Fall back to originals for any missing entries
+    while len(translations) < len(texts):
+        translations.append(texts[len(translations)])
+    return translations[:len(texts)]
 
 
 # ---------------------------------------------------------------------------

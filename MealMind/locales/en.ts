@@ -69,6 +69,17 @@ const en = {
   shop_for_plan: "Shop for this plan",
   share_plan: "Share Plan",
   swap_meal: "Swap",
+  per_serving: "per serving",
+  prep_time_label: "prep",
+  generate_cta: "What to eat today?",
+  nutrition_estimated: "Estimated · per serving",
+  macro_protein: "Protein",
+  macro_carbs: "Carbs",
+  macro_fat: "Fat",
+  macro_fiber: "Fiber",
+  ingredients_breakdown: "Ingredients",
+  add_all_to_cart: "Add all to shopping list",
+  added_to_cart: "Added",
   swapping: "Finding alternative…",
   more_details: "More details",
   less: "Less",
@@ -104,6 +115,10 @@ const en = {
   use_imperial: "Use Imperial (lbs / in)",
   calorie_goal: "Daily Calorie Goal",
   calorie_goal_placeholder: "e.g. 2000",
+  protein_goal: "Daily Protein Goal (g)",
+  protein_goal_placeholder: "e.g. 120",
+  protein_today: "Protein today",
+  protein_of_goal: "of goal",
   weight_lbs: "Weight (lbs)",
   height_in: "Height (in)",
 
@@ -138,6 +153,13 @@ const en = {
   offline_note: "Some features may be unavailable",
 
   // ── Recipes ───────────────────────────────────────────────────────────────
+  find_recipe: "Find Recipe",
+  find_recipe_hint: "Type any dish name — AI generates the full recipe instantly.",
+  dish_name_placeholder: "e.g. Kung Pao Chicken, Carbonara, Miso Soup…",
+  no_dish_name: "Please enter a dish name.",
+  generating_recipe: "Generating recipe…",
+  recipe_preview: "Recipe Preview",
+  generate_another: "Try another dish",
   add_recipe_url: "Add recipe from URL",
   no_recipes_title: "No saved recipes",
   no_recipes_body: "Paste any recipe URL and we'll parse and save it for you.",
@@ -147,6 +169,15 @@ const en = {
   save_to_recipes: "Save to my recipes",
   parse_url_placeholder: "https://www.bbcgoodfood.com/recipes/...",
   parse_invalid_url: "Enter a full URL starting with https://",
+
+  // ── Expanded meal card ────────────────────────────────────────────────────
+  ingredients_label: "Ingredients",
+  steps_label: "Steps",
+  find_recipes_online: "Find recipes online",
+  min_label: "min",
+  difficulty_easy: "Easy",
+  difficulty_medium: "Medium",
+  difficulty_hard: "Hard",
 
   // ── History ───────────────────────────────────────────────────────────────
   history_heading: "Meal History",

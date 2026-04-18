@@ -27,6 +27,7 @@ class HealthProfile(BaseModel):
     dietary_restrictions: list[str] = Field(default_factory=list)
     allergies: list[str] = Field(default_factory=list)
     calorie_goal: Optional[int] = None     # daily calorie target
+    protein_goal_g: Optional[int] = None   # daily protein target in grams
     use_imperial: Optional[bool] = None    # display weight in lbs, height in inches
 
 
@@ -82,6 +83,10 @@ class DailyPlanMeal(BaseModel):
     tags: list[str] = Field(default_factory=list)
     ingredients: list[str] = Field(default_factory=list)  # e.g. ["2 eggs", "100g chicken"]
     steps: list[str] = Field(default_factory=list)        # cooking steps
+    protein_g: Optional[int] = None
+    carbs_g: Optional[int] = None
+    fat_g: Optional[int] = None
+    fiber_g: Optional[int] = None
 
 
 class ShoppingReminder(BaseModel):
@@ -103,6 +108,8 @@ class DailyPlanRequest(BaseModel):
     max_prep_time_mins: Optional[int] = None
     language: str = "en"
     recent_ratings: Optional[dict] = None  # {"meal name": "up"|"down"}
+    servings: int = 2
+    slots: Optional[list[str]] = None      # e.g. ["lunch"] — generate only these slots
 
 
 class PlanShoppingRequest(BaseModel):
@@ -147,6 +154,16 @@ class ParseRecipeRequest(BaseModel):
 
 class SaveRecipeRequest(BaseModel):
     recipe: Recipe
+
+
+class GenerateRecipeRequest(BaseModel):
+    dish_name: str
+    language: str = "en"
+
+
+class TranslateRequest(BaseModel):
+    texts: list[str]
+    target: str = "zh"
 
 
 # ---------------------------------------------------------------------------

@@ -42,6 +42,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="discover"
         options={{
+          headerShown: false,
           title: t("tab_today"),
           tabBarIcon: ({ focused, color }) => (
             <TabIcon name="calendar" focused={focused} color={color} />

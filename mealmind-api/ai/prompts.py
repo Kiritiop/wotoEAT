@@ -47,6 +47,8 @@ def daily_plan_prompt(
     max_prep_time_mins: int | None,
     language: str = "en",
     recent_ratings: dict | None = None,
+    servings: int = 2,
+    slots: list[str] | None = None,
 ) -> str:
     pantry_str = json.dumps(pantry, indent=2) if pantry else "[]"
     profile_str = json.dumps(profile, indent=2)
@@ -61,7 +63,16 @@ def daily_plan_prompt(
         constraints.append(f"- Dietary restrictions: {', '.join(profile['dietary_restrictions'])}")
     if profile.get("allergies"):
         constraints.append(f"- Allergies (MUST avoid): {', '.join(profile['allergies'])}")
+    if profile.get("protein_goal_g"):
+        constraints.append(f"- Daily protein goal: {profile['protein_goal_g']}g — prioritise high-protein options")
+    if servings != 2:
+        constraints.append(f"- Servings per meal: {servings} people")
     constraints_str = "\n".join(constraints) if constraints else "None"
+
+    slots_note = ""
+    if slots:
+        slot_list = ", ".join(slots)
+        slots_note = f"\nGENERATE ONLY THESE MEAL SLOTS: {slot_list}. Omit the others entirely."
 
     ratings_section = ""
     if recent_ratings:
@@ -73,7 +84,7 @@ def daily_plan_prompt(
             ratings_section += f"\nUSER DISLIKED THESE (avoid similar): {', '.join(disliked)}"
 
     return f"""You are a professional nutritionist and chef. Plan a full day of meals (breakfast, lunch, dinner) for this user.
-{lang_note}
+{lang_note}{slots_note}
 
 USER HEALTH PROFILE:
 {profile_str}
@@ -95,6 +106,7 @@ RULES:
 7. slot must be exactly: "breakfast", "lunch", or "dinner"
 8. nutrition_note should be one sentence explaining how the day meets the user's health goals
 9. tags must ALWAYS be in English regardless of the response language (e.g. "high-protein", "low-carb", "gluten-free", "quick", "one-pot")
+10. Include estimated macros (protein_g, carbs_g, fat_g, fiber_g) per serving for each meal
 
 Respond with ONLY valid JSON, no markdown fences:
 {{
@@ -115,7 +127,11 @@ Respond with ONLY valid JSON, no markdown fences:
       "uses_pantry_items": ["string"],
       "tags": ["string"],
       "ingredients": ["string — e.g. '2 eggs', '100g chicken breast'"],
-      "steps": ["string — concise cooking step, 4-6 steps total"]
+      "steps": ["string — concise cooking step, 4-6 steps total"],
+      "protein_g": integer,
+      "carbs_g": integer,
+      "fat_g": integer,
+      "fiber_g": integer
     }},
     {{ "slot": "lunch", "...": "same fields" }},
     {{ "slot": "dinner", "...": "same fields" }}
@@ -310,6 +326,49 @@ Respond with ONLY a single valid JSON object, no markdown:
   "ingredients": ["e.g. '2 eggs', '100g chicken breast'"],
   "steps": ["concise cooking step", "4-6 steps total"]
 }}"""
+
+
+def generate_recipe_prompt(dish_name: str, language: str = "en") -> str:
+    lang_note = _LANG_INSTRUCTION.get(language, _LANG_INSTRUCTION["en"])
+    return f"""You are a professional chef and recipe writer.
+{lang_note}
+
+Generate a complete, detailed recipe for: {dish_name}
+
+RULES:
+- ingredients must have realistic amounts and units (e.g. {{"name": "chicken breast", "amount": 300, "unit": "g"}})
+- steps should be clear and actionable (4-8 steps)
+- calories_per_serving is a realistic estimate
+- tags are dietary labels in English (e.g. "high-protein", "gluten-free", "quick")
+- warnings are allergen notices in the response language (e.g. "contains eggs")
+- servings defaults to 2
+
+Respond with ONLY valid JSON, no markdown:
+{{
+  "title": "string",
+  "servings": integer,
+  "prep_time_mins": integer,
+  "calories_per_serving": integer,
+  "ingredients": [
+    {{"name": "string", "amount": number, "unit": "string", "calories": number or null}}
+  ],
+  "steps": ["string"],
+  "tags": ["string"],
+  "warnings": ["string"]
+}}"""
+
+
+def translate_prompt(texts: list[str]) -> str:
+    numbered = "\n".join(f"{i+1}. {t}" for i, t in enumerate(texts))
+    return f"""You are a Chinese food and cooking translation specialist for a meal planning app.
+
+Translate each numbered item below into natural Simplified Chinese.
+Use authentic food vocabulary: 食材 (ingredients), 菜系 (cuisine), 份量 (servings), 备餐时间 (prep time).
+Keep translations concise — this is a mobile UI.
+
+{numbered}
+
+Respond with ONLY the numbered translations in the same format. No explanation."""
 
 
 def eat_out_ranking_prompt(restaurants: list, filters: dict) -> str:

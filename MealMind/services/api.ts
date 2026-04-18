@@ -60,6 +60,7 @@ export interface HealthProfile {
   dietary_restrictions?: string[];
   allergies?: string[];
   calorie_goal?: number;
+  protein_goal_g?: number;
   use_imperial?: boolean;
 }
 
@@ -118,6 +119,11 @@ export interface DailyPlanMeal {
   tags: string[];
   ingredients: string[];
   steps: string[];
+  // Optional macros — included when the backend provides a breakdown
+  protein_g?: number;
+  carbs_g?: number;
+  fat_g?: number;
+  fiber_g?: number;
 }
 
 export interface ShoppingReminder {
@@ -220,6 +226,7 @@ export async function getDailyPlan(
   language = "en",
   recent_ratings?: Record<string, "up" | "down">,
   servings = 2,
+  slots?: ("breakfast" | "lunch" | "dinner")[],
 ): Promise<{ plan: DailyMealPlan; cached: boolean }> {
   const res = await api.post("/meals/daily-plan", {
     profile,
@@ -229,6 +236,7 @@ export async function getDailyPlan(
     language,
     recent_ratings: recent_ratings || null,
     servings,
+    slots: slots ?? null,
   });
   return res.data;
 }
@@ -241,6 +249,24 @@ export async function getPlanHistory(limit = 7): Promise<PlanHistoryEntry[]> {
 export async function parseRecipe(url: string): Promise<Recipe> {
   const res = await api.post("/recipes/parse", { url });
   return res.data;
+}
+
+// Backend endpoint to add (FastAPI):
+//   @app.post("/recipes/generate")
+//   async def generate_recipe(body: dict, user = Depends(get_current_user)):
+//       dish_name = body.get("dish_name", "")
+//       language  = body.get("language", "en")
+//       # Call AI (same model as daily-plan) to generate a full Recipe JSON
+//       # matching the Recipe interface: title, servings, prep_time_mins,
+//       # calories_per_serving, ingredients, steps, tags, warnings
+//       recipe = await ai_generate_recipe(dish_name, language)
+//       return recipe
+export async function generateRecipeByName(
+  dishName: string,
+  language = "en"
+): Promise<Recipe> {
+  const res = await api.post("/recipes/generate", { dish_name: dishName, language });
+  return res.data as Recipe;
 }
 
 export async function saveRecipe(recipe: Recipe): Promise<SavedRecipe> {
@@ -287,6 +313,33 @@ export async function upsertPantry(items: PantryItem[]): Promise<PantryItem[]> {
 
 export async function deletePantryItem(name: string): Promise<void> {
   await api.delete(`/pantry/${encodeURIComponent(name)}`);
+}
+
+// ─── Dynamic content translation ─────────────────────────────────────────────
+//
+// Backend endpoint to add (FastAPI, calls the local Ollama mealmind-translator):
+//
+//   @app.post("/translate")
+//   async def translate_texts(body: dict):
+//       texts = body.get("texts", [])
+//       translations = []
+//       for text in texts:
+//           r = requests.post("http://localhost:11434/api/chat", json={
+//               "model": "mealmind-translator",
+//               "stream": False,
+//               "messages": [{"role": "user", "content": f"Translate: {text}"}]
+//           })
+//           translations.append(r.json()["message"]["content"].strip())
+//       return {"translations": translations}
+//
+export async function translateBatch(texts: string[]): Promise<string[]> {
+  if (texts.length === 0) return [];
+  try {
+    const res = await api.post("/recipes/translate", { texts, target: "zh" });
+    return res.data.translations ?? texts;
+  } catch {
+    return texts; // Graceful fallback — show original if backend unavailable
+  }
 }
 
 export async function swapMeal(

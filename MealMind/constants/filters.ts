@@ -127,6 +127,35 @@ export function translateTag(tag: string, language: string): string {
   return TAG_ZH[tag.toLowerCase()] ?? tag;
 }
 
+export const CUISINE_ZH: Record<string, string> = {
+  "Any": "不限",
+  "Chinese": "中式",
+  "Japanese": "日式",
+  "Korean": "韩式",
+  "Italian": "意式",
+  "Mexican": "墨西哥菜",
+  "Indian": "印度菜",
+  "Thai": "泰式",
+  "Mediterranean": "地中海菜",
+  "American": "美式",
+  "French": "法式",
+  "Middle Eastern": "中东菜",
+  "Greek": "希腊菜",
+  "Spanish": "西班牙菜",
+  "Vietnamese": "越南菜",
+};
+
+export function translateCuisine(cuisine: string, language: string): string {
+  if (language !== "zh") return cuisine;
+  return CUISINE_ZH[cuisine] ?? cuisine;
+}
+
+export function translateDifficulty(difficulty: string, language: string): string {
+  if (language !== "zh") return difficulty;
+  const map: Record<string, string> = { easy: "简单", medium: "中等", hard: "困难" };
+  return map[difficulty.toLowerCase()] ?? difficulty;
+}
+
 // Approximate gram weights for non-standard units — used by the AI
 // to understand how much of an ingredient the user actually has.
 export const UNIT_GRAM_ESTIMATES: Record<string, string> = {

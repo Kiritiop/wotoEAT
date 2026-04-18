@@ -49,6 +49,8 @@ async def daily_plan(
             max_prep_time_mins=req.max_prep_time_mins,
             language=req.language,
             recent_ratings=req.recent_ratings,
+            servings=req.servings,
+            slots=req.slots,
         )
         meals = [
             DailyPlanMeal(
@@ -64,6 +66,10 @@ async def daily_plan(
                 tags=m.get("tags", []),
                 ingredients=m.get("ingredients", []),
                 steps=m.get("steps", []),
+                protein_g=m.get("protein_g"),
+                carbs_g=m.get("carbs_g"),
+                fat_g=m.get("fat_g"),
+                fiber_g=m.get("fiber_g"),
             )
             for m in plan_raw["meals"]
         ]

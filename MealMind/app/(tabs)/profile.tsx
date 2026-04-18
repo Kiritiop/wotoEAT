@@ -136,7 +136,7 @@ export default function ProfileScreen() {
               <TextInput
                 style={[styles.input, { borderColor: c.border, backgroundColor: c.inputBg, color: c.text }]}
                 keyboardType="number-pad"
-                placeholder="e.g. 28"
+                placeholder={t("onboarding_age_placeholder")}
                 placeholderTextColor={c.textPlaceholder}
                 value={profile.age?.toString() ?? ""}
                 onChangeText={(v) => { setProfile({ age: v ? parseInt(v) : undefined }); setSaved(false); }}
@@ -168,7 +168,7 @@ export default function ProfileScreen() {
               <TextInput
                 style={[styles.input, { borderColor: c.border, backgroundColor: c.inputBg, color: c.text }]}
                 keyboardType="decimal-pad"
-                placeholder={profile.use_imperial ? "e.g. 154" : "e.g. 70"}
+                placeholder={profile.use_imperial ? "e.g. 154" : t("onboarding_weight_placeholder")}
                 placeholderTextColor={c.textPlaceholder}
                 value={profile.use_imperial && profile.weight_kg
                   ? (profile.weight_kg * 2.20462).toFixed(1)
@@ -187,7 +187,7 @@ export default function ProfileScreen() {
               <TextInput
                 style={[styles.input, { borderColor: c.border, backgroundColor: c.inputBg, color: c.text }]}
                 keyboardType="decimal-pad"
-                placeholder={profile.use_imperial ? "e.g. 67" : "e.g. 170"}
+                placeholder={profile.use_imperial ? "e.g. 67" : t("onboarding_height_placeholder")}
                 placeholderTextColor={c.textPlaceholder}
                 value={profile.use_imperial && profile.height_cm
                   ? (profile.height_cm / 2.54).toFixed(1)
@@ -201,16 +201,31 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          {/* Calorie goal */}
-          <Text style={[styles.fieldLabel, { color: c.textMuted }]}>{t("calorie_goal")}</Text>
-          <TextInput
-            style={[styles.input, { borderColor: c.border, backgroundColor: c.inputBg, color: c.text }]}
-            keyboardType="number-pad"
-            placeholder={t("calorie_goal_placeholder")}
-            placeholderTextColor={c.textPlaceholder}
-            value={profile.calorie_goal?.toString() ?? ""}
-            onChangeText={(v) => { setProfile({ calorie_goal: v ? parseInt(v) : undefined }); setSaved(false); }}
-          />
+          {/* Calorie goal + Protein goal side by side */}
+          <View style={styles.row}>
+            <View style={styles.half}>
+              <Text style={[styles.fieldLabel, { color: c.textMuted }]}>{t("calorie_goal")}</Text>
+              <TextInput
+                style={[styles.input, { borderColor: c.border, backgroundColor: c.inputBg, color: c.text }]}
+                keyboardType="number-pad"
+                placeholder={t("calorie_goal_placeholder")}
+                placeholderTextColor={c.textPlaceholder}
+                value={profile.calorie_goal?.toString() ?? ""}
+                onChangeText={(v) => { setProfile({ calorie_goal: v ? parseInt(v) : undefined }); setSaved(false); }}
+              />
+            </View>
+            <View style={styles.half}>
+              <Text style={[styles.fieldLabel, { color: c.textMuted }]}>{t("protein_goal")}</Text>
+              <TextInput
+                style={[styles.input, { borderColor: c.border, backgroundColor: c.inputBg, color: c.text }]}
+                keyboardType="number-pad"
+                placeholder={t("protein_goal_placeholder")}
+                placeholderTextColor={c.textPlaceholder}
+                value={profile.protein_goal_g?.toString() ?? ""}
+                onChangeText={(v) => { setProfile({ protein_goal_g: v ? parseInt(v) : undefined }); setSaved(false); }}
+              />
+            </View>
+          </View>
         </View>
 
         {/* Activity level */}

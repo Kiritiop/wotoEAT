@@ -55,6 +55,8 @@ interface AppState {
   setShoppingList: (list: ShoppingList) => void;
   toggleShoppingItem: (category: string, itemName: string) => void;
   clearShoppingList: () => void;
+  addToShoppingList: (category: string, itemName: string) => void;
+  removeFromShoppingList: (category: string, itemName: string) => void;
 
   // ── Recipe labels (favorite, frequent, done) ──────────────────────────────
   recipeLabels: Record<string, string[]>;
@@ -136,6 +138,27 @@ export const useAppStore = create<AppState>()(
           return { shoppingList: { ...state.shoppingList, groups } };
         }),
       clearShoppingList: () => set({ shoppingList: null }),
+      addToShoppingList: (category, itemName) =>
+        set((state) => {
+          const base = state.shoppingList ?? { groups: [] };
+          const idx = base.groups.findIndex((g) => g.category === category);
+          if (idx >= 0) {
+            if (base.groups[idx].items.some((i) => i.name === itemName)) return state;
+            const newGroups = base.groups.map((g, i) =>
+              i === idx ? { ...g, items: [...g.items, { name: itemName, amount: 1, unit: "" }] } : g
+            );
+            return { shoppingList: { ...base, groups: newGroups } };
+          }
+          return { shoppingList: { ...base, groups: [...base.groups, { category, items: [{ name: itemName, amount: 1, unit: "" }] }] } };
+        }),
+      removeFromShoppingList: (category, itemName) =>
+        set((state) => {
+          if (!state.shoppingList) return state;
+          const newGroups = state.shoppingList.groups
+            .map((g) => g.category !== category ? g : { ...g, items: g.items.filter((i) => i.name !== itemName) })
+            .filter((g) => g.items.length > 0);
+          return { shoppingList: { ...state.shoppingList, groups: newGroups } };
+        }),
 
       // ── Recipe labels ─────────────────────────────────────────────────────
       recipeLabels: {},

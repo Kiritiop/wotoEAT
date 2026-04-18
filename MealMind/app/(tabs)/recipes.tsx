@@ -19,6 +19,7 @@ import { getSavedRecipes, deleteRecipe, upsertPantry } from "@/services/api";
 import { useAppStore } from "@/store/useAppStore";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
+import FindRecipeModal from "@/components/FindRecipeModal";
 import type { SavedRecipe } from "@/services/api";
 
 type RecipeTab = "saved" | "favorites" | "frequent" | "done";
@@ -36,6 +37,7 @@ export default function RecipesScreen() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [selectedRecipe, setSelectedRecipe] = useState<SavedRecipe | null>(null);
   const [activeTab, setActiveTab] = useState<RecipeTab>("saved");
+  const [showFindRecipe, setShowFindRecipe] = useState(false);
 
   const loadRecipes = useCallback(async (isRefresh = false) => {
     if (!authReady) return;
@@ -160,9 +162,9 @@ export default function RecipesScreen() {
         }
         ListHeaderComponent={
           <View>
-            <TouchableOpacity style={styles.uploadBtn} onPress={() => router.push("/recipe/upload")}>
-              <Ionicons name="link" size={18} color="#FFF" />
-              <Text style={styles.uploadBtnText}>{t("add_recipe_url")}</Text>
+            <TouchableOpacity style={styles.uploadBtn} onPress={() => setShowFindRecipe(true)}>
+              <Ionicons name="search" size={18} color="#FFF" />
+              <Text style={styles.uploadBtnText}>{t("find_recipe")}</Text>
             </TouchableOpacity>
             {loading && <ActivityIndicator style={{ marginTop: 24 }} color={c.primary} />}
             {deleteError && (
@@ -282,6 +284,13 @@ export default function RecipesScreen() {
           );
         }}
         showsVerticalScrollIndicator={false}
+      />
+
+      {/* Find Recipe modal */}
+      <FindRecipeModal
+        visible={showFindRecipe}
+        onClose={() => setShowFindRecipe(false)}
+        onSaved={() => { loadRecipes(); setActiveTab("saved"); }}
       />
 
       {/* Recipe detail modal */}
