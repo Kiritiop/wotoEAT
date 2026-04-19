@@ -168,7 +168,7 @@ async def swap_single_meal(
     """Generate a replacement meal for one slot, keeping the rest of the plan in context."""
     response = await _client.chat.completions.create(
         model=MODEL,
-        max_tokens=800,
+        max_tokens=2000,
         messages=[{
             "role": "user",
             "content": swap_meal_prompt(slot, current_plan, profile, pantry, language),
@@ -181,11 +181,11 @@ async def swap_single_meal(
 # Recipe generation by dish name
 # ---------------------------------------------------------------------------
 
-async def generate_recipe_by_name(dish_name: str, language: str = "en") -> dict:
+async def generate_recipe_by_name(dish_name: str, language: str = "en", servings: int = 2) -> dict:
     response = await _client.chat.completions.create(
         model=MODEL,
-        max_tokens=2000,
-        messages=[{"role": "user", "content": generate_recipe_prompt(dish_name, language)}],
+        max_tokens=2500,
+        messages=[{"role": "user", "content": generate_recipe_prompt(dish_name, language, servings)}],
     )
     result = json.loads(_clean_json(_extract_text(response)))
     if "error" in result:

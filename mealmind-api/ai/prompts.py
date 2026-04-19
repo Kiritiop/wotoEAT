@@ -333,25 +333,26 @@ Respond with ONLY a single valid JSON object, no markdown:
 }}"""
 
 
-def generate_recipe_prompt(dish_name: str, language: str = "en") -> str:
+def generate_recipe_prompt(dish_name: str, language: str = "en", servings: int = 2) -> str:
     lang_note = _LANG_INSTRUCTION.get(language, _LANG_INSTRUCTION["en"])
+    serving_word = "person" if servings == 1 else "people"
     return f"""You are a professional chef and recipe writer.
 {lang_note}
 
 Generate a complete, detailed recipe for: {dish_name}
+This recipe is for {servings} {serving_word} — scale all ingredient amounts accordingly.
 
 RULES:
-- ingredients must have realistic amounts and units (e.g. {{"name": "chicken breast", "amount": 300, "unit": "g"}})
+- ingredients must have realistic amounts and units scaled for {servings} serving(s) (e.g. {{"name": "chicken breast", "amount": 300, "unit": "g"}})
 - steps should be clear and actionable (4-8 steps)
-- calories_per_serving is a realistic estimate
+- calories_per_serving is a realistic estimate per individual serving
 - tags are dietary labels in English (e.g. "high-protein", "gluten-free", "quick")
 - warnings are allergen notices in the response language (e.g. "contains eggs")
-- servings defaults to 2
 
 Respond with ONLY valid JSON, no markdown:
 {{
   "title": "string",
-  "servings": integer,
+  "servings": {servings},
   "prep_time_mins": integer,
   "calories_per_serving": integer,
   "ingredients": [

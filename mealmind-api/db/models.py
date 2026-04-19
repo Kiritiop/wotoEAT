@@ -159,6 +159,7 @@ class SaveRecipeRequest(BaseModel):
 class GenerateRecipeRequest(BaseModel):
     dish_name: str
     language: str = "en"
+    servings: int = 2
 
 
 class TranslateRequest(BaseModel):

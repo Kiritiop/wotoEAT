@@ -1,16 +1,9 @@
-All progress should have this in mind: This app will be made as a publishable APP on the appstore one day so make it mobile focused for features and stuff
-1. hide nutrition information to an info icon to the right of the swap button (user has to click “i” for more information)
-2. Get rid of “Today" on the generate page. furthurmore, target audience is not health conscious demographic, but all people. So “your profile” instead of “your health profile”. Health related data put in a tab under profile 
-3. Enlarge the generate button name it "What to eat today?" and place it right below the filters and options, big button, attracts attention
-4. Get rid of shopping reminder list and add “+” “-“ next to ingredients per meal.  (Also include “add all to shopping list”)
-5. since the user does not necessarily want to generate all meals in a day,
-dont force generate all 3 meals. according to the user's preference: All, Breakfast, Lunch, Dinner; only generate the specified meal and not always default to
-generate all three
-6. Add a "My Protein Goal" in profile and allow the user to configure their base protein goal per day. Adjust the meal recommendations accordingly,
-keep a track of the user's protein intake 
-
-7. The chinese translations need work. Train a local ai/translation tool for this project that specializes in food/ingredient language and all there is to do with my app.
-8. Add recipe by search and enter own recipe instead of by URL. Currently the parsing for url recipes is broken anyways, in the Filters and Options in main page and My Recipes, there should be a "Find Recipe" or add recipe from dish name kind of thing.
-This feature should be present in all tabs in My Recipes. 
-9. For every recipe generated, the user should be able to save the recipe to My Recipes. Add a Save button and the user can click on the dish to save it
-furthurmore, in the saved tab, the recipe should have buttons that allows the user to mark as Favorite, Frequent and Made
+All changes today are for bug fixing. 
+1. For Breakfast, Lunch and Dinner tabs, the other meals should not appear. 
+For example, if I only selected Breakfast, only the breakfast meal card should appear
+Currently, if I generate a Lunch meal and I go back to generate a Breakfast meal, the Lunch meal still appears and gets pushed down.
+Only the specified meal should exist for the tabs other than All
+2. When finding recipes, the user should be able to edit settings such as the number of people it is supposed to serve.
+3. The ingredient number should match the number of people the user is trying to serve. 
+4. there were server errors once in a while, check over the program to find vulnerabilities and points of interest to take note of. 
+5. Again, it should not be "Your Health Profile", it should be "Your Profile"

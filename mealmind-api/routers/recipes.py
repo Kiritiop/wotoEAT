@@ -49,7 +49,7 @@ async def generate(
     Asks the AI to generate a full recipe for any named dish.
     """
     try:
-        recipe_dict = await generate_recipe_by_name(req.dish_name, req.language)
+        recipe_dict = await generate_recipe_by_name(req.dish_name, req.language, req.servings)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     except Exception as exc:

@@ -43,7 +43,9 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
   const c = useTheme();
   const styles = makeStyles(c);
 
+  const { servings: globalServings } = useAppStore();
   const [dishName, setDishName] = useState("");
+  const [servings, setServings] = useState(globalServings ?? 2);
   const [phase, setPhase] = useState<Phase>("idle");
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +68,7 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
     setPhase("loading");
     setError(null);
     try {
-      const result = await generateRecipeByName(dishName.trim(), language);
+      const result = await generateRecipeByName(dishName.trim(), language, servings);
       setRecipe(result);
       setPhase("preview");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -158,6 +160,27 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
                     </Text>
                   </TouchableOpacity>
                 ))}
+              </View>
+
+              {/* Servings picker */}
+              <View>
+                <Text style={[styles.servingsLabel, { color: c.textMuted }]}>
+                  {language === "zh" ? "份数" : "Servings"}
+                </Text>
+                <View style={styles.servingsRow}>
+                  {[1, 2, 3, 4, 5, 6].map((n) => (
+                    <TouchableOpacity
+                      key={n}
+                      style={[styles.servingsChip, { backgroundColor: c.chipBg, borderColor: c.border }, servings === n && { backgroundColor: c.primary, borderColor: c.primary }]}
+                      onPress={() => { setServings(n); Haptics.selectionAsync(); }}
+                      disabled={phase === "loading"}
+                    >
+                      <Text style={[styles.servingsChipText, { color: c.chipText }, servings === n && { color: "#FFF", fontWeight: "700" }]}>
+                        {n}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
 
               {/* Generate button */}
@@ -319,6 +342,10 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     suggestGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     suggestChip: { paddingHorizontal: 13, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
     suggestText: { fontSize: 13, fontWeight: "500" },
+    servingsLabel: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 8 },
+    servingsRow: { flexDirection: "row", gap: 8 },
+    servingsChip: { width: 40, height: 36, borderRadius: 10, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+    servingsChipText: { fontSize: 14, fontWeight: "600" },
     generateBtn: {
       flexDirection: "row", alignItems: "center", justifyContent: "center",
       borderRadius: 16, paddingVertical: 16, gap: 8, marginTop: 6,

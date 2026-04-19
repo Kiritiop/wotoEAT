@@ -54,14 +54,14 @@ async def daily_plan(
         )
         meals = [
             DailyPlanMeal(
-                slot=m["slot"],
-                name=m["name"],
-                cuisine=m["cuisine"],
-                description=m["description"],
-                prep_time_mins=m["prep_time_mins"],
-                calories_per_serving=m["calories_per_serving"],
-                difficulty=m["difficulty"],
-                components=MealComponent(**m["components"]),
+                slot=m.get("slot", "breakfast"),
+                name=m.get("name", ""),
+                cuisine=m.get("cuisine", ""),
+                description=m.get("description", ""),
+                prep_time_mins=m.get("prep_time_mins", 0),
+                calories_per_serving=m.get("calories_per_serving", 0),
+                difficulty=m.get("difficulty", "medium"),
+                components=MealComponent(**m.get("components", {"vegetable": "", "protein": "", "staple": ""})),
                 uses_pantry_items=m.get("uses_pantry_items", []),
                 tags=m.get("tags", []),
                 ingredients=m.get("ingredients", []),
@@ -71,10 +71,10 @@ async def daily_plan(
                 fat_g=m.get("fat_g"),
                 fiber_g=m.get("fiber_g"),
             )
-            for m in plan_raw["meals"]
+            for m in plan_raw.get("meals", [])
         ]
         reminders = [
-            ShoppingReminder(item=r["item"], reason=r["reason"])
+            ShoppingReminder(item=r.get("item", ""), reason=r.get("reason", ""))
             for r in plan_raw.get("shopping_reminders", [])
         ]
         plan = DailyMealPlan(
@@ -124,14 +124,14 @@ async def swap_meal(
             language=req.language,
         )
         meal = DailyPlanMeal(
-            slot=meal_raw["slot"],
-            name=meal_raw["name"],
-            cuisine=meal_raw["cuisine"],
-            description=meal_raw["description"],
-            prep_time_mins=meal_raw["prep_time_mins"],
-            calories_per_serving=meal_raw["calories_per_serving"],
-            difficulty=meal_raw["difficulty"],
-            components=MealComponent(**meal_raw["components"]),
+            slot=meal_raw.get("slot", req.slot),
+            name=meal_raw.get("name", ""),
+            cuisine=meal_raw.get("cuisine", ""),
+            description=meal_raw.get("description", ""),
+            prep_time_mins=meal_raw.get("prep_time_mins", 0),
+            calories_per_serving=meal_raw.get("calories_per_serving", 0),
+            difficulty=meal_raw.get("difficulty", "medium"),
+            components=MealComponent(**meal_raw.get("components", {"vegetable": "", "protein": "", "staple": ""})),
             uses_pantry_items=meal_raw.get("uses_pantry_items", []),
             tags=meal_raw.get("tags", []),
             ingredients=meal_raw.get("ingredients", []),

@@ -394,7 +394,8 @@ export default function TodayScreen() {
 
   const sortedMeals = (dailyPlan?.meals ?? [])
     .slice()
-    .sort((a, b) => (SLOT_ORDER[a.slot] ?? 0) - (SLOT_ORDER[b.slot] ?? 0));
+    .sort((a, b) => (SLOT_ORDER[a.slot] ?? 0) - (SLOT_ORDER[b.slot] ?? 0))
+    .filter((m) => slotFilter === "all" || m.slot === slotFilter);
 
   const totalProteinG = dailyPlan?.meals.reduce((s, m) => s + (m.protein_g ?? 0), 0) ?? 0;
   const proteinGoal = profile.protein_goal_g;

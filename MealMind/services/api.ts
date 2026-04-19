@@ -263,9 +263,10 @@ export async function parseRecipe(url: string): Promise<Recipe> {
 //       return recipe
 export async function generateRecipeByName(
   dishName: string,
-  language = "en"
+  language = "en",
+  servings = 2,
 ): Promise<Recipe> {
-  const res = await api.post("/recipes/generate", { dish_name: dishName, language });
+  const res = await api.post("/recipes/generate", { dish_name: dishName, language, servings });
   return res.data as Recipe;
 }
 

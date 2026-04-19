@@ -91,7 +91,7 @@ const en = {
   dinner: "Dinner",
 
   // ── Profile ───────────────────────────────────────────────────────────────
-  your_profile: "Your Health Profile",
+  your_profile: "Your Profile",
   profile_subtitle: "Used to personalise your daily meal plan",
   body_metrics: "Body Metrics",
   age: "Age",
