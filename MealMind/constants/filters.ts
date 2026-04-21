@@ -48,6 +48,18 @@ export const FLAVOUR_PROFILES = [
   "fresh",
 ];
 
+export const SLOT_COLOUR: Record<string, string> = {
+  breakfast: "#F59E0B",
+  lunch: "#2E7D32",
+  dinner: "#6366F1",
+};
+
+export const SLOT_ICON: Record<string, string> = {
+  breakfast: "sunny",
+  lunch: "partly-sunny",
+  dinner: "moon",
+};
+
 export const DIFFICULTY_LABELS: Record<string, string> = {
   easy: "Easy",
   medium: "Medium",
@@ -55,9 +67,9 @@ export const DIFFICULTY_LABELS: Record<string, string> = {
 };
 
 export const DIFFICULTY_COLORS: Record<string, string> = {
-  easy: "#4CAF50",
-  medium: "#FF9800",
-  hard: "#F44336",
+  easy: "#16A34A",
+  medium: "#D97706",
+  hard: "#DC2626",
 };
 
 export const PANTRY_UNITS = [

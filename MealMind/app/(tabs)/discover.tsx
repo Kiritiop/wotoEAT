@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import {
   View,
   Text,
@@ -9,13 +9,12 @@ import {
   TextInput,
   Share,
 } from "react-native";
-const CUISINES = ["Chinese", "Japanese", "Korean", "Italian", "Mexican", "Indian", "Thai", "Mediterranean", "American", "French"];
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAppStore } from "@/store/useAppStore";
-import { translateTag, translateCuisine, translateDifficulty } from "@/constants/filters";
+import { CUISINES, SLOT_COLOUR, SLOT_ICON, DIFFICULTY_COLORS, translateTag, translateCuisine, translateDifficulty } from "@/constants/filters";
 import { getDailyPlan, swapMeal, saveRecipe } from "@/services/api";
 import type { Recipe, Ingredient } from "@/services/api";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -25,26 +24,9 @@ import FindRecipeModal from "@/components/FindRecipeModal";
 import type { Rating } from "@/store/useAppStore";
 import type { DailyMealPlan, DailyPlanMeal } from "@/services/api";
 
-type MealRating = Rating;
 type SlotFilter = "all" | "breakfast" | "lunch" | "dinner";
 
 const SLOT_ORDER: Record<string, number> = { breakfast: 0, lunch: 1, dinner: 2 };
-
-const SLOT_COLOUR: Record<string, string> = {
-  breakfast: "#F59E0B",
-  lunch: "#2E7D32",
-  dinner: "#6366F1",
-};
-const SLOT_ICON: Record<string, React.ComponentProps<typeof Ionicons>["name"]> = {
-  breakfast: "sunny",
-  lunch: "partly-sunny",
-  dinner: "moon",
-};
-const DIFFICULTY_COLOUR: Record<string, string> = {
-  easy: "#16A34A",
-  medium: "#D97706",
-  hard: "#DC2626",
-};
 
 function MacroCell({ label, value, color }: { label: string; value: string; color: string }) {
   return (
@@ -59,7 +41,7 @@ function MealSlotCard({
   meal, onRate, onSwap, swapping, onFindRecipe,
 }: {
   meal: DailyPlanMeal;
-  onRate: (r: MealRating) => void;
+  onRate: (r: Rating) => void;
   onSwap: () => void;
   swapping: boolean;
   onFindRecipe: () => void;
@@ -70,7 +52,7 @@ function MealSlotCard({
   const { t } = useTranslation();
   const { language, shoppingList, addToShoppingList, removeFromShoppingList } = useAppStore();
   const accent = SLOT_COLOUR[meal.slot] ?? "#2E7D32";
-  const icon = SLOT_ICON[meal.slot] ?? "restaurant";
+  const icon = (SLOT_ICON[meal.slot] ?? "restaurant") as React.ComponentProps<typeof Ionicons>["name"];
   const hasMacros = meal.protein_g != null || meal.carbs_g != null || meal.fat_g != null;
 
   // Dynamic AI translation — kicks in when language="zh" and content is English
@@ -152,8 +134,8 @@ function MealSlotCard({
         <Text style={[cardStyles.name, { color: c.text }]}>{translatedName}</Text>
         <View style={cardStyles.rowMeta}>
           <Text style={[cardStyles.cuisine, { color: c.textMuted }]}>{meal.cuisine}</Text>
-          <View style={[cardStyles.diffBadge, { backgroundColor: (DIFFICULTY_COLOUR[meal.difficulty] ?? "#999") + "20" }]}>
-            <Text style={[cardStyles.diffText, { color: DIFFICULTY_COLOUR[meal.difficulty] ?? "#999" }]}>
+          <View style={[cardStyles.diffBadge, { backgroundColor: (DIFFICULTY_COLORS[meal.difficulty] ?? "#999") + "20" }]}>
+            <Text style={[cardStyles.diffText, { color: DIFFICULTY_COLORS[meal.difficulty] ?? "#999" }]}>
               {translateDifficulty(meal.difficulty, language)}
             </Text>
           </View>
@@ -267,8 +249,8 @@ function MealSlotCard({
                 <Ionicons name="time-outline" size={13} color={c.textMuted} />
                 <Text style={[cardStyles.infoFooterText, { color: c.textMuted }]}>{meal.prep_time_mins} {t("min_label")}</Text>
               </View>
-              <View style={[cardStyles.diffBadge, { backgroundColor: (DIFFICULTY_COLOUR[meal.difficulty] ?? "#999") + "20" }]}>
-                <Text style={[cardStyles.diffText, { color: DIFFICULTY_COLOUR[meal.difficulty] ?? "#999" }]}>{translateDifficulty(meal.difficulty, language)}</Text>
+              <View style={[cardStyles.diffBadge, { backgroundColor: (DIFFICULTY_COLORS[meal.difficulty] ?? "#999") + "20" }]}>
+                <Text style={[cardStyles.diffText, { color: DIFFICULTY_COLORS[meal.difficulty] ?? "#999" }]}>{translateDifficulty(meal.difficulty, language)}</Text>
               </View>
             </View>
 

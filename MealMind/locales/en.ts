@@ -233,6 +233,9 @@ const en = {
   onboarding_age_placeholder: "e.g. 28",
   onboarding_weight_placeholder: "e.g. 70",
   onboarding_height_placeholder: "e.g. 170",
+
+  // ── Find Recipe modal ─────────────────────────────────────────────────────
+  popular_dishes: "Popular dishes",
 } as const;
 
 export type TranslationKey = keyof typeof en;

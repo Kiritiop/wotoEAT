@@ -233,6 +233,9 @@ const zh = {
   onboarding_age_placeholder: "如：28",
   onboarding_weight_placeholder: "如：70",
   onboarding_height_placeholder: "如：170",
+
+  // ── Find Recipe modal ─────────────────────────────────────────────────────
+  popular_dishes: "热门菜品",
 } as const;
 
 export default zh;

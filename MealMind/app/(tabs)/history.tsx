@@ -13,17 +13,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { getPlanHistory } from "@/services/api";
+import { SLOT_COLOUR } from "@/constants/filters";
 import { WeeklyCalChart } from "@/components/WeeklyCalChart";
 import { useAppStore } from "@/store/useAppStore";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import type { PlanHistoryEntry, DailyPlanMeal } from "@/services/api";
-
-const SLOT_COLOR: Record<string, string> = {
-  breakfast: "#F59E0B",
-  lunch: "#2E7D32",
-  dinner: "#6366F1",
-};
 
 export default function HistoryScreen() {
   const { profile, authReady } = useAppStore();
@@ -130,9 +125,9 @@ export default function HistoryScreen() {
 
             {entry.plan?.meals?.map((meal: DailyPlanMeal) => (
               <View key={meal.slot} style={styles.mealRow}>
-                <View style={[styles.slotDot, { backgroundColor: SLOT_COLOR[meal.slot] ?? c.primary }]} />
+                <View style={[styles.slotDot, { backgroundColor: SLOT_COLOUR[meal.slot] ?? c.primary }]} />
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.mealSlot, { color: SLOT_COLOR[meal.slot] ?? c.primary }]}>
+                  <Text style={[styles.mealSlot, { color: SLOT_COLOUR[meal.slot] ?? c.primary }]}>
                     {meal.slot.charAt(0).toUpperCase() + meal.slot.slice(1)}
                   </Text>
                   <Text style={[styles.mealName, { color: c.text }]} numberOfLines={1}>{meal.name}</Text>

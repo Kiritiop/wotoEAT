@@ -1,9 +1,212 @@
-All changes today are for bug fixing. 
-1. For Breakfast, Lunch and Dinner tabs, the other meals should not appear. 
-For example, if I only selected Breakfast, only the breakfast meal card should appear
-Currently, if I generate a Lunch meal and I go back to generate a Breakfast meal, the Lunch meal still appears and gets pushed down.
-Only the specified meal should exist for the tabs other than All
-2. When finding recipes, the user should be able to edit settings such as the number of people it is supposed to serve.
-3. The ingredient number should match the number of people the user is trying to serve. 
-4. there were server errors once in a while, check over the program to find vulnerabilities and points of interest to take note of. 
-5. Again, it should not be "Your Health Profile", it should be "Your Profile"
+bug fixing again, I am getting errors:
+It keeps giving errors after a couple of requests and i cant use it anymore
+Failed to load resource: the server responded with a status of 429 ()Understand this error
+mealmind-production-dc38.up.railway.app/meals/daily-plan:1  Failed to load resource: the server responded with a status of 429 ()Understand this error
+mealmind-production-dc38.up.railway.app/meals/daily-plan:1  Failed to load resource: the server responded with a status of 429 ()Understand this error
+mealmind-production-dc38.up.railway.app/meals/daily-plan:1  Failed to load resource: the server responded with a status of 429 ()Understand this error
+discover:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+entry-410d3864a633d94f351123cb2ba9bb29.js:837  POST https://mealmind-production-dc38.up.railway.app/meals/daily-plan 429 (Too Many Requests)
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:837
+xhr @ entry-410d3864a633d94f351123cb2ba9bb29.js:837
+c @ entry-410d3864a633d94f351123cb2ba9bb29.js:815
+Promise.then
+_request @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+request @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:808
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:804
+onPress @ entry-410d3864a633d94f351123cb2ba9bb29.js:799
+onClick @ entry-410d3864a633d94f351123cb2ba9bb29.js:454
+ef @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Bn @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+of @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Fd @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Td @ entry-410d3864a633d94f351123cb2ba9bb29.js:335Understand this error
+entry-410d3864a633d94f351123cb2ba9bb29.js:837  POST https://mealmind-production-dc38.up.railway.app/meals/daily-plan 429 (Too Many Requests)
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:837
+xhr @ entry-410d3864a633d94f351123cb2ba9bb29.js:837
+c @ entry-410d3864a633d94f351123cb2ba9bb29.js:815
+Promise.then
+_request @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+request @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:808
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:804
+onPress @ entry-410d3864a633d94f351123cb2ba9bb29.js:799
+onClick @ entry-410d3864a633d94f351123cb2ba9bb29.js:454
+ef @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Bn @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+of @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Fd @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Td @ entry-410d3864a633d94f351123cb2ba9bb29.js:335Understand this error
+entry-410d3864a633d94f351123cb2ba9bb29.js:837  POST https://mealmind-production-dc38.up.railway.app/meals/daily-plan 429 (Too Many Requests)
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:837
+xhr @ entry-410d3864a633d94f351123cb2ba9bb29.js:837
+c @ entry-410d3864a633d94f351123cb2ba9bb29.js:815
+Promise.then
+_request @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+request @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:808
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:804
+onPress @ entry-410d3864a633d94f351123cb2ba9bb29.js:799
+onClick @ entry-410d3864a633d94f351123cb2ba9bb29.js:454
+ef @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Bn @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+of @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Fd @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Td @ entry-410d3864a633d94f351123cb2ba9bb29.js:335Understand this error
+entry-410d3864a633d94f351123cb2ba9bb29.js:837  POST https://mealmind-production-dc38.up.railway.app/meals/daily-plan 429 (Too Many Requests)
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:837
+xhr @ entry-410d3864a633d94f351123cb2ba9bb29.js:837
+c @ entry-410d3864a633d94f351123cb2ba9bb29.js:815
+Promise.then
+_request @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+request @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:808
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:804
+onPress @ entry-410d3864a633d94f351123cb2ba9bb29.js:799
+onClick @ entry-410d3864a633d94f351123cb2ba9bb29.js:454
+ef @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Bn @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+of @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Fd @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Td @ entry-410d3864a633d94f351123cb2ba9bb29.js:335Understand this error
+entry-410d3864a633d94f351123cb2ba9bb29.js:837  POST https://mealmind-production-dc38.up.railway.app/meals/daily-plan 429 (Too Many Requests)
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:837
+xhr @ entry-410d3864a633d94f351123cb2ba9bb29.js:837
+c @ entry-410d3864a633d94f351123cb2ba9bb29.js:815
+Promise.then
+_request @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+request @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:808
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:804
+onPress @ entry-410d3864a633d94f351123cb2ba9bb29.js:799
+onClick @ entry-410d3864a633d94f351123cb2ba9bb29.js:454
+ef @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Bn @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+of @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Fd @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Td @ entry-410d3864a633d94f351123cb2ba9bb29.js:335Understand this error
+entry-410d3864a633d94f351123cb2ba9bb29.js:837  POST https://mealmind-production-dc38.up.railway.app/meals/daily-plan 429 (Too Many Requests)
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:837
+xhr @ entry-410d3864a633d94f351123cb2ba9bb29.js:837
+c @ entry-410d3864a633d94f351123cb2ba9bb29.js:815
+Promise.then
+_request @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+request @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:808
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:804
+onPress @ entry-410d3864a633d94f351123cb2ba9bb29.js:799
+onClick @ entry-410d3864a633d94f351123cb2ba9bb29.js:454
+ef @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Bn @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+of @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Fd @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Td @ entry-410d3864a633d94f351123cb2ba9bb29.js:335Understand this error
+entry-410d3864a633d94f351123cb2ba9bb29.js:837  POST https://mealmind-production-dc38.up.railway.app/meals/daily-plan 429 (Too Many Requests)
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:837
+xhr @ entry-410d3864a633d94f351123cb2ba9bb29.js:837
+c @ entry-410d3864a633d94f351123cb2ba9bb29.js:815
+Promise.then
+_request @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+request @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:808
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:804
+onPress @ entry-410d3864a633d94f351123cb2ba9bb29.js:799
+onClick @ entry-410d3864a633d94f351123cb2ba9bb29.js:454
+ef @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Bn @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+of @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Fd @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Td @ entry-410d3864a633d94f351123cb2ba9bb29.js:335Understand this error
+entry-410d3864a633d94f351123cb2ba9bb29.js:837  POST https://mealmind-production-dc38.up.railway.app/meals/daily-plan 429 (Too Many Requests)
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:837
+xhr @ entry-410d3864a633d94f351123cb2ba9bb29.js:837
+c @ entry-410d3864a633d94f351123cb2ba9bb29.js:815
+Promise.then
+_request @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+request @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:808
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:804
+onPress @ entry-410d3864a633d94f351123cb2ba9bb29.js:799
+onClick @ entry-410d3864a633d94f351123cb2ba9bb29.js:454
+ef @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Bn @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+of @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Fd @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Td @ entry-410d3864a633d94f351123cb2ba9bb29.js:335Understand this error
+entry-410d3864a633d94f351123cb2ba9bb29.js:837  POST https://mealmind-production-dc38.up.railway.app/meals/daily-plan 429 (Too Many Requests)
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:837
+xhr @ entry-410d3864a633d94f351123cb2ba9bb29.js:837
+c @ entry-410d3864a633d94f351123cb2ba9bb29.js:815
+Promise.then
+_request @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+request @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:808
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:804
+onPress @ entry-410d3864a633d94f351123cb2ba9bb29.js:799
+onClick @ entry-410d3864a633d94f351123cb2ba9bb29.js:454
+ef @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Bn @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+of @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Fd @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Td @ entry-410d3864a633d94f351123cb2ba9bb29.js:335Understand this error
+entry-410d3864a633d94f351123cb2ba9bb29.js:837  POST https://mealmind-production-dc38.up.railway.app/meals/daily-plan 429 (Too Many Requests)
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:837
+xhr @ entry-410d3864a633d94f351123cb2ba9bb29.js:837
+c @ entry-410d3864a633d94f351123cb2ba9bb29.js:815
+Promise.then
+_request @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+request @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:808
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:804
+onPress @ entry-410d3864a633d94f351123cb2ba9bb29.js:799
+onClick @ entry-410d3864a633d94f351123cb2ba9bb29.js:454
+ef @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Bn @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+of @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Fd @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Td @ entry-410d3864a633d94f351123cb2ba9bb29.js:335Understand this error
+entry-410d3864a633d94f351123cb2ba9bb29.js:837  POST https://mealmind-production-dc38.up.railway.app/meals/daily-plan 429 (Too Many Requests)
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:837
+xhr @ entry-410d3864a633d94f351123cb2ba9bb29.js:837
+c @ entry-410d3864a633d94f351123cb2ba9bb29.js:815
+Promise.then
+_request @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+request @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:809
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:808
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:804
+onPress @ entry-410d3864a633d94f351123cb2ba9bb29.js:799
+onClick @ entry-410d3864a633d94f351123cb2ba9bb29.js:454
+ef @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+(anonymous) @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Bn @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+of @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Fd @ entry-410d3864a633d94f351123cb2ba9bb29.js:335
+Td @ entry-410d3864a633d94f351123cb2ba9bb29.js:335Understand this error
+entry-410d3864a633d94f351123cb2ba9bb29.js:837  POST https://mealmind-production-dc38.up.railway.app/meals/daily-plan 429 (Too Many Requests)
+
+
+
+1. Make the “try another recipe” button automatically regenerate using the same selected tags/keywords. Instead of going back to select key words every time when the recipe is not satisfactory.
+Also include the option/filter bar on top so users can change keywords mid-search as well
+2. For serving size option in filters, put that as a selectable dropdown next to the ingredients list 

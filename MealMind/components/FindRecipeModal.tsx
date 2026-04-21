@@ -38,12 +38,11 @@ interface Props {
 }
 
 export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
-  const { language } = useAppStore();
+  const { language, servings: globalServings } = useAppStore();
   const { t } = useTranslation();
   const c = useTheme();
   const styles = makeStyles(c);
 
-  const { servings: globalServings } = useAppStore();
   const [dishName, setDishName] = useState("");
   const [servings, setServings] = useState(globalServings ?? 2);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -51,6 +50,8 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const suggestions = language === "zh" ? SUGGESTIONS_ZH : SUGGESTIONS_EN;
+  const isGenerating = phase === "loading";
+  const hasRecipe = (phase === "preview" || phase === "saving") && recipe != null;
 
   function handleClose() {
     setDishName("");
@@ -110,103 +111,107 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
 
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-          {/* ── Phase: idle / error — input screen ── */}
-          {(phase === "idle" || phase === "loading") && (
-            <View style={styles.inputSection}>
+          {/* ── Input section — always visible so users can change keywords ── */}
+          <View style={styles.inputSection}>
+            {!hasRecipe && (
               <Text style={[styles.hint, { color: c.textMuted }]}>{t("find_recipe_hint")}</Text>
+            )}
 
-              {/* Dish name input */}
-              <View style={[styles.inputRow, { borderColor: c.border, backgroundColor: c.inputBg }]}>
-                <Ionicons name="restaurant-outline" size={18} color={c.textMuted} />
-                <TextInput
-                  style={[styles.input, { color: c.text }]}
-                  placeholder={t("dish_name_placeholder")}
-                  placeholderTextColor={c.textPlaceholder}
-                  value={dishName}
-                  onChangeText={(v) => { setDishName(v); setError(null); }}
-                  autoCapitalize="words"
-                  returnKeyType="search"
-                  onSubmitEditing={handleGenerate}
-                  editable={phase === "idle"}
-                />
-                {dishName.length > 0 && phase === "idle" && (
-                  <TouchableOpacity onPress={() => setDishName("")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Ionicons name="close-circle" size={16} color={c.textMuted} />
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {error && (
-                <View style={[styles.errorRow, { backgroundColor: c.errorBg }]}>
-                  <Ionicons name="alert-circle-outline" size={14} color={c.error} />
-                  <Text style={[styles.errorText, { color: c.error }]}>{error}</Text>
-                </View>
+            {/* Dish name input */}
+            <View style={[styles.inputRow, { borderColor: c.border, backgroundColor: c.inputBg }]}>
+              <Ionicons name="restaurant-outline" size={18} color={c.textMuted} />
+              <TextInput
+                style={[styles.input, { color: c.text }]}
+                placeholder={t("dish_name_placeholder")}
+                placeholderTextColor={c.textPlaceholder}
+                value={dishName}
+                onChangeText={(v) => { setDishName(v); setError(null); }}
+                autoCapitalize="words"
+                returnKeyType="search"
+                onSubmitEditing={handleGenerate}
+                editable={!isGenerating && phase !== "saving"}
+              />
+              {dishName.length > 0 && !isGenerating && phase !== "saving" && (
+                <TouchableOpacity onPress={() => setDishName("")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Ionicons name="close-circle" size={16} color={c.textMuted} />
+                </TouchableOpacity>
               )}
+            </View>
 
-              {/* Suggestion chips */}
-              <Text style={[styles.suggestLabel, { color: c.textPlaceholder }]}>
-                {language === "zh" ? "热门菜品" : "Popular dishes"}
-              </Text>
-              <View style={styles.suggestGrid}>
-                {suggestions.map((s) => (
-                  <TouchableOpacity
-                    key={s}
-                    style={[styles.suggestChip, { backgroundColor: c.chipBg, borderColor: c.border }, dishName === s && { backgroundColor: c.primary, borderColor: c.primary }]}
-                    onPress={() => { setDishName(s); setError(null); Haptics.selectionAsync(); }}
-                    disabled={phase === "loading"}
-                  >
-                    <Text style={[styles.suggestText, { color: c.chipText }, dishName === s && { color: "#FFF", fontWeight: "700" }]}>
-                      {s}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+            {error && !hasRecipe && (
+              <View style={[styles.errorRow, { backgroundColor: c.errorBg }]}>
+                <Ionicons name="alert-circle-outline" size={14} color={c.error} />
+                <Text style={[styles.errorText, { color: c.error }]}>{error}</Text>
               </View>
+            )}
 
-              {/* Servings picker */}
-              <View>
-                <Text style={[styles.servingsLabel, { color: c.textMuted }]}>
-                  {language === "zh" ? "份数" : "Servings"}
+            {/* Suggestion chips — hidden once a recipe is showing */}
+            {!hasRecipe && (
+              <>
+                <Text style={[styles.suggestLabel, { color: c.textPlaceholder }]}>
+                  {t("popular_dishes")}
                 </Text>
-                <View style={styles.servingsRow}>
-                  {[1, 2, 3, 4, 5, 6].map((n) => (
+                <View style={styles.suggestGrid}>
+                  {suggestions.map((s) => (
                     <TouchableOpacity
-                      key={n}
-                      style={[styles.servingsChip, { backgroundColor: c.chipBg, borderColor: c.border }, servings === n && { backgroundColor: c.primary, borderColor: c.primary }]}
-                      onPress={() => { setServings(n); Haptics.selectionAsync(); }}
-                      disabled={phase === "loading"}
+                      key={s}
+                      style={[styles.suggestChip, { backgroundColor: c.chipBg, borderColor: c.border }, dishName === s && { backgroundColor: c.primary, borderColor: c.primary }]}
+                      onPress={() => { setDishName(s); setError(null); Haptics.selectionAsync(); }}
+                      disabled={isGenerating}
                     >
-                      <Text style={[styles.servingsChipText, { color: c.chipText }, servings === n && { color: "#FFF", fontWeight: "700" }]}>
-                        {n}
+                      <Text style={[styles.suggestText, { color: c.chipText }, dishName === s && { color: "#FFF", fontWeight: "700" }]}>
+                        {s}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
+              </>
+            )}
+
+            {/* Servings picker */}
+            <View>
+              <Text style={[styles.servingsLabel, { color: c.textMuted }]}>{t("servings")}</Text>
+              <View style={styles.servingsRow}>
+                {[1, 2, 3, 4, 5, 6].map((n) => (
+                  <TouchableOpacity
+                    key={n}
+                    style={[styles.servingsChip, { backgroundColor: c.chipBg, borderColor: c.border }, servings === n && { backgroundColor: c.primary, borderColor: c.primary }]}
+                    onPress={() => { setServings(n); Haptics.selectionAsync(); }}
+                    disabled={isGenerating || phase === "saving"}
+                  >
+                    <Text style={[styles.servingsChipText, { color: c.chipText }, servings === n && { color: "#FFF", fontWeight: "700" }]}>
+                      {n}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-
-              {/* Generate button */}
-              <TouchableOpacity
-                style={[styles.generateBtn, { backgroundColor: phase === "loading" ? c.disabled : c.primary }]}
-                onPress={handleGenerate}
-                disabled={phase === "loading"}
-                activeOpacity={0.85}
-              >
-                {phase === "loading" ? (
-                  <>
-                    <ActivityIndicator color="#FFF" size="small" />
-                    <Text style={styles.generateBtnText}>{t("generating_recipe")}</Text>
-                  </>
-                ) : (
-                  <>
-                    <Ionicons name="sparkles" size={18} color="#FFF" />
-                    <Text style={styles.generateBtnText}>{t("generate")}</Text>
-                  </>
-                )}
-              </TouchableOpacity>
             </View>
-          )}
 
-          {/* ── Phase: preview ── */}
-          {(phase === "preview" || phase === "saving") && recipe && (
+            {/* Generate / Regenerate button */}
+            <TouchableOpacity
+              style={[styles.generateBtn, { backgroundColor: isGenerating || phase === "saving" ? c.disabled : c.primary }]}
+              onPress={handleGenerate}
+              disabled={isGenerating || phase === "saving"}
+              activeOpacity={0.85}
+            >
+              {isGenerating ? (
+                <>
+                  <ActivityIndicator color="#FFF" size="small" />
+                  <Text style={styles.generateBtnText}>{t("generating_recipe")}</Text>
+                </>
+              ) : (
+                <>
+                  <Ionicons name="sparkles" size={18} color="#FFF" />
+                  <Text style={styles.generateBtnText}>
+                    {hasRecipe ? t("regenerate") : t("generate")}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* ── Recipe preview ── */}
+          {hasRecipe && (
             <View style={styles.previewSection}>
               <Text style={[styles.previewLabel, { color: c.textPlaceholder }]}>{t("recipe_preview")}</Text>
 
@@ -230,7 +235,7 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
                   {recipe.servings > 0 && (
                     <View style={[styles.metaChip, { backgroundColor: c.surfaceAlt }]}>
                       <Ionicons name="people-outline" size={12} color={c.textMuted} />
-                      <Text style={[styles.metaChipText, { color: c.textMuted }]}>{recipe.servings} {language === "zh" ? "人份" : "servings"}</Text>
+                      <Text style={[styles.metaChipText, { color: c.textMuted }]}>{recipe.servings} {t("servings")}</Text>
                     </View>
                   )}
                 </View>
@@ -250,7 +255,9 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
                     ))}
                     {recipe.ingredients.length > 6 && (
                       <Text style={[styles.moreHint, { color: c.textPlaceholder }]}>
-                        {language === "zh" ? `+${recipe.ingredients.length - 6} 种食材` : `+${recipe.ingredients.length - 6} more ingredients`}
+                        {language === "zh"
+                          ? `+${recipe.ingredients.length - 6} 种食材`
+                          : `+${recipe.ingredients.length - 6} more ingredients`}
                       </Text>
                     )}
                   </>
@@ -285,7 +292,7 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
                 </View>
               )}
 
-              {/* Action buttons */}
+              {/* Save button */}
               <TouchableOpacity
                 style={[styles.saveBtn, { backgroundColor: phase === "saving" ? c.disabled : c.primary }]}
                 onPress={handleSave}
@@ -300,15 +307,6 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
                     <Text style={styles.saveBtnText}>{t("save_to_recipes")}</Text>
                   </>
                 )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.tryAgainBtn, { borderColor: c.border, backgroundColor: c.surface }]}
-                onPress={() => { setPhase("idle"); setRecipe(null); }}
-                disabled={phase === "saving"}
-              >
-                <Ionicons name="refresh-outline" size={16} color={c.textMuted} />
-                <Text style={[styles.tryAgainText, { color: c.textMuted }]}>{t("generate_another")}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -328,7 +326,6 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     headerIcon: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
     headerTitle: { fontSize: 17, fontWeight: "800", flex: 1 },
     content: { padding: 20, paddingBottom: 48 },
-    // Input phase
     inputSection: { gap: 14 },
     hint: { fontSize: 13, lineHeight: 19 },
     inputRow: {
@@ -353,8 +350,7 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
       shadowOpacity: 0.3, shadowRadius: 8, elevation: 5,
     },
     generateBtnText: { color: "#FFF", fontSize: 16, fontWeight: "700" },
-    // Preview phase
-    previewSection: { gap: 14 },
+    previewSection: { gap: 14, marginTop: 8 },
     previewLabel: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
     recipeCard: {
       borderRadius: 16, borderWidth: 1, padding: 16, gap: 10,
@@ -392,10 +388,5 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
       shadowOpacity: 0.3, shadowRadius: 8, elevation: 5,
     },
     saveBtnText: { color: "#FFF", fontSize: 16, fontWeight: "700" },
-    tryAgainBtn: {
-      flexDirection: "row", alignItems: "center", justifyContent: "center",
-      borderRadius: 14, paddingVertical: 13, gap: 6, borderWidth: 1,
-    },
-    tryAgainText: { fontSize: 14, fontWeight: "600" },
   });
 }

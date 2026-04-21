@@ -30,6 +30,7 @@ api.interceptors.request.use(async (config) => {
 
 // On 401, refresh the session once and retry — handles the startup race where
 // getSession() hasn't resolved yet when the first request fires.
+// On 429, retry with exponential backoff (up to 3 attempts: 1.5s, 3s, 6s).
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -41,6 +42,18 @@ api.interceptors.response.use(
       if (freshToken) {
         setAuthToken(freshToken);
         originalRequest.headers.Authorization = `Bearer ${freshToken}`;
+        return api(originalRequest);
+      }
+    }
+    if (error.response?.status === 429) {
+      const retryCount = originalRequest._retryCount ?? 0;
+      if (retryCount < 3) {
+        originalRequest._retryCount = retryCount + 1;
+        const retryAfter = error.response.headers?.["retry-after"];
+        const waitMs = retryAfter
+          ? parseInt(retryAfter, 10) * 1000
+          : Math.pow(2, retryCount) * 1500;
+        await new Promise<void>((resolve) => setTimeout(resolve, waitMs));
         return api(originalRequest);
       }
     }
