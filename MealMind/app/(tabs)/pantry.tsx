@@ -20,6 +20,9 @@ import { getPantry, upsertPantry, deletePantryItem, generateShoppingList } from 
 import { getPantryUnits } from "@/constants/filters";
 import { toGrams, intuitiveHint } from "@/constants/conversions";
 import { IngredientRow } from "@/components/IngredientRow";
+import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { formatShoppingListText, countShoppingItems } from "@/utils/shopping";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import type { PantryItem } from "@/services/api";
@@ -197,21 +200,18 @@ export default function PantryScreen() {
 
   async function handleShareShopping() {
     if (!shoppingList) return;
-    const lines: string[] = [];
-    for (const group of shoppingList.groups) {
-      lines.push(`\n${group.category.toUpperCase()}`);
-      for (const item of group.items) {
-        lines.push(`${item.checked ? "[x]" : "[ ]"} ${item.name} — ${item.amount} ${item.unit}`);
-      }
-    }
-    await Share.share({ message: `MealMind Shopping List\n${lines.join("\n")}` });
+    await Share.share({ message: formatShoppingListText(shoppingList) });
   }
 
-  const totalItems = shoppingList?.groups.reduce((s, g) => s + g.items.length, 0) ?? 0;
-  const checkedItems = shoppingList?.groups.reduce((s, g) => s + g.items.filter((i) => i.checked).length, 0) ?? 0;
+  const { total: totalItems, checked: checkedItems } = shoppingList
+    ? countShoppingItems(shoppingList)
+    : { total: 0, checked: 0 };
 
   const styles = makeStyles(c);
   const isRecommended = !unitManuallySet && newName.trim().length > 1;
+  const conversionGrams = newAmount.trim() && !isNaN(parseFloat(newAmount))
+    ? toGrams(parseFloat(newAmount), newUnit, newName)
+    : null;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -245,12 +245,7 @@ export default function PantryScreen() {
               <Text style={styles.addBtnText}>{t("add_ingredient")}</Text>
             </TouchableOpacity>
             {loading && <ActivityIndicator style={{ marginTop: 24 }} color={c.primary} />}
-            {deleteError && (
-              <View style={styles.errorBanner}>
-                <Ionicons name="alert-circle-outline" size={15} color={c.error} />
-                <Text style={[styles.errorText, { color: c.error }]}>{deleteError}</Text>
-              </View>
-            )}
+            <ErrorBanner message={deleteError} style={{ marginTop: 8 }} />
             {pantry.length > 0 && (
               <Text style={styles.countLabel}>{strings.pantry_count(pantry.length)}</Text>
             )}
@@ -258,13 +253,12 @@ export default function PantryScreen() {
         }
         ListEmptyComponent={
           !loading ? (
-            <View style={styles.emptyState}>
-              <View style={[styles.emptyIconWrap, { backgroundColor: c.successBg }]}>
-                <Ionicons name="nutrition-outline" size={40} color={c.primaryLight} />
-              </View>
-              <Text style={[styles.emptyTitle, { color: c.text }]}>{t("pantry_empty_title")}</Text>
-              <Text style={[styles.emptyText, { color: c.textMuted }]}>{t("pantry_empty_body")}</Text>
-            </View>
+            <EmptyState
+              icon="nutrition-outline"
+              iconSize={40}
+              title={t("pantry_empty_title")}
+              body={t("pantry_empty_body")}
+            />
           ) : null
         }
         renderItem={({ item }) => {
@@ -340,14 +334,8 @@ export default function PantryScreen() {
                   <Text style={[styles.suggestedText, { color: c.primary }]}>suggested</Text>
                 </View>
               )}
-              {/* Show gram conversion preview */}
-              {newAmount.trim() && !isNaN(parseFloat(newAmount)) && (
-                (() => {
-                  const g = toGrams(parseFloat(newAmount), newUnit, newName);
-                  return g != null ? (
-                    <Text style={[styles.conversionHint, { color: c.textMuted }]}>→ {g}g</Text>
-                  ) : null;
-                })()
+              {conversionGrams != null && (
+                <Text style={[styles.conversionHint, { color: c.textMuted }]}>→ {conversionGrams}g</Text>
               )}
             </View>
 
@@ -368,12 +356,7 @@ export default function PantryScreen() {
               </View>
             )}
 
-            {formError && (
-              <View style={styles.errorBanner}>
-                <Ionicons name="alert-circle-outline" size={15} color={c.error} />
-                <Text style={[styles.errorText, { color: c.error }]}>{formError}</Text>
-              </View>
-            )}
+            <ErrorBanner message={formError} style={{ marginTop: 8 }} />
 
             <View style={styles.modalActions}>
               <TouchableOpacity
@@ -424,12 +407,7 @@ export default function PantryScreen() {
 
           {/* Generate button */}
           <View style={styles.shoppingGenRow}>
-            {shoppingError && (
-              <View style={[styles.errorBanner, { marginBottom: 8 }]}>
-                <Ionicons name="alert-circle-outline" size={15} color={c.error} />
-                <Text style={[styles.errorText, { color: c.error }]}>{shoppingError}</Text>
-              </View>
-            )}
+            <ErrorBanner message={shoppingError} style={{ marginBottom: 8 }} />
             <TouchableOpacity
               style={[styles.generateBtn, shoppingLoading && { backgroundColor: c.disabled }]}
               onPress={handleGenerateShopping}
@@ -449,13 +427,12 @@ export default function PantryScreen() {
           </View>
 
           {!shoppingList && !shoppingLoading && (
-            <View style={styles.emptyState}>
-              <View style={[styles.emptyIconWrap, { backgroundColor: c.successBg }]}>
-                <Ionicons name="cart-outline" size={48} color={c.primaryLight} />
-              </View>
-              <Text style={[styles.emptyTitle, { color: c.text }]}>{t("cart_empty")}</Text>
-              <Text style={[styles.emptyText, { color: c.textMuted }]}>{t("cart_empty_sub")}</Text>
-            </View>
+            <EmptyState
+              icon="cart-outline"
+              iconSize={48}
+              title={t("cart_empty")}
+              body={t("cart_empty_sub")}
+            />
           )}
 
           {shoppingList && (
@@ -510,15 +487,6 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     },
     addBtnText: { color: "#FFF", fontSize: 15, fontWeight: "700" },
     countLabel: { fontSize: 13, color: c.textPlaceholder, fontWeight: "600", marginBottom: 8 },
-    emptyState: { alignItems: "center", paddingVertical: 48, gap: 10 },
-    emptyIconWrap: { width: 80, height: 80, borderRadius: 40, alignItems: "center", justifyContent: "center", marginBottom: 4 },
-    emptyTitle: { fontSize: 18, fontWeight: "700" },
-    emptyText: { fontSize: 14, textAlign: "center", lineHeight: 20, paddingHorizontal: 16 },
-    errorBanner: {
-      flexDirection: "row", alignItems: "center", gap: 6,
-      backgroundColor: c.errorBg, borderRadius: 10, padding: 10, marginTop: 8,
-    },
-    errorText: { fontSize: 13, flex: 1 },
     itemRow: {
       flexDirection: "row", alignItems: "center", backgroundColor: c.surface, borderRadius: 12,
       padding: 14, marginBottom: 8,

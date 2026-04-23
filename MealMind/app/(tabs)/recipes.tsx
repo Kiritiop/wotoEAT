@@ -16,6 +16,8 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { getSavedRecipes, deleteRecipe, upsertPantry } from "@/services/api";
+import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { useAppStore } from "@/store/useAppStore";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -167,12 +169,7 @@ export default function RecipesScreen() {
               <Text style={styles.uploadBtnText}>{t("find_recipe")}</Text>
             </TouchableOpacity>
             {loading && <ActivityIndicator style={{ marginTop: 24 }} color={c.primary} />}
-            {deleteError && (
-              <View style={styles.errorBanner}>
-                <Ionicons name="alert-circle-outline" size={15} color={c.error} />
-                <Text style={[styles.errorText, { color: c.error }]}>{deleteError}</Text>
-              </View>
-            )}
+            <ErrorBanner message={deleteError} style={{ marginBottom: 10 }} />
             {filteredRecipes.length > 0 && (
               <Text style={[styles.countLabel, { color: c.textPlaceholder }]}>
                 {strings.recipe_count(filteredRecipes.length)}
@@ -182,13 +179,11 @@ export default function RecipesScreen() {
         }
         ListEmptyComponent={
           !loading ? (
-            <View style={styles.emptyState}>
-              <View style={[styles.emptyIconWrap, { backgroundColor: c.successBg }]}>
-                <Ionicons name="book-outline" size={44} color={c.primaryLight} />
-              </View>
-              <Text style={[styles.emptyTitle, { color: c.text }]}>{t("no_recipes_title")}</Text>
-              <Text style={[styles.emptyText, { color: c.textMuted }]}>{t("no_recipes_body")}</Text>
-            </View>
+            <EmptyState
+              icon="book-outline"
+              title={t("no_recipes_title")}
+              body={t("no_recipes_body")}
+            />
           ) : null
         }
         renderItem={({ item }) => {
@@ -387,15 +382,6 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     },
     uploadBtnText: { color: "#FFF", fontSize: 15, fontWeight: "700" },
     countLabel: { fontSize: 13, fontWeight: "600", marginBottom: 8 },
-    errorBanner: {
-      flexDirection: "row", alignItems: "center", gap: 6,
-      backgroundColor: c.errorBg, borderRadius: 10, padding: 10, marginBottom: 10,
-    },
-    errorText: { fontSize: 13, flex: 1 },
-    emptyState: { alignItems: "center", paddingVertical: 48, gap: 10 },
-    emptyIconWrap: { width: 88, height: 88, borderRadius: 44, alignItems: "center", justifyContent: "center", marginBottom: 4 },
-    emptyTitle: { fontSize: 18, fontWeight: "700" },
-    emptyText: { fontSize: 14, textAlign: "center", lineHeight: 20, paddingHorizontal: 16 },
     card: {
       flexDirection: "row", alignItems: "flex-start",
       borderRadius: 14, padding: 14, marginBottom: 10,

@@ -15,6 +15,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { getPlanHistory } from "@/services/api";
 import { SLOT_COLOUR } from "@/constants/filters";
 import { WeeklyCalChart } from "@/components/WeeklyCalChart";
+import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { useAppStore } from "@/store/useAppStore";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -88,25 +90,18 @@ export default function HistoryScreen() {
       >
         {loading && <ActivityIndicator color={c.primary} style={{ marginTop: 32 }} />}
 
-        {error && (
-          <View style={styles.errorBanner}>
-            <Ionicons name="alert-circle-outline" size={15} color={c.error} />
-            <Text style={[styles.errorText, { color: c.error }]}>{error}</Text>
-          </View>
-        )}
+        <ErrorBanner message={error} style={{ marginBottom: 12 }} />
 
         {!loading && history.length > 0 && !search && (
           <WeeklyCalChart history={history} targetCalories={profile.calorie_goal ?? undefined} />
         )}
 
         {!loading && filteredHistory.length === 0 && !error && (
-          <View style={styles.empty}>
-            <View style={[styles.emptyIcon, { backgroundColor: c.successBg }]}>
-              <Ionicons name="calendar-outline" size={44} color={c.primaryLight} />
-            </View>
-            <Text style={[styles.emptyTitle, { color: c.text }]}>{t("history_empty_title")}</Text>
-            <Text style={[styles.emptyBody, { color: c.textMuted }]}>{t("history_empty_body")}</Text>
-          </View>
+          <EmptyState
+            icon="calendar-outline"
+            title={t("history_empty_title")}
+            body={t("history_empty_body")}
+          />
         )}
 
         {filteredHistory.map((entry) => (
@@ -154,15 +149,6 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     },
     searchInput: { flex: 1, fontSize: 14, paddingVertical: 2 },
     content: { padding: 16, paddingBottom: 48 },
-    errorBanner: {
-      flexDirection: "row", alignItems: "center", gap: 6,
-      backgroundColor: c.errorBg, borderRadius: 10, padding: 10, marginBottom: 12,
-    },
-    errorText: { fontSize: 13, flex: 1 },
-    empty: { alignItems: "center", paddingVertical: 48, gap: 12 },
-    emptyIcon: { width: 88, height: 88, borderRadius: 44, alignItems: "center", justifyContent: "center", marginBottom: 4 },
-    emptyTitle: { fontSize: 20, fontWeight: "800" },
-    emptyBody: { fontSize: 14, textAlign: "center", lineHeight: 21 },
     card: {
       borderRadius: 16, padding: 14, marginBottom: 12, borderWidth: 1,
       shadowColor: c.shadow, shadowOffset: { width: 0, height: 1 },

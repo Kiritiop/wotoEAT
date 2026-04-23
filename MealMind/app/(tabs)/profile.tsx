@@ -14,6 +14,7 @@ import * as Haptics from "expo-haptics";
 import { useAppStore } from "@/store/useAppStore";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useTheme } from "@/hooks/useTheme";
+import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { saveProfile } from "@/services/api";
 import { supabase } from "@/lib/supabase";
 import {
@@ -35,14 +36,9 @@ export default function ProfileScreen() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function toggleGoal(value: string) {
-    const cur = profile.health_goals ?? [];
-    setProfile({ health_goals: cur.includes(value) ? cur.filter((g) => g !== value) : [...cur, value] });
-    setSaved(false);
-  }
-  function toggleRestriction(value: string) {
-    const cur = profile.dietary_restrictions ?? [];
-    setProfile({ dietary_restrictions: cur.includes(value) ? cur.filter((v) => v !== value) : [...cur, value] });
+  function toggleField(key: "health_goals" | "dietary_restrictions" | "allergies", value: string) {
+    const cur = (profile[key] ?? []) as string[];
+    setProfile({ [key]: cur.includes(value) ? cur.filter((x) => x !== value) : [...cur, value] });
     setSaved(false);
   }
 
@@ -272,7 +268,7 @@ export default function ProfileScreen() {
                 <TouchableOpacity
                   key={goal.value}
                   style={[styles.chip, { backgroundColor: c.chipBg, borderColor: c.border }, active && { backgroundColor: c.primary, borderColor: c.primary }]}
-                  onPress={() => { toggleGoal(goal.value); Haptics.selectionAsync(); }}
+                  onPress={() => { toggleField("health_goals", goal.value); Haptics.selectionAsync(); }}
                 >
                   <Text style={[styles.chipText, { color: c.chipText }, active && { color: "#FFF", fontWeight: "600" }]}>{optionLabel(goal, language)}</Text>
                 </TouchableOpacity>
@@ -291,7 +287,7 @@ export default function ProfileScreen() {
                 <TouchableOpacity
                   key={r.value}
                   style={[styles.chip, { backgroundColor: c.chipBg, borderColor: c.border }, active && { backgroundColor: c.primary, borderColor: c.primary }]}
-                  onPress={() => { toggleRestriction(r.value); Haptics.selectionAsync(); }}
+                  onPress={() => { toggleField("dietary_restrictions", r.value); Haptics.selectionAsync(); }}
                 >
                   <Text style={[styles.chipText, { color: c.chipText }, active && { color: "#FFF", fontWeight: "600" }]}>{optionLabel(r, language)}</Text>
                 </TouchableOpacity>
@@ -311,12 +307,7 @@ export default function ProfileScreen() {
                 <TouchableOpacity
                   key={a.value}
                   style={[styles.chip, { backgroundColor: c.chipBg, borderColor: c.border }, active && { backgroundColor: c.error + "22", borderColor: c.error }]}
-                  onPress={() => {
-                    const cur = profile.allergies ?? [];
-                    setProfile({ allergies: cur.includes(a.value) ? cur.filter((x) => x !== a.value) : [...cur, a.value] });
-                    setSaved(false);
-                    Haptics.selectionAsync();
-                  }}
+                  onPress={() => { toggleField("allergies", a.value); Haptics.selectionAsync(); }}
                 >
                   <Text style={[styles.chipText, { color: c.chipText }, active && { color: c.error, fontWeight: "600" }]}>{optionLabel(a, language)}</Text>
                 </TouchableOpacity>
@@ -325,13 +316,7 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Error */}
-        {error && (
-          <View style={[styles.errorBanner, { backgroundColor: c.errorBg }]}>
-            <Ionicons name="alert-circle-outline" size={15} color={c.error} />
-            <Text style={[styles.errorText, { color: c.error }]}>{error}</Text>
-          </View>
-        )}
+        <ErrorBanner message={error} style={{ marginBottom: 12 }} />
 
         {/* Save */}
         <TouchableOpacity
@@ -420,11 +405,6 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     chip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
     chipText: { fontSize: 13 },
-    errorBanner: {
-      flexDirection: "row", alignItems: "center", gap: 6,
-      borderRadius: 10, padding: 10, marginBottom: 12,
-    },
-    errorText: { fontSize: 13, flex: 1 },
     saveBtn: {
       flexDirection: "row", alignItems: "center", justifyContent: "center",
       borderRadius: 14, paddingVertical: 15, gap: 8, marginTop: 8,

@@ -12,8 +12,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { IngredientRow } from "@/components/IngredientRow";
+import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { useAppStore } from "@/store/useAppStore";
 import { generateShoppingList } from "@/services/api";
+import { formatShoppingListText, countShoppingItems } from "@/utils/shopping";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 
@@ -53,37 +56,18 @@ export default function ShoppingScreen() {
 
   async function handleShare() {
     if (!shoppingList) return;
-    const lines: string[] = [];
-    for (const group of shoppingList.groups) {
-      lines.push(`\n${group.category.toUpperCase()}`);
-      for (const item of group.items) {
-        const check = item.checked ? "[x]" : "[ ]";
-        lines.push(`${check} ${item.name} — ${item.amount} ${item.unit}`);
-      }
-    }
-    await Share.share({ message: `MealMind Shopping List\n${lines.join("\n")}` });
+    await Share.share({ message: formatShoppingListText(shoppingList) });
   }
 
-  const totalItems = shoppingList?.groups.reduce(
-    (sum, g) => sum + g.items.length,
-    0
-  ) ?? 0;
-  const checkedItems = shoppingList?.groups.reduce(
-    (sum, g) => sum + g.items.filter((i) => i.checked).length,
-    0
-  ) ?? 0;
+  const { total: totalItems, checked: checkedItems } = shoppingList
+    ? countShoppingItems(shoppingList)
+    : { total: 0, checked: 0 };
 
   const styles = makeStyles(c);
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* Error banner */}
-      {error && (
-        <View style={styles.errorBanner}>
-          <Ionicons name="alert-circle-outline" size={15} color={c.error} />
-          <Text style={[styles.errorText, { color: c.error }]}>{error}</Text>
-        </View>
-      )}
+      <ErrorBanner message={error} style={styles.errorBanner} />
 
       {/* Action bar */}
       <View style={styles.actionBar}>
@@ -120,15 +104,13 @@ export default function ShoppingScreen() {
       </View>
 
       {!shoppingList && !loading && (
-        <View style={styles.emptyState}>
-          <View style={[styles.emptyIconWrap, { backgroundColor: c.successBg }]}>
-            <Ionicons name="cart-outline" size={48} color={c.primaryLight} />
-          </View>
-          <Text style={[styles.emptyTitle, { color: c.text }]}>{t("shopping_empty_title")}</Text>
-          <Text style={[styles.emptyText, { color: c.textMuted }]}>
-            {t("shopping_empty_body")}
-          </Text>
-        </View>
+        <EmptyState
+          icon="cart-outline"
+          iconSize={48}
+          title={t("shopping_empty_title")}
+          body={t("shopping_empty_body")}
+          style={styles.emptyState}
+        />
       )}
 
       {shoppingList && (
@@ -184,22 +166,8 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
       width: 46, height: 46, borderRadius: 14,
       alignItems: "center", justifyContent: "center",
     },
-    errorBanner: {
-      flexDirection: "row", alignItems: "center", gap: 6,
-      backgroundColor: c.errorBg, borderRadius: 10, padding: 12,
-      marginHorizontal: 16, marginTop: 4,
-    },
-    errorText: { fontSize: 13, flex: 1 },
-    emptyState: {
-      flex: 1, alignItems: "center", justifyContent: "center",
-      paddingHorizontal: 32, gap: 10,
-    },
-    emptyIconWrap: {
-      width: 96, height: 96, borderRadius: 48,
-      alignItems: "center", justifyContent: "center", marginBottom: 8,
-    },
-    emptyTitle: { fontSize: 20, fontWeight: "700" },
-    emptyText: { fontSize: 14, textAlign: "center", lineHeight: 20 },
+    errorBanner: { marginHorizontal: 16, marginTop: 4 },
+    emptyState: { flex: 1, alignItems: "center", justifyContent: "center" },
     content: { paddingHorizontal: 16, paddingBottom: 40 },
     summary: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 12 },
     summaryText: { fontSize: 14, fontWeight: "600" },

@@ -1,29 +1,17 @@
 import { useState, useEffect } from "react";
 import { useAppStore } from "@/store/useAppStore";
-import { translateBatch } from "@/services/api";
-
-// Module-level cache — persists for the app session, avoids re-calling the backend
-// for the same string after the first translation.
-const translationCache = new Map<string, string>();
-
-function containsChinese(text: string): boolean {
-  return /[\u4e00-\u9fff]/.test(text);
-}
+import { translateToZh, getTranslatedSync } from "@/services/translate";
 
 /**
- * Translates an array of strings to Chinese via the backend's /translate endpoint
- * (which calls the local mealmind-translator Ollama model).
+ * Translates an array of strings to Chinese when language === "zh".
  *
- * - Only fires when language === "zh"
- * - Skips strings that already contain Chinese characters
- * - Returns cached results instantly on subsequent renders
- * - Falls back silently to original text if the backend is unreachable
+ * - Applies persistent-cache results immediately (no flicker for repeat renders)
+ * - Fetches missing translations from MyMemory API in the background
+ * - Falls back silently to original text if translation fails
  */
 export function useBatchTranslated(texts: string[]): string[] {
-  const { language } = useAppStore();
-  // Stable key so the effect only re-runs when content actually changes
+  const language = useAppStore((s) => s.language);
   const textsKey = texts.join("\x00");
-
   const [results, setResults] = useState<string[]>(texts);
 
   useEffect(() => {
@@ -32,22 +20,12 @@ export function useBatchTranslated(texts: string[]): string[] {
       return;
     }
 
-    // Apply whatever is cached immediately (no flicker for repeat renders)
-    const withCache = texts.map((t) =>
-      containsChinese(t) ? t : (translationCache.get(t) ?? t)
-    );
-    setResults(withCache);
-
-    const needed = texts.filter((t) => !containsChinese(t) && !translationCache.has(t));
-    if (needed.length === 0) return;
+    // Apply whatever is in the session cache right away (avoids loading flash)
+    setResults(texts.map(getTranslatedSync));
 
     let cancelled = false;
-    translateBatch(needed).then((translated) => {
-      if (cancelled) return;
-      needed.forEach((orig, i) => translationCache.set(orig, translated[i] ?? orig));
-      setResults(texts.map((t) =>
-        containsChinese(t) ? t : (translationCache.get(t) ?? t)
-      ));
+    translateToZh(texts).then((translated) => {
+      if (!cancelled) setResults(translated);
     });
 
     return () => { cancelled = true; };
