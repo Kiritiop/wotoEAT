@@ -236,6 +236,15 @@ const en = {
 
   // ── Find Recipe modal ─────────────────────────────────────────────────────
   popular_dishes: "Popular dishes",
+
+  // ── Meal preferences (profile) ────────────────────────────────────────────
+  meal_preferences: "Meal Preferences",
+  preferred_cuisines: "Preferred cuisines",
+  preferred_cuisines_hint: "Auto-selected when you generate your daily plan.",
+
+  // ── Serving size (meal card) ──────────────────────────────────────────────
+  serving_size: "Serving size",
+  for_n_people: "for",
 } as const;
 
 export type TranslationKey = keyof typeof en;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -21,12 +21,24 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { useTheme } from "@/hooks/useTheme";
 import { useBatchTranslated, useTranslated } from "@/hooks/useDynamicTranslation";
 import FindRecipeModal from "@/components/FindRecipeModal";
+import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { EmptyState } from "@/components/ui/EmptyState";
 import type { Rating } from "@/store/useAppStore";
 import type { DailyMealPlan, DailyPlanMeal } from "@/services/api";
 
 type SlotFilter = "all" | "breakfast" | "lunch" | "dinner";
 
 const SLOT_ORDER: Record<string, number> = { breakfast: 0, lunch: 1, dinner: 2 };
+
+/** Scales the leading number in an ingredient string (e.g. "100g chicken" → "150g chicken"). */
+function scaleIngredientStr(s: string, factor: number): string {
+  if (Math.abs(factor - 1) < 0.001) return s;
+  const m = s.match(/^([\d.]+)([\s\S]*)$/);
+  if (!m) return s;
+  const scaled = parseFloat(m[1]) * factor;
+  const display = scaled % 1 < 0.05 ? Math.round(scaled).toString() : scaled.toFixed(1);
+  return display + m[2];
+}
 
 function MacroCell({ label, value, color }: { label: string; value: string; color: string }) {
   return (
@@ -49,8 +61,13 @@ function MealSlotCard({
   const [expanded, setExpanded] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const c = useTheme();
-  const { t } = useTranslation();
-  const { language, shoppingList, addToShoppingList, removeFromShoppingList } = useAppStore();
+  const { t, strings } = useTranslation();
+  const { language, servings, setServings, planServings, shoppingList, addToShoppingList, removeFromShoppingList } = useAppStore();
+
+  // Serving size scaler — tracks what serving count the user wants to display
+  const baseServingsRef = useRef(planServings || 2);
+  const [displayServings, setDisplayServings] = useState(planServings || 2);
+  const scaleFactor = displayServings / (baseServingsRef.current || 1);
   const accent = SLOT_COLOUR[meal.slot] ?? "#2E7D32";
   const icon = (SLOT_ICON[meal.slot] ?? "restaurant") as React.ComponentProps<typeof Ionicons>["name"];
   const hasMacros = meal.protein_g != null || meal.carbs_g != null || meal.fat_g != null;
@@ -279,13 +296,46 @@ function MealSlotCard({
                     </Text>
                   </TouchableOpacity>
                 </View>
+
+                {/* Serving size stepper */}
+                <View style={cardStyles.servingsStepper}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      const n = Math.max(1, displayServings - 1);
+                      setDisplayServings(n);
+                      setServings(n);
+                      Haptics.selectionAsync();
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    disabled={displayServings <= 1}
+                  >
+                    <Ionicons name="remove-circle-outline" size={20} color={displayServings <= 1 ? c.disabled : c.textMuted} />
+                  </TouchableOpacity>
+                  <Text style={[cardStyles.servingsStepperText, { color: c.textSecondary }]}>
+                    {strings.servings_people(displayServings)}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      const n = Math.min(12, displayServings + 1);
+                      setDisplayServings(n);
+                      setServings(n);
+                      Haptics.selectionAsync();
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    disabled={displayServings >= 12}
+                  >
+                    <Ionicons name="add-circle-outline" size={20} color={displayServings >= 12 ? c.disabled : c.textMuted} />
+                  </TouchableOpacity>
+                </View>
+
                 {translatedIngredients.map((ing, i) => {
                   const origIng = (meal.ingredients ?? [])[i] ?? ing;
+                  const scaledIng = scaleIngredientStr(ing, scaleFactor);
                   const added = inCart(origIng);
                   return (
                     <View key={i} style={cardStyles.ingRow}>
                       <View style={[cardStyles.ingDot, { backgroundColor: c.primary }]} />
-                      <Text style={[cardStyles.ingText, { color: c.textSecondary }]}>{ing}</Text>
+                      <Text style={[cardStyles.ingText, { color: c.textSecondary }]}>{scaledIng}</Text>
                       <TouchableOpacity
                         style={[cardStyles.ingCartBtn, { borderColor: added ? c.primary : c.border, backgroundColor: added ? c.primaryLight : "transparent" }]}
                         onPress={() => toggleIngredient(origIng)}
@@ -352,7 +402,7 @@ function CompChip({ icon, label, color }: {
 }
 
 export default function TodayScreen() {
-  const { profile, pantry, dailyPlan, setDailyPlan, clearDailyPlan, language, ratings, setRating, servings, setServings } = useAppStore();
+  const { profile, pantry, dailyPlan, setDailyPlan, clearDailyPlan, language, ratings, setRating, servings, setServings, setPlanServings } = useAppStore();
   const router = useRouter();
   const { t, strings } = useTranslation();
   const c = useTheme();
@@ -360,7 +410,8 @@ export default function TodayScreen() {
   const [loading, setLoading] = useState(false);
   const [swappingSlot, setSwappingSlot] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [cuisine, setCuisine] = useState("");
+  // Initialize from profile preferences so the user's saved cuisines are pre-selected
+  const [cuisine, setCuisine] = useState(() => profile.cuisine_preferences?.[0] ?? "");
   const [maxTime, setMaxTime] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const [slotFilter, setSlotFilter] = useState<SlotFilter>("all");
@@ -400,8 +451,9 @@ export default function TodayScreen() {
       );
 
       if (slotFilter === "all" || !dailyPlan) {
-        // Replace the whole plan
+        // Replace the whole plan — record what servings it was generated for
         setDailyPlan(plan);
+        setPlanServings(servings);
         setShowNutritionNote(false);
       } else {
         // Merge: keep existing meals for other slots, replace/add the generated one
@@ -505,22 +557,6 @@ export default function TodayScreen() {
               keyboardType="number-pad"
             />
 
-            {/* Servings picker */}
-            <Text style={[styles.filterLabel, { color: c.textMuted, marginTop: 10 }]}>{t("servings")}</Text>
-            <View style={styles.servingsRow}>
-              {[1, 2, 3, 4, 5, 6].map((n) => (
-                <TouchableOpacity
-                  key={n}
-                  style={[styles.servingsChip, { backgroundColor: c.chipBg, borderColor: c.border }, servings === n && { backgroundColor: c.primary, borderColor: c.primary }]}
-                  onPress={() => { setServings(n); Haptics.selectionAsync(); }}
-                >
-                  <Text style={[styles.servingsChipText, { color: c.chipText }, servings === n && { color: "#FFF", fontWeight: "700" }]}>
-                    {strings.servings_people(n)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
             {/* Find Recipe shortcut */}
             <TouchableOpacity
               style={[styles.findRecipeBtn, { borderColor: c.primary, backgroundColor: c.primaryLight }]}
@@ -568,13 +604,7 @@ export default function TodayScreen() {
           )}
         </TouchableOpacity>
 
-        {/* ── Error banner ── */}
-        {error && (
-          <View style={[styles.errorBanner, { backgroundColor: c.errorBg }]}>
-            <Ionicons name="alert-circle-outline" size={15} color={c.error} />
-            <Text style={[styles.errorText, { color: c.error }]}>{error}</Text>
-          </View>
-        )}
+        <ErrorBanner message={error} />
 
         {/* ── Plan section ── */}
         {dailyPlan && (
@@ -650,15 +680,13 @@ export default function TodayScreen() {
           </View>
         )}
 
-        {/* ── Empty state ── */}
         {sortedMeals.length === 0 && !loading && (
-          <View style={styles.empty}>
-            <View style={[styles.emptyIconWrap, { backgroundColor: c.successBg }]}>
-              <Ionicons name="restaurant-outline" size={48} color={c.primaryLight} />
-            </View>
-            <Text style={[styles.emptyTitle, { color: c.text }]}>{t("no_plan_title")}</Text>
-            <Text style={[styles.emptyBody, { color: c.textMuted }]}>{t("no_plan_body")}</Text>
-          </View>
+          <EmptyState
+            icon="restaurant-outline"
+            iconSize={48}
+            title={t("no_plan_title")}
+            body={t("no_plan_body")}
+          />
         )}
       </ScrollView>
     </SafeAreaView>
@@ -717,6 +745,8 @@ const cardStyles = StyleSheet.create({
   ingHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 },
   addAllBtn: { flexDirection: "row", alignItems: "center", gap: 4, borderRadius: 12, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 4 },
   addAllText: { fontSize: 11, fontWeight: "600" },
+  servingsStepper: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 4 },
+  servingsStepperText: { fontSize: 13, fontWeight: "600" },
   ingRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 },
   ingDot: { width: 5, height: 5, borderRadius: 3, flexShrink: 0 },
   ingText: { fontSize: 13, lineHeight: 18, flex: 1 },
@@ -759,17 +789,11 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
       borderWidth: 1, borderRadius: 10,
       paddingHorizontal: 12, paddingVertical: 9, fontSize: 14,
     },
-    servingsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    servingsChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
-    servingsChipText: { fontSize: 12, fontWeight: "600" },
     findRecipeBtn: {
       flexDirection: "row", alignItems: "center", justifyContent: "center",
       gap: 6, borderRadius: 12, borderWidth: 1, paddingVertical: 11, marginTop: 6,
     },
     findRecipeBtnText: { fontSize: 13, fontWeight: "700" },
-    // Error
-    errorBanner: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 10, padding: 10 },
-    errorText: { fontSize: 13, flex: 1 },
     // Plan
     planSection: { gap: 10 },
     summaryRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
@@ -790,10 +814,5 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     proteinValue: { fontSize: 13, fontWeight: "700" },
     proteinBarBg: { height: 6, borderRadius: 3, overflow: "hidden" },
     proteinBarFill: { height: 6, borderRadius: 3 },
-    // Empty state
-    empty: { alignItems: "center", paddingVertical: 48, paddingHorizontal: 24, gap: 12 },
-    emptyIconWrap: { width: 96, height: 96, borderRadius: 48, alignItems: "center", justifyContent: "center", marginBottom: 8 },
-    emptyTitle: { fontSize: 20, fontWeight: "800" },
-    emptyBody: { fontSize: 14, textAlign: "center", lineHeight: 21 },
   });
 }

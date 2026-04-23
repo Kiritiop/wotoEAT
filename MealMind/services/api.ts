@@ -75,6 +75,8 @@ export interface HealthProfile {
   calorie_goal?: number;
   protein_goal_g?: number;
   use_imperial?: boolean;
+  // ── Meal generation preferences ─────────────────────────────────────────────
+  cuisine_preferences?: string[];
 }
 
 export async function getProfile(): Promise<HealthProfile> {

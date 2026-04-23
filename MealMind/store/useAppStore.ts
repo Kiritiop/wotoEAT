@@ -66,6 +66,11 @@ interface AppState {
   // ── Servings preference ───────────────────────────────────────────────────
   servings: number;
   setServings: (n: number) => void;
+
+  // ── Servings used for the currently loaded daily plan ─────────────────────
+  // Tracked so meal cards can compute a correct scale factor after navigation.
+  planServings: number;
+  setPlanServings: (n: number) => void;
 }
 
 const DEFAULT_PROFILE: HealthProfile = {};
@@ -177,6 +182,10 @@ export const useAppStore = create<AppState>()(
       // ── Servings ──────────────────────────────────────────────────────────
       servings: 2,
       setServings: (n) => set({ servings: n }),
+
+      // ── Plan servings ─────────────────────────────────────────────────────
+      planServings: 2,
+      setPlanServings: (n) => set({ planServings: n }),
     }),
     {
       name: "mealmind-store",
@@ -192,6 +201,7 @@ export const useAppStore = create<AppState>()(
         selectedRecipes: state.selectedRecipes,
         recipeLabels: state.recipeLabels,
         servings: state.servings,
+        planServings: state.planServings,
       }),
     }
   )

@@ -24,6 +24,7 @@ import {
   ACTIVITY_LEVEL_OPTIONS,
   optionLabel,
 } from "@/constants/profileOptions";
+import { CUISINES, translateCuisine } from "@/constants/filters";
 import type { Language } from "@/store/useAppStore";
 
 import type { ActivityLevelValue } from "@/constants/profileOptions";
@@ -36,7 +37,7 @@ export default function ProfileScreen() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function toggleField(key: "health_goals" | "dietary_restrictions" | "allergies", value: string) {
+  function toggleField(key: "health_goals" | "dietary_restrictions" | "allergies" | "cuisine_preferences", value: string) {
     const cur = (profile[key] ?? []) as string[];
     setProfile({ [key]: cur.includes(value) ? cur.filter((x) => x !== value) : [...cur, value] });
     setSaved(false);
@@ -109,6 +110,29 @@ export default function ProfileScreen() {
                 </Text>
               </TouchableOpacity>
             ))}
+          </View>
+        </View>
+
+        {/* Meal Preferences */}
+        <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <Text style={[styles.sectionTitle, { color: c.text }]}>{t("meal_preferences")}</Text>
+          <Text style={[styles.fieldHint, { color: c.textPlaceholder }]}>{t("preferred_cuisines_hint")}</Text>
+          <Text style={[styles.fieldLabel, { color: c.textMuted }]}>{t("preferred_cuisines")}</Text>
+          <View style={styles.chipWrap}>
+            {CUISINES.filter((cu) => cu !== "Any").map((cu) => {
+              const active = (profile.cuisine_preferences ?? []).includes(cu);
+              return (
+                <TouchableOpacity
+                  key={cu}
+                  style={[styles.chip, { backgroundColor: c.chipBg, borderColor: c.border }, active && { backgroundColor: c.primary, borderColor: c.primary }]}
+                  onPress={() => { toggleField("cuisine_preferences", cu); Haptics.selectionAsync(); }}
+                >
+                  <Text style={[styles.chipText, { color: c.chipText }, active && { color: "#FFF", fontWeight: "600" }]}>
+                    {translateCuisine(cu, language)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 

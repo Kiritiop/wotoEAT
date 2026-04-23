@@ -39,15 +39,16 @@ interface Props {
 
 export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
   const { language, servings: globalServings } = useAppStore();
-  const { t } = useTranslation();
+  const { t, strings } = useTranslation();
   const c = useTheme();
   const styles = makeStyles(c);
 
   const [dishName, setDishName] = useState("");
-  const [servings, setServings] = useState(globalServings ?? 2);
   const [phase, setPhase] = useState<Phase>("idle");
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Serving size for the preview card — scales ingredient amounts without re-generating
+  const [previewServings, setPreviewServings] = useState(globalServings ?? 2);
 
   const suggestions = language === "zh" ? SUGGESTIONS_ZH : SUGGESTIONS_EN;
   const isGenerating = phase === "loading";
@@ -69,8 +70,9 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
     setPhase("loading");
     setError(null);
     try {
-      const result = await generateRecipeByName(dishName.trim(), language, servings);
+      const result = await generateRecipeByName(dishName.trim(), language, globalServings ?? 2);
       setRecipe(result);
+      setPreviewServings(result.servings || globalServings || 2);
       setPhase("preview");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
@@ -168,25 +170,6 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
               </>
             )}
 
-            {/* Servings picker */}
-            <View>
-              <Text style={[styles.servingsLabel, { color: c.textMuted }]}>{t("servings")}</Text>
-              <View style={styles.servingsRow}>
-                {[1, 2, 3, 4, 5, 6].map((n) => (
-                  <TouchableOpacity
-                    key={n}
-                    style={[styles.servingsChip, { backgroundColor: c.chipBg, borderColor: c.border }, servings === n && { backgroundColor: c.primary, borderColor: c.primary }]}
-                    onPress={() => { setServings(n); Haptics.selectionAsync(); }}
-                    disabled={isGenerating || phase === "saving"}
-                  >
-                    <Text style={[styles.servingsChipText, { color: c.chipText }, servings === n && { color: "#FFF", fontWeight: "700" }]}>
-                      {n}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
             {/* Generate / Regenerate button */}
             <TouchableOpacity
               style={[styles.generateBtn, { backgroundColor: isGenerating || phase === "saving" ? c.disabled : c.primary }]}
@@ -232,27 +215,51 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
                       <Text style={[styles.metaChipText, { color: c.textMuted }]}>{recipe.calories_per_serving} {t("calories_label")}</Text>
                     </View>
                   )}
-                  {recipe.servings > 0 && (
-                    <View style={[styles.metaChip, { backgroundColor: c.surfaceAlt }]}>
-                      <Ionicons name="people-outline" size={12} color={c.textMuted} />
-                      <Text style={[styles.metaChipText, { color: c.textMuted }]}>{recipe.servings} {t("servings")}</Text>
-                    </View>
-                  )}
                 </View>
 
-                {/* Ingredients preview */}
-                {recipe.ingredients.length > 0 && (
+                {/* Serving size stepper — scales ingredient amounts without re-generating */}
+                <View style={styles.servingsStepper}>
+                  <Text style={[styles.servingsStepperLabel, { color: c.textMuted }]}>{t("serving_size")}</Text>
+                  <TouchableOpacity
+                    onPress={() => { setPreviewServings(Math.max(1, previewServings - 1)); Haptics.selectionAsync(); }}
+                    disabled={previewServings <= 1}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="remove-circle-outline" size={22} color={previewServings <= 1 ? c.disabled : c.primary} />
+                  </TouchableOpacity>
+                  <Text style={[styles.servingsCount, { color: c.text }]}>
+                    {strings.servings_people(previewServings)}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => { setPreviewServings(Math.min(20, previewServings + 1)); Haptics.selectionAsync(); }}
+                    disabled={previewServings >= 20}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="add-circle-outline" size={22} color={previewServings >= 20 ? c.disabled : c.primary} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Ingredients preview — amounts scaled to previewServings */}
+                {recipe.ingredients.length > 0 && (() => {
+                  const factor = previewServings / (recipe.servings || 1);
+                  return (
                   <>
                     <Text style={[styles.sectionLabel, { color: c.textPlaceholder }]}>
                       {t("ingredients_label")} ({recipe.ingredients.length})
                     </Text>
-                    {recipe.ingredients.slice(0, 6).map((ing, i) => (
+                    {recipe.ingredients.slice(0, 6).map((ing, i) => {
+                      const scaledAmt = ing.amount * factor;
+                      const displayAmt = scaledAmt % 1 < 0.05
+                        ? Math.round(scaledAmt).toString()
+                        : scaledAmt.toFixed(1);
+                      return (
                       <View key={i} style={[styles.ingRow, { borderBottomColor: c.borderLight }]}>
                         <View style={[styles.ingDot, { backgroundColor: c.primary }]} />
                         <Text style={[styles.ingName, { color: c.textSecondary }]}>{ing.name}</Text>
-                        <Text style={[styles.ingAmt, { color: c.textMuted }]}>{ing.amount} {ing.unit}</Text>
+                        <Text style={[styles.ingAmt, { color: c.textMuted }]}>{displayAmt} {ing.unit}</Text>
                       </View>
-                    ))}
+                      );
+                    })}
                     {recipe.ingredients.length > 6 && (
                       <Text style={[styles.moreHint, { color: c.textPlaceholder }]}>
                         {language === "zh"
@@ -261,7 +268,8 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
                       </Text>
                     )}
                   </>
-                )}
+                  );
+                })()}
 
                 {/* Steps count */}
                 {recipe.steps.length > 0 && (
@@ -339,10 +347,9 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     suggestGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     suggestChip: { paddingHorizontal: 13, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
     suggestText: { fontSize: 13, fontWeight: "500" },
-    servingsLabel: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 8 },
-    servingsRow: { flexDirection: "row", gap: 8 },
-    servingsChip: { width: 40, height: 36, borderRadius: 10, borderWidth: 1, alignItems: "center", justifyContent: "center" },
-    servingsChipText: { fontSize: 14, fontWeight: "600" },
+    servingsStepper: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
+    servingsStepperLabel: { fontSize: 12, fontWeight: "600", flex: 1 },
+    servingsCount: { fontSize: 15, fontWeight: "700", minWidth: 72, textAlign: "center" },
     generateBtn: {
       flexDirection: "row", alignItems: "center", justifyContent: "center",
       borderRadius: 16, paddingVertical: 16, gap: 8, marginTop: 6,

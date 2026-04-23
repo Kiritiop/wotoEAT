@@ -236,6 +236,15 @@ const zh = {
 
   // ── Find Recipe modal ─────────────────────────────────────────────────────
   popular_dishes: "热门菜品",
+
+  // ── Meal preferences (profile) ────────────────────────────────────────────
+  meal_preferences: "饮食偏好",
+  preferred_cuisines: "偏好菜系",
+  preferred_cuisines_hint: "生成饮食计划时自动选择。",
+
+  // ── Serving size (meal card) ──────────────────────────────────────────────
+  serving_size: "份量",
+  for_n_people: "供",
 } as const;
 
 export default zh;

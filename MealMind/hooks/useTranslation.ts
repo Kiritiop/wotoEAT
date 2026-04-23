@@ -5,7 +5,7 @@ import zh from "@/locales/zh";
 type Strings = typeof en;
 type StringKey = keyof Strings;
 
-const locales: Record<string, Strings> = { en, zh };
+const locales: Record<string, Strings> = { en, zh: zh as unknown as Strings };
 
 /**
  * Returns a bound translation function `t(key)` for the user's current language.

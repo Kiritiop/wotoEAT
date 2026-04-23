@@ -2,18 +2,17 @@
  * Translation service — EN → ZH (Simplified Chinese)
  *
  * Pipeline:
- *   1. In-memory cache (instant, resets on cold start)
+ *   1. In-memory cache (instant, no network)
  *   2. Persistent AsyncStorage cache (survives restarts)
- *   3. MyMemory free translation API (no auth, food terms translate well)
- *   4. Silent fallback to original text
- *
- * Replaces the previous Ollama-based backend translation which required
- * a locally running model and was unavailable in production.
+ *   3. Google Translate unofficial endpoint (Google quality, no auth required)
+ *   4. MyMemory free API (fallback when Google is unavailable)
+ *   5. Silent fallback to original text
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const CACHE_KEY = "mm_translations_v1";
-const MYMEMORY_BASE = "https://api.mymemory.translated.net/get";
+const CACHE_KEY = "mm_translations_v2";
+const GOOGLE_URL = "https://translate.googleapis.com/translate_a/single";
+const MYMEMORY_URL = "https://api.mymemory.translated.net/get";
 const REQUEST_TIMEOUT_MS = 10_000;
 const MAX_CONCURRENT = 3;
 const MAX_CACHE_ENTRIES = 3_000;
@@ -22,7 +21,13 @@ const memCache = new Map<string, string>();
 let hydrated = false;
 
 export function hasChinese(s: string): boolean {
-  return /[\u4e00-\u9fff]/.test(s);
+  return /[一-鿿]/.test(s);
+}
+
+/** Skip translation for trivial inputs: single chars, pure numbers/punctuation. */
+function shouldSkip(text: string): boolean {
+  const t = text.trim();
+  return t.length <= 1 || /^[\d\s.,!?%:;()\-+*/=g]+$/i.test(t);
 }
 
 async function hydrate(): Promise<void> {
@@ -34,7 +39,7 @@ async function hydrate(): Promise<void> {
       const entries = JSON.parse(raw) as [string, string][];
       for (const [k, v] of entries) memCache.set(k, v);
     }
-  } catch { /* storage unavailable, proceed without persistent cache */ }
+  } catch { /* storage unavailable — proceed without persistent cache */ }
 }
 
 function flushCache(): void {
@@ -45,18 +50,38 @@ function flushCache(): void {
   AsyncStorage.setItem(CACHE_KEY, JSON.stringify(trimmed)).catch(() => {});
 }
 
+async function fetchGoogle(text: string, signal: AbortSignal): Promise<string> {
+  const url = `${GOOGLE_URL}?client=gtx&sl=en&tl=zh-CN&dt=t&q=${encodeURIComponent(text)}`;
+  const res = await fetch(url, { signal });
+  if (!res.ok) throw new Error(`Google HTTP ${res.status}`);
+  const json = await res.json() as unknown[];
+  const segments = (json[0] as unknown[][]) ?? [];
+  const translated = segments.map((p) => ((p as string[])[0] ?? "")).join("").trim();
+  if (!translated || !hasChinese(translated)) throw new Error("no Chinese chars in response");
+  return translated;
+}
+
+async function fetchMyMemory(text: string, signal: AbortSignal): Promise<string> {
+  const url = `${MYMEMORY_URL}?q=${encodeURIComponent(text)}&langpair=en|zh-CN`;
+  const res = await fetch(url, { signal });
+  if (!res.ok) throw new Error(`MyMemory HTTP ${res.status}`);
+  const json = await res.json() as { responseData?: { translatedText?: string } };
+  const translated = json?.responseData?.translatedText;
+  if (!translated || !hasChinese(translated)) throw new Error("no Chinese chars in response");
+  return translated;
+}
+
 async function fetchOneTranslation(text: string): Promise<string> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const url = `${MYMEMORY_BASE}?q=${encodeURIComponent(text)}&langpair=en|zh-CN`;
-    const res = await fetch(url, { signal: controller.signal });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const json = await res.json() as { responseData?: { translatedText?: string } };
-    const translated = json?.responseData?.translatedText;
-    // Validate: must contain Chinese characters to be a real zh-CN result
-    if (!translated || !hasChinese(translated)) throw new Error("no chinese in response");
-    return translated;
+    try {
+      // Google Translate first — significantly better quality for food/recipe content
+      return await fetchGoogle(text, controller.signal);
+    } catch {
+      // Fall back to MyMemory if Google is unavailable or rate-limits
+      return await fetchMyMemory(text, controller.signal);
+    }
   } finally {
     clearTimeout(timer);
   }
@@ -70,7 +95,9 @@ export async function translateToZh(texts: string[]): Promise<string[]> {
   if (texts.length === 0) return [];
   await hydrate();
 
-  const needed = texts.filter((t) => !hasChinese(t) && !memCache.has(t));
+  const needed = texts.filter(
+    (t) => !hasChinese(t) && !shouldSkip(t) && !memCache.has(t)
+  );
 
   for (let i = 0; i < needed.length; i += MAX_CONCURRENT) {
     const batch = needed.slice(i, i + MAX_CONCURRENT);
@@ -85,12 +112,15 @@ export async function translateToZh(texts: string[]): Promise<string[]> {
     if (updated) flushCache();
   }
 
-  return texts.map((t) => hasChinese(t) ? t : (memCache.get(t) ?? t));
+  return texts.map((t) => {
+    if (hasChinese(t) || shouldSkip(t)) return t;
+    return memCache.get(t) ?? t;
+  });
 }
 
 /** Returns a cached translation synchronously, or the original string. */
 export function getTranslatedSync(text: string): string {
-  if (hasChinese(text)) return text;
+  if (hasChinese(text) || shouldSkip(text)) return text;
   return memCache.get(text) ?? text;
 }
 
