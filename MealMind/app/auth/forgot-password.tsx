@@ -31,7 +31,7 @@ export default function ForgotPasswordScreen() {
     }
     setLoading(true);
     const { error: supaErr } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: "mealmind://reset-password",
+      redirectTo: "wotoeat://reset-password",
     });
     setLoading(false);
     if (supaErr) {

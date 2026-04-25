@@ -1,11 +1,8 @@
-1. Add a Preferences section in Profile and save things that the user likes
-For example, if they like Japanese cuisine, they can select it in the settings
-and not have to select it in the preferences every time they generate a mealmind
+饮食偏好：
+菜系：中式…
+口味：辣，甜，酱香，清淡，酸…
+准备时间：15分钟以下， 30分钟以下，1小时一下，不限
+dietary needs：过敏加一个“其他”可以输入
 
-2. Move the serving size out of preferences and make that specific in the 
-meal card. Everything on the meal card should be worked on using a basic predetermined template.
-All the AI should have to do is to add the information on it such as recipe name, ingredients, steps, etc.
-The card should contain everything that it has right now, but also should have a serving size options next to ingredients
-that change the number of items needed accordingly.
-
-3. Make chinese translation a lot better. Use a predetermined api or train an ai for our project.
+Chinese name of the project should be 吃点啥
+按钮：吃点啥

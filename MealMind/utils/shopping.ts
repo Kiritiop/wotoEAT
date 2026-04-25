@@ -2,7 +2,7 @@ import type { ShoppingList } from "@/services/api";
 
 /** Formats a shopping list into a share-friendly plain-text string. */
 export function formatShoppingListText(list: ShoppingList): string {
-  const lines: string[] = ["MealMind Shopping List"];
+  const lines: string[] = ["wotoEAT Shopping List"];
   for (const group of list.groups) {
     lines.push(`\n${group.category.toUpperCase()}`);
     for (const item of group.items) {

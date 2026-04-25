@@ -220,7 +220,7 @@ const zh = {
   cart_empty_sub: "在食谱中添加菜品，然后生成购物清单。",
 
   // ── Onboarding ────────────────────────────────────────────────────────────
-  onboarding_welcome: "欢迎使用 MealMind",
+  onboarding_welcome: "欢迎使用 wotoEAT",
   onboarding_welcome_sub: "智能饮食，轻松生活。",
   onboarding_step1: "身体数据",
   onboarding_step2: "健康目标",

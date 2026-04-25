@@ -188,7 +188,7 @@ export const useAppStore = create<AppState>()(
       setPlanServings: (n) => set({ planServings: n }),
     }),
     {
-      name: "mealmind-store",
+      name: "wotoeat-store",
       storage: createJSONStorage(() => AsyncStorage),
       // Only persist user-generated data; authReady is ephemeral (never persisted)
       partialize: (state) => ({

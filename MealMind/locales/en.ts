@@ -220,7 +220,7 @@ const en = {
   cart_empty_sub: "Add recipes from My Recipes, then generate a shopping list.",
 
   // ── Onboarding ────────────────────────────────────────────────────────────
-  onboarding_welcome: "Welcome to MealMind",
+  onboarding_welcome: "Welcome to wotoEAT",
   onboarding_welcome_sub: "Smart meals, less stress. Let's get started.",
   onboarding_step1: "Your Body",
   onboarding_step2: "Your Goals",

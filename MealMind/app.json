@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "MealMind",
-    "slug": "mealmind",
+    "name": "wotoEAT",
+    "slug": "wotoeat",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "scheme": "mealmind",
+    "scheme": "wotoeat",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/splash.png",
@@ -14,9 +14,9 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.mealmind.app",
+      "bundleIdentifier": "com.wotoeat.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "MealMind uses your location to find nearby restaurants in Eat Out mode."
+        "NSLocationWhenInUseUsageDescription": "wotoEAT uses your location to find nearby restaurants in Eat Out mode."
       }
     },
     "android": {
@@ -24,7 +24,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#2E7D32"
       },
-      "package": "com.mealmind.app",
+      "package": "com.wotoeat.app",
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION"
@@ -40,7 +40,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "MealMind uses your location to find nearby restaurants."
+          "locationWhenInUsePermission": "wotoEAT uses your location to find nearby restaurants."
         }
       ],
       "expo-web-browser",

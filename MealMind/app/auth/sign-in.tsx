@@ -55,7 +55,7 @@ export default function SignInScreen() {
         <View style={styles.logoWrap}>
           <Ionicons name="leaf" size={36} color={c.primary} />
         </View>
-        <Text style={[styles.title, { color: c.text }]}>MealMind</Text>
+        <Text style={[styles.title, { color: c.text }]}>wotoEAT</Text>
         <Text style={[styles.subtitle, { color: c.textMuted }]}>{t("app_tagline")}</Text>
 
         <TextInput

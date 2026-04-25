@@ -119,7 +119,7 @@ function MealSlotCard({
         steps: meal.steps ?? [],
         tags: meal.tags ?? [],
         warnings: [],
-        source_name: "MealMind Plan",
+        source_name: "wotoEAT Plan",
       };
       await saveRecipe(recipe);
       setSavedState("saved");
@@ -496,7 +496,7 @@ export default function TodayScreen() {
     const lines = dailyPlan.meals.map(
       (m) => `${m.slot.charAt(0).toUpperCase() + m.slot.slice(1)}: ${m.name} (${m.calories_per_serving} kcal, ${m.prep_time_mins} min)`
     );
-    const text = ["My MealMind Plan", "", ...lines, "", `Total: ${dailyPlan.total_calories} kcal`].join("\n");
+    const text = ["My wotoEAT Plan", "", ...lines, "", `Total: ${dailyPlan.total_calories} kcal`].join("\n");
     try { await Share.share({ message: text }); } catch { /* dismissed */ }
   }
 

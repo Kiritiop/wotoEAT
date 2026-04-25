@@ -1,5 +1,5 @@
 /**
- * All calls to the MealMind FastAPI backend live here.
+ * All calls to the wotoEAT FastAPI backend live here.
  */
 import axios from "axios";
 import { supabase } from "@/lib/supabase";
