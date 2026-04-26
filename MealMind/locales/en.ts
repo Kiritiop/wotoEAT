@@ -251,6 +251,7 @@ const en = {
   // ── Allergies ─────────────────────────────────────────────────────────────
   allergy_other: "Other",
   allergy_other_placeholder: "e.g. latex, mustard",
+  restriction_other_placeholder: "e.g. low-FODMAP, raw food",
 
   // ── Serving size (meal card) ──────────────────────────────────────────────
   serving_size: "Serving size",

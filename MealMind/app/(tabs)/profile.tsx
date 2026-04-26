@@ -38,9 +38,13 @@ export default function ProfileScreen() {
   const [error, setError] = useState<string | null>(null);
   const [otherAllergyText, setOtherAllergyText] = useState("");
   const [showOtherAllergyInput, setShowOtherAllergyInput] = useState(false);
+  const [otherRestrictionText, setOtherRestrictionText] = useState("");
+  const [showOtherRestrictionInput, setShowOtherRestrictionInput] = useState(false);
 
   const standardAllergenValues = ALLERGEN_OPTIONS.map((a) => a.value as string);
+  const standardRestrictionValues = DIETARY_RESTRICTION_OPTIONS.map((r) => r.value as string);
   const customAllergens = (profile.allergies ?? []).filter((a) => !standardAllergenValues.includes(a));
+  const customRestrictions = (profile.dietary_restrictions ?? []).filter((r) => !standardRestrictionValues.includes(r));
 
   function addCustomAllergen() {
     const val = otherAllergyText.trim();
@@ -50,6 +54,16 @@ export default function ProfileScreen() {
       setSaved(false);
     }
     setOtherAllergyText("");
+  }
+
+  function addCustomRestriction() {
+    const val = otherRestrictionText.trim();
+    if (!val) return;
+    if (!(profile.dietary_restrictions ?? []).includes(val)) {
+      setProfile({ dietary_restrictions: [...(profile.dietary_restrictions ?? []), val] });
+      setSaved(false);
+    }
+    setOtherRestrictionText("");
   }
 
   function toggleField(key: "health_goals" | "dietary_restrictions" | "allergies" | "cuisine_preferences", value: string) {
@@ -372,7 +386,54 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
               );
             })}
+            {/* Other chip */}
+            <TouchableOpacity
+              style={[styles.chip, { backgroundColor: c.chipBg, borderColor: c.border }, (showOtherRestrictionInput || customRestrictions.length > 0) && { backgroundColor: c.primary, borderColor: c.primary }]}
+              onPress={() => { setShowOtherRestrictionInput((v) => !v); Haptics.selectionAsync(); }}
+            >
+              <Text style={[styles.chipText, { color: c.chipText }, (showOtherRestrictionInput || customRestrictions.length > 0) && { color: "#FFF", fontWeight: "600" }]}>
+                {t("allergy_other")}
+              </Text>
+            </TouchableOpacity>
           </View>
+
+          {/* Custom restrictions already added */}
+          {customRestrictions.length > 0 && (
+            <View style={[styles.chipWrap, { marginTop: 8 }]}>
+              {customRestrictions.map((r) => (
+                <TouchableOpacity
+                  key={r}
+                  style={[styles.chip, { backgroundColor: c.primary, borderColor: c.primary, flexDirection: "row", alignItems: "center", gap: 4 }]}
+                  onPress={() => { toggleField("dietary_restrictions", r); Haptics.selectionAsync(); }}
+                >
+                  <Text style={[styles.chipText, { color: "#FFF", fontWeight: "600" }]}>{r}</Text>
+                  <Ionicons name="close" size={12} color="#FFF" />
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* Text input for custom restriction */}
+          {showOtherRestrictionInput && (
+            <View style={[styles.row, { marginTop: 10, marginBottom: 0 }]}>
+              <TextInput
+                style={[styles.input, { flex: 1, borderColor: c.border, backgroundColor: c.inputBg, color: c.text }]}
+                placeholder={t("restriction_other_placeholder")}
+                placeholderTextColor={c.textPlaceholder}
+                value={otherRestrictionText}
+                onChangeText={setOtherRestrictionText}
+                onSubmitEditing={addCustomRestriction}
+                returnKeyType="done"
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                style={[styles.chip, { backgroundColor: c.primary, borderColor: c.primary, height: 42, justifyContent: "center" }]}
+                onPress={addCustomRestriction}
+              >
+                <Text style={[styles.chipText, { color: "#FFF", fontWeight: "700" }]}>{t("add")}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* Allergies */}

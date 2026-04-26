@@ -251,6 +251,7 @@ const zh = {
   // ── Allergies ─────────────────────────────────────────────────────────────
   allergy_other: "其他",
   allergy_other_placeholder: "如：芥末、乳胶",
+  restriction_other_placeholder: "如：低FODMAP、生食",
 
   // ── Serving size (meal card) ──────────────────────────────────────────────
   serving_size: "份量",
