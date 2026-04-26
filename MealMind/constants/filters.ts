@@ -48,6 +48,21 @@ export const FLAVOUR_PROFILES = [
   "fresh",
 ];
 
+export const FLAVOUR_OPTIONS: Array<{ value: string; en: string; zh: string }> = [
+  { value: "spicy",  en: "Spicy",  zh: "辣" },
+  { value: "sweet",  en: "Sweet",  zh: "甜" },
+  { value: "savory", en: "Savory", zh: "酱香" },
+  { value: "mild",   en: "Mild",   zh: "清淡" },
+  { value: "sour",   en: "Sour",   zh: "酸" },
+];
+
+export const PREP_TIME_PRESETS: Array<{ value: number | null; en: string; zh: string }> = [
+  { value: null, en: "Any time",  zh: "不限" },
+  { value: 15,   en: "≤15 min",   zh: "15分钟以下" },
+  { value: 30,   en: "≤30 min",   zh: "30分钟以下" },
+  { value: 60,   en: "≤1 hour",   zh: "1小时以下" },
+];
+
 export const SLOT_COLOUR: Record<string, string> = {
   breakfast: "#F59E0B",
   lunch: "#2E7D32",

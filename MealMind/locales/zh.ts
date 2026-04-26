@@ -71,7 +71,7 @@ const zh = {
   swap_meal: "换一个",
   per_serving: "每份",
   prep_time_label: "准备",
-  generate_cta: "今天吃什么？",
+  generate_cta: "吃点啥",
   nutrition_estimated: "估算值 · 每份",
   macro_protein: "蛋白质",
   macro_carbs: "碳水",
@@ -220,7 +220,7 @@ const zh = {
   cart_empty_sub: "在食谱中添加菜品，然后生成购物清单。",
 
   // ── Onboarding ────────────────────────────────────────────────────────────
-  onboarding_welcome: "欢迎使用 wotoEAT",
+  onboarding_welcome: "欢迎使用 吃点啥",
   onboarding_welcome_sub: "智能饮食，轻松生活。",
   onboarding_step1: "身体数据",
   onboarding_step2: "健康目标",
@@ -239,8 +239,18 @@ const zh = {
 
   // ── Meal preferences (profile) ────────────────────────────────────────────
   meal_preferences: "饮食偏好",
-  preferred_cuisines: "偏好菜系",
+  preferred_cuisines: "菜系",
   preferred_cuisines_hint: "生成饮食计划时自动选择。",
+  flavour_pref: "口味",
+  prep_time_pref: "准备时间",
+
+  // ── Filters (discover) ────────────────────────────────────────────────────
+  meal_type: "餐次",
+  search_recipes: "搜索食谱…",
+
+  // ── Allergies ─────────────────────────────────────────────────────────────
+  allergy_other: "其他",
+  allergy_other_placeholder: "如：芥末、乳胶",
 
   // ── Serving size (meal card) ──────────────────────────────────────────────
   serving_size: "份量",

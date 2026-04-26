@@ -71,7 +71,7 @@ const en = {
   swap_meal: "Swap",
   per_serving: "per serving",
   prep_time_label: "prep",
-  generate_cta: "What to eat today?",
+  generate_cta: "What to eat?",
   nutrition_estimated: "Estimated · per serving",
   macro_protein: "Protein",
   macro_carbs: "Carbs",
@@ -239,8 +239,18 @@ const en = {
 
   // ── Meal preferences (profile) ────────────────────────────────────────────
   meal_preferences: "Meal Preferences",
-  preferred_cuisines: "Preferred cuisines",
+  preferred_cuisines: "Cuisine",
   preferred_cuisines_hint: "Auto-selected when you generate your daily plan.",
+  flavour_pref: "Flavor",
+  prep_time_pref: "Prep time",
+
+  // ── Filters (discover) ────────────────────────────────────────────────────
+  meal_type: "Meal type",
+  search_recipes: "Search recipes…",
+
+  // ── Allergies ─────────────────────────────────────────────────────────────
+  allergy_other: "Other",
+  allergy_other_placeholder: "e.g. latex, mustard",
 
   // ── Serving size (meal card) ──────────────────────────────────────────────
   serving_size: "Serving size",

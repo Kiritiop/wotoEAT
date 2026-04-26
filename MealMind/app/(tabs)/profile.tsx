@@ -24,7 +24,7 @@ import {
   ACTIVITY_LEVEL_OPTIONS,
   optionLabel,
 } from "@/constants/profileOptions";
-import { CUISINES, translateCuisine } from "@/constants/filters";
+import { CUISINES, FLAVOUR_OPTIONS, PREP_TIME_PRESETS, translateCuisine } from "@/constants/filters";
 import type { Language } from "@/store/useAppStore";
 
 import type { ActivityLevelValue } from "@/constants/profileOptions";
@@ -36,6 +36,21 @@ export default function ProfileScreen() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [otherAllergyText, setOtherAllergyText] = useState("");
+  const [showOtherAllergyInput, setShowOtherAllergyInput] = useState(false);
+
+  const standardAllergenValues = ALLERGEN_OPTIONS.map((a) => a.value as string);
+  const customAllergens = (profile.allergies ?? []).filter((a) => !standardAllergenValues.includes(a));
+
+  function addCustomAllergen() {
+    const val = otherAllergyText.trim();
+    if (!val) return;
+    if (!(profile.allergies ?? []).includes(val)) {
+      setProfile({ allergies: [...(profile.allergies ?? []), val] });
+      setSaved(false);
+    }
+    setOtherAllergyText("");
+  }
 
   function toggleField(key: "health_goals" | "dietary_restrictions" | "allergies" | "cuisine_preferences", value: string) {
     const cur = (profile[key] ?? []) as string[];
@@ -117,6 +132,8 @@ export default function ProfileScreen() {
         <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border }]}>
           <Text style={[styles.sectionTitle, { color: c.text }]}>{t("meal_preferences")}</Text>
           <Text style={[styles.fieldHint, { color: c.textPlaceholder }]}>{t("preferred_cuisines_hint")}</Text>
+
+          {/* Cuisine */}
           <Text style={[styles.fieldLabel, { color: c.textMuted }]}>{t("preferred_cuisines")}</Text>
           <View style={styles.chipWrap}>
             {CUISINES.filter((cu) => cu !== "Any").map((cu) => {
@@ -129,6 +146,44 @@ export default function ProfileScreen() {
                 >
                   <Text style={[styles.chipText, { color: c.chipText }, active && { color: "#FFF", fontWeight: "600" }]}>
                     {translateCuisine(cu, language)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Flavour */}
+          <Text style={[styles.fieldLabel, { color: c.textMuted, marginTop: 10 }]}>{t("flavour_pref")}</Text>
+          <View style={styles.chipWrap}>
+            {FLAVOUR_OPTIONS.map((f) => {
+              const active = profile.flavour_preference === f.value;
+              return (
+                <TouchableOpacity
+                  key={f.value}
+                  style={[styles.chip, { backgroundColor: c.chipBg, borderColor: c.border }, active && { backgroundColor: c.primary, borderColor: c.primary }]}
+                  onPress={() => { setProfile({ flavour_preference: active ? undefined : f.value }); setSaved(false); Haptics.selectionAsync(); }}
+                >
+                  <Text style={[styles.chipText, { color: c.chipText }, active && { color: "#FFF", fontWeight: "600" }]}>
+                    {language === "zh" ? f.zh : f.en}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Prep time */}
+          <Text style={[styles.fieldLabel, { color: c.textMuted, marginTop: 10 }]}>{t("prep_time_pref")}</Text>
+          <View style={styles.chipWrap}>
+            {PREP_TIME_PRESETS.map((p) => {
+              const active = (profile.preferred_max_prep_mins ?? null) === p.value;
+              return (
+                <TouchableOpacity
+                  key={String(p.value)}
+                  style={[styles.chip, { backgroundColor: c.chipBg, borderColor: c.border }, active && { backgroundColor: c.primary, borderColor: c.primary }]}
+                  onPress={() => { setProfile({ preferred_max_prep_mins: p.value ?? undefined }); setSaved(false); Haptics.selectionAsync(); }}
+                >
+                  <Text style={[styles.chipText, { color: c.chipText }, active && { color: "#FFF", fontWeight: "600" }]}>
+                    {language === "zh" ? p.zh : p.en}
                   </Text>
                 </TouchableOpacity>
               );
@@ -337,7 +392,54 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
               );
             })}
+            {/* Other chip */}
+            <TouchableOpacity
+              style={[styles.chip, { backgroundColor: c.chipBg, borderColor: c.border }, (showOtherAllergyInput || customAllergens.length > 0) && { backgroundColor: c.error + "22", borderColor: c.error }]}
+              onPress={() => { setShowOtherAllergyInput((v) => !v); Haptics.selectionAsync(); }}
+            >
+              <Text style={[styles.chipText, { color: c.chipText }, (showOtherAllergyInput || customAllergens.length > 0) && { color: c.error, fontWeight: "600" }]}>
+                {t("allergy_other")}
+              </Text>
+            </TouchableOpacity>
           </View>
+
+          {/* Custom allergens already added */}
+          {customAllergens.length > 0 && (
+            <View style={[styles.chipWrap, { marginTop: 8 }]}>
+              {customAllergens.map((allergen) => (
+                <TouchableOpacity
+                  key={allergen}
+                  style={[styles.chip, { backgroundColor: c.error + "22", borderColor: c.error, flexDirection: "row", alignItems: "center", gap: 4 }]}
+                  onPress={() => { toggleField("allergies", allergen); Haptics.selectionAsync(); }}
+                >
+                  <Text style={[styles.chipText, { color: c.error, fontWeight: "600" }]}>{allergen}</Text>
+                  <Ionicons name="close" size={12} color={c.error} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* Text input for custom allergen */}
+          {showOtherAllergyInput && (
+            <View style={[styles.row, { marginTop: 10, marginBottom: 0 }]}>
+              <TextInput
+                style={[styles.input, { flex: 1, borderColor: c.border, backgroundColor: c.inputBg, color: c.text }]}
+                placeholder={t("allergy_other_placeholder")}
+                placeholderTextColor={c.textPlaceholder}
+                value={otherAllergyText}
+                onChangeText={setOtherAllergyText}
+                onSubmitEditing={addCustomAllergen}
+                returnKeyType="done"
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                style={[styles.chip, { backgroundColor: c.primary, borderColor: c.primary, height: 42, justifyContent: "center" }]}
+                onPress={addCustomAllergen}
+              >
+                <Text style={[styles.chipText, { color: "#FFF", fontWeight: "700" }]}>{t("add")}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         <ErrorBanner message={error} style={{ marginBottom: 12 }} />

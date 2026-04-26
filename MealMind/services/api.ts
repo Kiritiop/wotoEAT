@@ -77,6 +77,8 @@ export interface HealthProfile {
   use_imperial?: boolean;
   // ── Meal generation preferences ─────────────────────────────────────────────
   cuisine_preferences?: string[];
+  flavour_preference?: string;
+  preferred_max_prep_mins?: number;
 }
 
 export async function getProfile(): Promise<HealthProfile> {
@@ -242,12 +244,14 @@ export async function getDailyPlan(
   recent_ratings?: Record<string, "up" | "down">,
   servings = 2,
   slots?: ("breakfast" | "lunch" | "dinner")[],
+  flavour_preference?: string,
 ): Promise<{ plan: DailyMealPlan; cached: boolean }> {
   const res = await api.post("/meals/daily-plan", {
     profile,
     pantry,
     cuisine_preference: cuisine_preference || null,
     max_prep_time_mins: max_prep_time_mins || null,
+    flavour_preference: flavour_preference || null,
     language,
     recent_ratings: recent_ratings || null,
     servings,
