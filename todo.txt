@@ -1,7 +1,1 @@
-the refresh buttons are weird. the current refresh button at the top has the same function as
-the big button. the refresh button on the top left should clear the entire page and return to 
-its default state with no meals. This is currently possible with the refresh button below the button 
-but I want to remove that button and the information button entirely. 
-
-for the meals, the calorie count should be per person, so write like 320 kcal/serving instead of just kcal
-
+I'm on english setting but i see the days of the week in chinese? fix

@@ -23,7 +23,8 @@ import { useTranslation } from "@/hooks/useTranslation";
 import type { PlanHistoryEntry, DailyPlanMeal } from "@/services/api";
 
 export default function HistoryScreen() {
-  const { profile, authReady } = useAppStore();
+  const { profile, authReady, language } = useAppStore();
+  const locale = language === "zh" ? "zh-CN" : "en-US";
   const [history, setHistory] = useState<PlanHistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -53,7 +54,7 @@ export default function HistoryScreen() {
   const filteredHistory = search.trim()
     ? history.filter((entry) => {
         const q = search.toLowerCase();
-        const dateStr = new Date(entry.date + "T00:00:00").toLocaleDateString(undefined, {
+        const dateStr = new Date(entry.date + "T00:00:00").toLocaleDateString(locale, {
           weekday: "long", month: "long", day: "numeric",
         }).toLowerCase();
         if (dateStr.includes(q)) return true;
@@ -108,7 +109,7 @@ export default function HistoryScreen() {
           <View key={entry.date} style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
             <View style={styles.dateRow}>
               <Text style={[styles.dateText, { color: c.text }]}>
-                {new Date(entry.date + "T00:00:00").toLocaleDateString(undefined, {
+                {new Date(entry.date + "T00:00:00").toLocaleDateString(locale, {
                   weekday: "long", month: "long", day: "numeric",
                 })}
               </Text>

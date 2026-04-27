@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet } from "react-native";
 import { useTheme } from "@/hooks/useTheme";
+import { useAppStore } from "@/store/useAppStore";
 import type { PlanHistoryEntry } from "@/services/api";
 
 interface Props {
@@ -8,9 +9,9 @@ interface Props {
   targetCalories?: number;
 }
 
-function formatDate(dateStr: string): string {
+function formatDate(dateStr: string, locale: string): string {
   const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString(undefined, { weekday: "short" });
+  return d.toLocaleDateString(locale, { weekday: "short" });
 }
 
 /**
@@ -19,6 +20,8 @@ function formatDate(dateStr: string): string {
  */
 export function WeeklyCalChart({ history, targetCalories }: Props) {
   const c = useTheme();
+  const language = useAppStore((s) => s.language);
+  const locale = language === "zh" ? "zh-CN" : "en-US";
 
   if (!history || history.length === 0) return null;
 
@@ -83,7 +86,7 @@ export function WeeklyCalChart({ history, targetCalories }: Props) {
                   },
                 ]}
               >
-                {formatDate(entry.date)}
+                {formatDate(entry.date, locale)}
               </Text>
             </View>
           );

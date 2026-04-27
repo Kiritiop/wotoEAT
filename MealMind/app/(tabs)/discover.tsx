@@ -14,7 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAppStore } from "@/store/useAppStore";
 import { CUISINES, FLAVOUR_OPTIONS, PREP_TIME_PRESETS, SLOT_COLOUR, SLOT_ICON, DIFFICULTY_COLORS, translateTag, translateCuisine, translateDifficulty } from "@/constants/filters";
-import { getDailyPlan, swapMeal, saveRecipe } from "@/services/api";
+import { getDailyPlan, swapMeal, saveRecipe, deleteRecipe } from "@/services/api";
 import type { Recipe, Ingredient } from "@/services/api";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useTheme } from "@/hooks/useTheme";
@@ -61,7 +61,8 @@ function MealSlotCard({
   const [showInfo, setShowInfo] = useState(false);
   const c = useTheme();
   const { t, strings } = useTranslation();
-  const { language, planServings, shoppingList, addToShoppingList, removeFromShoppingList } = useAppStore();
+  const { language, planServings, shoppingList, addToShoppingList, removeFromShoppingList, confirmedSlots, toggleConfirmedSlot } = useAppStore();
+  const isConfirmed = confirmedSlots.includes(meal.slot);
 
   // Serving size scaler — always defaults to 1 regardless of previous selections
   const baseServingsRef = useRef(planServings || 1);
@@ -96,7 +97,8 @@ function MealSlotCard({
   }
 
   // ── Save meal to My Recipes ───────────────────────────────────────────────
-  const [savedState, setSavedState] = useState<"idle" | "saving" | "saved">("idle");
+  const [savedState, setSavedState] = useState<"idle" | "saving" | "saved" | "unsaving">("idle");
+  const [savedId, setSavedId] = useState<string | null>(null);
 
   function parseIngredient(s: string): Ingredient {
     // Parses "100g chicken breast" or "2 eggs" → structured ingredient
@@ -106,7 +108,20 @@ function MealSlotCard({
   }
 
   async function handleSaveMeal() {
-    if (savedState !== "idle") return;
+    if (savedState === "saving" || savedState === "unsaving") return;
+    if (savedState === "saved" && savedId) {
+      setSavedState("unsaving");
+      try {
+        await deleteRecipe(savedId);
+        setSavedId(null);
+        setSavedState("idle");
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch {
+        setSavedState("saved");
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+      return;
+    }
     setSavedState("saving");
     try {
       const recipe: Recipe = {
@@ -120,7 +135,8 @@ function MealSlotCard({
         warnings: [],
         source_name: "wotoEAT Plan",
       };
-      await saveRecipe(recipe);
+      const result = await saveRecipe(recipe);
+      setSavedId(result.id);
       setSavedState("saved");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
@@ -202,10 +218,10 @@ function MealSlotCard({
               backgroundColor: savedState === "saved" ? c.primaryLight : "transparent",
             }]}
             onPress={handleSaveMeal}
-            disabled={savedState !== "idle"}
+            disabled={savedState === "saving" || savedState === "unsaving"}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            {savedState === "saving" ? (
+            {savedState === "saving" || savedState === "unsaving" ? (
               <ActivityIndicator size={13} color={c.primary} />
             ) : (
               <Ionicons
@@ -214,6 +230,21 @@ function MealSlotCard({
                 color={savedState === "saved" ? c.primary : c.textMuted}
               />
             )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[cardStyles.confirmIconBtn, {
+              borderColor: isConfirmed ? c.success : c.border,
+              backgroundColor: isConfirmed ? c.successBg : "transparent",
+            }]}
+            onPress={() => { toggleConfirmedSlot(meal.slot); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons
+              name={isConfirmed ? "checkmark-circle" : "checkmark-circle-outline"}
+              size={17}
+              color={isConfirmed ? c.success : c.textMuted}
+            />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -397,9 +428,9 @@ function CompChip({ icon, label, color }: {
 }
 
 export default function TodayScreen() {
-  const { profile, pantry, dailyPlan, setDailyPlan, clearDailyPlan, language, ratings, setRating, servings, setServings, setPlanServings } = useAppStore();
+  const { profile, pantry, dailyPlan, setDailyPlan, clearDailyPlan, language, ratings, setRating, servings, setPlanServings } = useAppStore();
   const router = useRouter();
-  const { t, strings } = useTranslation();
+  const { t } = useTranslation();
   const c = useTheme();
 
   const [loading, setLoading] = useState(false);
@@ -729,6 +760,7 @@ const cardStyles = StyleSheet.create({
   dislikeText: { fontSize: 12, fontWeight: "600" },
   infoIconBtn: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   saveIconBtn: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  confirmIconBtn: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   infoPanel: { borderRadius: 12, borderWidth: 1, padding: 12, gap: 8, marginTop: 2 },
   macroRow: { flexDirection: "row", gap: 12, flexWrap: "wrap" },
   macroCell: { alignItems: "center", minWidth: 48 },

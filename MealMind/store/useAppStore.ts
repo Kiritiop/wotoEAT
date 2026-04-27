@@ -71,6 +71,10 @@ interface AppState {
   // Tracked so meal cards can compute a correct scale factor after navigation.
   planServings: number;
   setPlanServings: (n: number) => void;
+
+  // ── Confirmed meal slots for today's plan ─────────────────────────────────
+  confirmedSlots: string[];
+  toggleConfirmedSlot: (slot: string) => void;
 }
 
 const DEFAULT_PROFILE: HealthProfile = {};
@@ -98,8 +102,8 @@ export const useAppStore = create<AppState>()(
 
       // ── Daily plan ───────────────────────────────────────────────────────
       dailyPlan: null,
-      setDailyPlan: (plan) => set({ dailyPlan: plan }),
-      clearDailyPlan: () => set({ dailyPlan: null }),
+      setDailyPlan: (plan) => set({ dailyPlan: plan, confirmedSlots: [] }),
+      clearDailyPlan: () => set({ dailyPlan: null, confirmedSlots: [] }),
 
       // ── Ratings ──────────────────────────────────────────────────────────
       ratings: {},
@@ -186,6 +190,15 @@ export const useAppStore = create<AppState>()(
       // ── Plan servings ─────────────────────────────────────────────────────
       planServings: 2,
       setPlanServings: (n) => set({ planServings: n }),
+
+      // ── Confirmed slots ───────────────────────────────────────────────────
+      confirmedSlots: [],
+      toggleConfirmedSlot: (slot) =>
+        set((state) => ({
+          confirmedSlots: state.confirmedSlots.includes(slot)
+            ? state.confirmedSlots.filter((s) => s !== slot)
+            : [...state.confirmedSlots, slot],
+        })),
     }),
     {
       name: "wotoeat-store",
@@ -202,6 +215,7 @@ export const useAppStore = create<AppState>()(
         recipeLabels: state.recipeLabels,
         servings: state.servings,
         planServings: state.planServings,
+        confirmedSlots: state.confirmedSlots,
       }),
     }
   )
