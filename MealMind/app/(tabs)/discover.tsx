@@ -140,7 +140,7 @@ function MealSlotCard({
         </Text>
         <View style={cardStyles.slotMeta}>
           <Ionicons name="flame-outline" size={13} color={c.textMuted} />
-          <Text style={[cardStyles.metaText, { color: c.textMuted }]}>{meal.calories_per_serving} {t("calories_label")}</Text>
+          <Text style={[cardStyles.metaText, { color: c.textMuted }]}>{meal.calories_per_serving} {language === "zh" ? "千卡/人份" : "kcal/serving"}</Text>
           <Ionicons name="time-outline" size={13} color={c.textMuted} style={{ marginLeft: 8 }} />
           <Text style={[cardStyles.metaText, { color: c.textMuted }]}>{meal.prep_time_mins} {t("min_label")}</Text>
         </View>
@@ -411,7 +411,6 @@ export default function TodayScreen() {
   const [maxTime, setMaxTime] = useState<number | null>(() => profile.preferred_max_prep_mins ?? null);
   const [showSettings, setShowSettings] = useState(false);
   const [slotFilter, setSlotFilter] = useState<SlotFilter>("all");
-  const [showNutritionNote, setShowNutritionNote] = useState(false);
   const [showFindRecipe, setShowFindRecipe] = useState(false);
 
   const SLOT_FILTERS: { key: SlotFilter; label: string }[] = [
@@ -453,7 +452,6 @@ export default function TodayScreen() {
         // Replace the whole plan — record what servings it was generated for
         setDailyPlan(plan);
         setPlanServings(servings);
-        setShowNutritionNote(false);
       } else {
         // Merge: keep existing meals for other slots, replace/add the generated one
         const newMeal = plan.meals.find((m) => m.slot === slotFilter) ?? plan.meals[0];
@@ -509,12 +507,9 @@ export default function TodayScreen() {
         <View style={styles.topBar}>
           <TouchableOpacity
             style={[styles.topBarBtn, { borderColor: c.border, backgroundColor: c.surface }]}
-            onPress={handleGenerate}
-            disabled={loading}
+            onPress={() => { clearDailyPlan(); Haptics.selectionAsync(); }}
           >
-            {loading
-              ? <ActivityIndicator size={16} color={c.primary} />
-              : <Ionicons name="refresh-outline" size={20} color={c.primary} />}
+            <Ionicons name="refresh-outline" size={20} color={c.primary} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -646,29 +641,12 @@ export default function TodayScreen() {
                 <Text style={styles.totalText}>{displayCalories} {t("total_calories")}</Text>
               </View>
               <View style={styles.summaryActions}>
-                {!!dailyPlan.nutrition_note && (
-                  <TouchableOpacity
-                    onPress={() => { setShowNutritionNote((v) => !v); Haptics.selectionAsync(); }}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Ionicons name="information-circle-outline" size={20} color={showNutritionNote ? c.primary : c.textMuted} />
-                  </TouchableOpacity>
-                )}
                 <TouchableOpacity onPress={handleShare} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                   <Ionicons name="share-outline" size={18} color={c.textMuted} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => { clearDailyPlan(); Haptics.selectionAsync(); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Ionicons name="refresh-outline" size={18} color={c.textMuted} />
                 </TouchableOpacity>
               </View>
             </View>
 
-            {showNutritionNote && !!dailyPlan.nutrition_note && (
-              <View style={[styles.noteCard, { backgroundColor: c.surfaceAlt, borderColor: c.border }]}>
-                <Ionicons name="information-circle-outline" size={15} color={c.primary} />
-                <Text style={[styles.noteText, { color: c.textSecondary }]}>{dailyPlan.nutrition_note}</Text>
-              </View>
-            )}
 
             {showProtein && (
               <View style={[styles.proteinCard, { backgroundColor: c.surface, borderColor: c.border }]}>
