@@ -36,7 +36,7 @@ const light = {
   shadow: "#000",
   tabBar: "#FFFFFF",
   tabBorder: "#F3F4F6",
-  statusBar: "dark" as const,
+  statusBar: "dark" as "dark" | "light",
 };
 
 const dark: typeof light = {

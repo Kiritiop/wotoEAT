@@ -1,30 +1,7 @@
+the refresh buttons are weird. the current refresh button at the top has the same function as
+the big button. the refresh button on the top left should clear the entire page and return to 
+its default state with no meals. This is currently possible with the refresh button below the button 
+but I want to remove that button and the information button entirely. 
 
+for the meals, the calorie count should be per person, so write like 320 kcal/serving instead of just kcal
 
-饮食偏好, filters when clicked on the dropdown it should show these. they should also be included in the profile section for user to preselect：
-菜系：中式…
-口味：辣，甜，酱香，清淡，酸…
-准备时间：15分钟以下， 30分钟以下，1小时一下，不限
-
-this one is specific for the dietary needs and allergies section in the profile
-dietary needs：过敏加一个“其他”可以输入
-
-Chinese name of the project should be 吃点啥, english name is wotoEAT
-按钮：吃点啥
-button: What to eat?
-
-搜索食谱不应该藏在这里，应该放在页面最上面
-the search bar should be at the very top of the main screen with a refresh button on the left
-that refreshes the entire page
-
-the current layout has filters and options at the top, meal type below it and then the button
-we want to change the layout to: refresh button for whole page, search bar for recipes from internet, filters tab
-make sure this is optimized for mobile users as this will be released as an app to download. 
-below the things, we should have a big button with a logo and text below it saying What to eat? or 吃点啥 depending on language selected
-
-inside of the filters, put All, breakfast, lunch, dinner instead of putting it outside like we had it before
-去掉主页的一日三餐，可以放到右上角筛选里。
-这个刷新应该针对菜谱选几人份后变化的数据，不针对整个页面，回到初始状态
-
-When you generate all day meal plan, it shows total calories. But when you switch to one meal, it will still show calories for the whole day
-furthurmore, the calorie count should always show for 1 serving, it shouldnt change based on number of servings.
-the serving should always default to 1 no matter what the user selected previously

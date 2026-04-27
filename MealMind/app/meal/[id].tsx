@@ -41,13 +41,13 @@ export default function MealDetailScreen() {
   const { t } = useTranslation();
   const { selectedRecipes } = useAppStore();
 
+  const MEAL_FALLBACK: MealSuggestion = { name: "Unknown Meal", cuisine: "", description: "", prep_time_mins: 0, calories_per_serving: 0, difficulty: "easy", tags: [] };
   let meal: MealSuggestion;
   try {
-    meal = params.meal ? JSON.parse(params.meal) : null;
+    meal = params.meal ? (JSON.parse(params.meal) as MealSuggestion) : MEAL_FALLBACK;
   } catch {
-    meal = null;
+    meal = MEAL_FALLBACK;
   }
-  meal ??= { name: "Unknown Meal", cuisine: "", description: "", prep_time_mins: 0, calories_per_serving: 0, difficulty: "easy", tags: [] };
 
   const [url, setUrl] = useState("");
   const [parsing, setParsing] = useState(false);
