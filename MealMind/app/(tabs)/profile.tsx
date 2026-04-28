@@ -66,6 +66,8 @@ export default function ProfileScreen() {
       setSaved(false);
     }
     setOtherAllergyText("");
+    // N-11: reset Other chip so it doesn't stay in active state
+    setShowOtherAllergyInput(false);
   }
 
   function addCustomRestriction() {
@@ -76,6 +78,8 @@ export default function ProfileScreen() {
       setSaved(false);
     }
     setOtherRestrictionText("");
+    // N-11: reset Other chip so it doesn't stay in active state
+    setShowOtherRestrictionInput(false);
   }
 
   function toggleField(key: "health_goals" | "dietary_restrictions" | "allergies" | "cuisine_preferences", value: string) {
@@ -187,7 +191,7 @@ export default function ProfileScreen() {
                 <TouchableOpacity
                   key={f.value}
                   style={[styles.chip, { backgroundColor: c.chipBg, borderColor: c.border }, active && { backgroundColor: c.primary, borderColor: c.primary }]}
-                  onPress={() => { setProfile({ flavour_preference: active ? undefined : f.value }); setSaved(false); Haptics.selectionAsync(); }}
+                  onPress={() => { setProfile({ flavour_preference: active ? null : f.value }); setSaved(false); Haptics.selectionAsync(); }}
                 >
                   <Text style={[styles.chipText, { color: c.chipText }, active && { color: "#FFF", fontWeight: "600" }]}>
                     {language === "zh" ? f.zh : f.en}
@@ -206,7 +210,7 @@ export default function ProfileScreen() {
                 <TouchableOpacity
                   key={String(p.value)}
                   style={[styles.chip, { backgroundColor: c.chipBg, borderColor: c.border }, active && { backgroundColor: c.primary, borderColor: c.primary }]}
-                  onPress={() => { setProfile({ preferred_max_prep_mins: p.value ?? undefined }); setSaved(false); Haptics.selectionAsync(); }}
+                  onPress={() => { setProfile({ preferred_max_prep_mins: active ? null : p.value ?? undefined }); setSaved(false); Haptics.selectionAsync(); }}
                 >
                   <Text style={[styles.chipText, { color: c.chipText }, active && { color: "#FFF", fontWeight: "600" }]}>
                     {language === "zh" ? p.zh : p.en}
@@ -421,6 +425,11 @@ export default function ProfileScreen() {
             </View>
           )}
 
+          {/* N-10: disclaimer when custom restrictions exist */}
+          {customRestrictions.length > 0 && (
+            <Text style={[styles.aiNote, { color: c.textMuted }]}>{t("ai_custom_note")}</Text>
+          )}
+
           {/* Text input for custom restriction */}
           {showOtherRestrictionInput && (
             <View style={[styles.row, { marginTop: 10, marginBottom: 0 }]}>
@@ -486,6 +495,11 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
               ))}
             </View>
+          )}
+
+          {/* N-10: disclaimer when custom allergens exist */}
+          {customAllergens.length > 0 && (
+            <Text style={[styles.aiNote, { color: c.textMuted }]}>{t("ai_custom_note")}</Text>
           )}
 
           {/* Text input for custom allergen */}
@@ -610,5 +624,6 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
       borderRadius: 14, paddingVertical: 13, gap: 8, marginTop: 10,
     },
     signOutText: { fontSize: 15, fontWeight: "600" },
+    aiNote: { fontSize: 11, fontStyle: "italic", marginTop: 6 },
   });
 }

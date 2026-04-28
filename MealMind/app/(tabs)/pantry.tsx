@@ -150,9 +150,8 @@ export default function PantryScreen() {
         setPantry(pantry.filter((p) => p.name !== editingItem.name));
       }
 
-      // Task 3: stack amounts if same ingredient already exists (when adding, not editing)
-      // BUG-11: stack by name only — unit mismatch (g vs "") shouldn't prevent consolidation
-      const existing = editingItem ? null : pantry.find((p) => p.name === item.name);
+      // N-05: only stack when name AND unit match — "500ml oil" + "1L oil" = 501ml is wrong
+      const existing = editingItem ? null : pantry.find((p) => p.name === item.name && p.unit === item.unit);
       const savedItem = existing
         ? { ...item, amount: Math.round((existing.amount + item.amount) * 10) / 10 }
         : item;

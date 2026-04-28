@@ -29,11 +29,12 @@ type SlotFilter = "all" | "breakfast" | "lunch" | "dinner";
 
 const SLOT_ORDER: Record<string, number> = { breakfast: 0, lunch: 1, dinner: 2 };
 
-/** Scales the leading number in an ingredient string (e.g. "100g chicken" → "150g chicken"). */
+/** Scales the leading number in an ingredient string (e.g. "100g chicken" → "150g chicken").
+ *  N-09: non-numeric quantities (e.g. "a handful") get a ~ prefix to signal approximate. */
 function scaleIngredientStr(s: string, factor: number): string {
   if (Math.abs(factor - 1) < 0.001) return s;
   const m = s.match(/^([\d.]+)([\s\S]*)$/);
-  if (!m) return s;
+  if (!m) return `~${s}`;
   const scaled = parseFloat(m[1]) * factor;
   const display = scaled % 1 < 0.05 ? Math.round(scaled).toString() : scaled.toFixed(1);
   return display + m[2];
@@ -61,13 +62,17 @@ function MealSlotCard({
   const [showInfo, setShowInfo] = useState(false);
   const c = useTheme();
   const { t, strings } = useTranslation();
-  const { language, servings: storeServings, pantry, shoppingList, addToShoppingList, removeFromShoppingList, addRecipe, removeRecipe, confirmedSlots, toggleConfirmedSlot } = useAppStore();
-  const isConfirmed = confirmedSlots.includes(meal.slot);
+  const { language, servings: storeServings, pantry, shoppingList, addToShoppingList, removeFromShoppingList, addRecipe, removeRecipe, selectedRecipes, toggleConfirmedSlot } = useAppStore();
+  // N-13: derive confirmed from selectedRecipes for bidirectional sync with Shopping/Pantry tab
+  const isConfirmed = selectedRecipes.some((r) => r.title === meal.name);
 
-  // B1: client-side pantry matching — extract name portion of "100g chicken breast" → "chicken breast"
+  // N-01: extract name from ingredient string — handles "100g chicken breast", "2 eggs", bare strings
   function ingredientNameFrom(s: string): string {
-    const m = s.match(/^[\d.]+\s*[a-zA-Z一-鿿]*\s+(.+)$/);
-    return (m ? m[1] : s).trim().toLowerCase();
+    const withUnit = s.match(/^[\d.]+\s*[a-zA-Z一-鿿]+\s+(.+)$/);
+    if (withUnit) return withUnit[1].trim().toLowerCase();
+    const noUnit = s.match(/^[\d.]+\s+(.+)$/);
+    if (noUnit) return noUnit[1].trim().toLowerCase();
+    return s.trim().toLowerCase();
   }
   const pantryMatches = (meal.ingredients ?? []).filter((ing) => {
     const n = ingredientNameFrom(ing);
@@ -78,9 +83,10 @@ function MealSlotCard({
     return !pantry.some((p) => p.name.toLowerCase().includes(n) || n.includes(p.name.toLowerCase()));
   });
 
-  // B2: track which ingredients were auto-added so we can undo on un-confirm
+  // B2: track parsed names of auto-added ingredients so we can undo on un-confirm
   const [autoAddedIngs, setAutoAddedIngs] = useState<string[]>([]);
   const [cartBanner, setCartBanner] = useState<string | null>(null);
+  const [savedBanner, setSavedBanner] = useState<string | null>(null);
 
   function handleConfirm() {
     const willConfirm = !isConfirmed;
@@ -99,8 +105,9 @@ function MealSlotCard({
         source_name: "wotoEAT Plan",
       });
       const toAdd = missingIngredients.filter((ing) => !inCart(ing));
-      toAdd.forEach((ing) => addToShoppingList(cartCategory, ing));
-      setAutoAddedIngs(toAdd);
+      // N-03: parse before storing so amount/unit are meaningful
+      toAdd.forEach((ing) => addToShoppingList(cartCategory, parseIngredient(ing)));
+      setAutoAddedIngs(toAdd.map((ing) => parseIngredient(ing).name));
       if (toAdd.length > 0) {
         setCartBanner(language === "zh"
           ? `${toAdd.length} 个食材已加入购物车`
@@ -142,14 +149,14 @@ function MealSlotCard({
   const allInCart = (meal.ingredients ?? []).length > 0 && (meal.ingredients ?? []).every(inCart);
 
   function toggleIngredient(ing: string) {
-    if (inCart(ing)) removeFromShoppingList(cartCategory, ing);
-    else addToShoppingList(cartCategory, ing);
+    if (inCart(ing)) removeFromShoppingList(cartCategory, parseIngredient(ing).name);
+    else addToShoppingList(cartCategory, parseIngredient(ing));
     Haptics.selectionAsync();
   }
 
   function addAll() {
     (meal.ingredients ?? []).forEach((ing) => {
-      if (!inCart(ing)) addToShoppingList(cartCategory, ing);
+      if (!inCart(ing)) addToShoppingList(cartCategory, parseIngredient(ing));
     });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }
@@ -160,8 +167,11 @@ function MealSlotCard({
 
   function parseIngredient(s: string): Ingredient {
     // Parses "100g chicken breast" or "2 eggs" → structured ingredient
-    const m = s.match(/^([\d.]+)\s*([a-zA-Z\u4e00-\u9fff]+)?\s+(.+)$/);
-    if (m && m[3]) return { name: m[3].trim(), amount: parseFloat(m[1]) || 1, unit: m[2] ?? "" };
+    // N-01: handles "100g chicken breast", "2 eggs" (no unit), and bare strings
+    const withUnit = s.match(/^([\d.]+)\s*([a-zA-Z\u4e00-\u9fff]+)\s+(.+)$/);
+    if (withUnit && withUnit[3]) return { name: withUnit[3].trim(), amount: parseFloat(withUnit[1]) || 1, unit: withUnit[2] };
+    const noUnit = s.match(/^([\d.]+)\s+(.+)$/);
+    if (noUnit && noUnit[2]) return { name: noUnit[2].trim(), amount: parseFloat(noUnit[1]) || 1, unit: "" };
     return { name: s, amount: 1, unit: "" };
   }
 
@@ -196,6 +206,9 @@ function MealSlotCard({
       const result = await saveRecipe(recipe);
       setSavedId(result.id);
       setSavedState("saved");
+      // C2/A7: brief toast pointing user to Recipes tab for editing
+      setSavedBanner(language === "zh" ? "已保存 — 前往食谱编辑" : "Saved — tap Recipes to edit");
+      setTimeout(() => setSavedBanner(null), 4000);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
       setSavedState("idle");
@@ -320,6 +333,12 @@ function MealSlotCard({
           <View style={[cardStyles.cartBanner, { backgroundColor: c.successBg }]}>
             <Ionicons name="cart" size={13} color={c.success} />
             <Text style={[cardStyles.cartBannerText, { color: c.success }]}>{cartBanner}</Text>
+          </View>
+        )}
+        {savedBanner && (
+          <View style={[cardStyles.cartBanner, { backgroundColor: c.primaryLight }]}>
+            <Ionicons name="bookmark" size={13} color={c.primary} />
+            <Text style={[cardStyles.cartBannerText, { color: c.primary }]}>{savedBanner}</Text>
           </View>
         )}
 

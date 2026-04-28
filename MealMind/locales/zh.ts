@@ -144,7 +144,7 @@ const zh = {
   // ── Shopping ──────────────────────────────────────────────────────────────
   generate_list: "生成购物清单",
   shopping_empty_title: "购物清单为空",
-  shopping_empty_body: "从食谱页面添加食谱，然后点击生成购物清单。",
+  shopping_empty_body: "在发现页确认餐食，或从食谱页添加食谱，然后点击生成购物清单。",
   no_recipes_selected: "请先在食谱页面添加食谱。",
   items_progress: (checked: number, total: number) => `${checked} / ${total} 项`,
 
@@ -181,11 +181,13 @@ const zh = {
 
   // ── History ───────────────────────────────────────────────────────────────
   history_heading: "饮食历史",
-  history_subtitle: "您最近7天的饮食计划。",
+  history_subtitle: "您的历史饮食计划。",
   history_empty_title: "暂无历史记录",
   history_empty_body: "生成第一个每日计划后，它将显示在这里。",
   calories_label: "千卡",
   search_history: "搜索历史…",
+  load_more: "加载更多",
+  weekly_cal_chart: "本周卡路里",
 
   // ── My Recipes ────────────────────────────────────────────────────────────
   tab_my_recipes: "我的食谱",
@@ -256,6 +258,25 @@ const zh = {
   // ── Serving size (meal card) ──────────────────────────────────────────────
   serving_size: "份量",
   for_n_people: "供",
+
+  // ── Discover / meal card ──────────────────────────────────────────────────
+  meal_saved_toast: "已保存 — 前往食谱编辑",
+
+  // ── Profile restrictions ──────────────────────────────────────────────────
+  ai_custom_note: "注意：AI可能不完全遵守自定义限制，请在烹饪前检查计划。",
+
+  // ── Landing page ──────────────────────────────────────────────────────────
+  landing_hero_title: "每天吃得更聪明",
+  landing_hero_sub: "AI驱动的饮食规划，根据您的健康目标、食材和口味量身定制。",
+  landing_f1_title: "个性化每日餐单",
+  landing_f1_sub: "每天为您生成专属的早中晚三餐",
+  landing_f2_title: "智能食材匹配",
+  landing_f2_sub: "只买缺少的食材，自动减少浪费",
+  landing_f3_title: "一键保存食谱",
+  landing_f3_sub: "发现、定制并重复使用您喜爱的食谱",
+  landing_cta_start: "立即开始 — 免费使用",
+  landing_cta_signin: "已有账号？",
+  landing_fine_print: "无需信用卡 · 免费使用",
 } as const;
 
 export default zh;

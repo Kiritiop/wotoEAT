@@ -56,7 +56,7 @@ interface AppState {
   setShoppingList: (list: ShoppingList) => void;
   toggleShoppingItem: (category: string, itemName: string) => void;
   clearShoppingList: () => void;
-  addToShoppingList: (category: string, itemName: string) => void;
+  addToShoppingList: (category: string, item: { name: string; amount: number; unit: string }) => void;
   removeFromShoppingList: (category: string, itemName: string) => void;
 
   // ── Recipe labels (favorite, frequent, done) ──────────────────────────────
@@ -95,7 +95,8 @@ export const useAppStore = create<AppState>()(
       // ── Language ────────────────────────────────────────────────────────
       language: "en",
       // Clear the daily plan when language changes — it was generated in the old language
-      setLanguage: (lang) => set({ language: lang, dailyPlan: null }),
+      // N-02: also clear confirmedSlots so stale checkmarks don't survive
+      setLanguage: (lang) => set({ language: lang, dailyPlan: null, confirmedSlots: [] }),
 
       // ── Onboarding ──────────────────────────────────────────────────────
       hasOnboarded: false,
@@ -149,18 +150,19 @@ export const useAppStore = create<AppState>()(
           return { shoppingList: { ...state.shoppingList, groups } };
         }),
       clearShoppingList: () => set({ shoppingList: null }),
-      addToShoppingList: (category, itemName) =>
+      // N-03: accepts structured item so amount/unit are stored correctly instead of "1 + raw string"
+      addToShoppingList: (category, item) =>
         set((state) => {
           const base = state.shoppingList ?? { groups: [] };
           const idx = base.groups.findIndex((g) => g.category === category);
           if (idx >= 0) {
-            if (base.groups[idx].items.some((i) => i.name === itemName)) return state;
+            if (base.groups[idx].items.some((i) => i.name === item.name)) return state;
             const newGroups = base.groups.map((g, i) =>
-              i === idx ? { ...g, items: [...g.items, { name: itemName, amount: 1, unit: "" }] } : g
+              i === idx ? { ...g, items: [...g.items, { name: item.name, amount: item.amount, unit: item.unit }] } : g
             );
             return { shoppingList: { ...base, groups: newGroups } };
           }
-          return { shoppingList: { ...base, groups: [...base.groups, { category, items: [{ name: itemName, amount: 1, unit: "" }] }] } };
+          return { shoppingList: { ...base, groups: [...base.groups, { category, items: [{ name: item.name, amount: item.amount, unit: item.unit }] }] } };
         }),
       removeFromShoppingList: (category, itemName) =>
         set((state) => {

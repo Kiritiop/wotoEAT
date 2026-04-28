@@ -272,14 +272,21 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
                   );
                 })()}
 
-                {/* Steps count */}
+                {/* Steps list */}
                 {recipe.steps.length > 0 && (
-                  <View style={[styles.stepsRow, { borderTopColor: c.borderLight }]}>
-                    <Ionicons name="list-outline" size={14} color={c.textMuted} />
-                    <Text style={[styles.stepsText, { color: c.textMuted }]}>
-                      {recipe.steps.length} {t("steps_label").toLowerCase()}
+                  <>
+                    <Text style={[styles.sectionLabel, { color: c.textPlaceholder, marginTop: 8 }]}>
+                      {t("steps_label")} ({recipe.steps.length})
                     </Text>
-                  </View>
+                    {recipe.steps.map((step, i) => (
+                      <View key={i} style={styles.stepRow}>
+                        <View style={[styles.stepNum, { backgroundColor: c.primary }]}>
+                          <Text style={styles.stepNumText}>{i + 1}</Text>
+                        </View>
+                        <Text style={[styles.stepText, { color: c.textSecondary }]}>{step}</Text>
+                      </View>
+                    ))}
+                  </>
                 )}
 
                 {/* Tags */}
@@ -381,11 +388,13 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     ingName: { fontSize: 13, flex: 1 },
     ingAmt: { fontSize: 12 },
     moreHint: { fontSize: 12, fontStyle: "italic", marginTop: 4 },
-    stepsRow: {
-      flexDirection: "row", alignItems: "center", gap: 6,
-      paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, marginTop: 4,
+    stepRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 8 },
+    stepNum: {
+      width: 22, height: 22, borderRadius: 11,
+      alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1,
     },
-    stepsText: { fontSize: 13 },
+    stepNumText: { fontSize: 11, fontWeight: "800", color: "#FFF" },
+    stepText: { fontSize: 13, lineHeight: 19, flex: 1 },
     tags: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
     tag: { borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4 },
     tagText: { fontSize: 11 },

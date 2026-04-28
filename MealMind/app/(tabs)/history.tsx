@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -30,6 +30,8 @@ export default function HistoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  // N-07: paginated history — start with 7 days, user can load more
+  const [limit, setLimit] = useState(7);
   const c = useTheme();
   const { t } = useTranslation();
 
@@ -38,7 +40,7 @@ export default function HistoryScreen() {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     setError(null);
     try {
-      const data = await getPlanHistory(7);
+      const data = await getPlanHistory(limit);
       setHistory(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load history.");
@@ -46,9 +48,11 @@ export default function HistoryScreen() {
       setRefreshing(false);
       setLoading(false);
     }
-  }, [authReady]);
+  }, [authReady, limit]);
 
   useFocusEffect(useCallback(() => { void load(); }, [load]));
+  // Reload when limit increases (useFocusEffect won't re-run while screen is focused)
+  useEffect(() => { if (limit > 7) void load(); }, [limit]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Filter by search query — match date string or meal names
   const filteredHistory = search.trim()
@@ -103,6 +107,16 @@ export default function HistoryScreen() {
             title={t("history_empty_title")}
             body={t("history_empty_body")}
           />
+        )}
+
+        {/* N-07: load more button — shown when not searching and last fetch returned a full page */}
+        {!loading && !search && history.length >= limit && (
+          <TouchableOpacity
+            style={[styles.loadMoreBtn, { backgroundColor: c.surface, borderColor: c.border }]}
+            onPress={() => setLimit((l) => l + 7)}
+          >
+            <Text style={[styles.loadMoreText, { color: c.primary }]}>{t("load_more")}</Text>
+          </TouchableOpacity>
         )}
 
         {filteredHistory.map((entry) => (
@@ -167,5 +181,10 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     mealSlot: { fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.4 },
     mealName: { fontSize: 14, fontWeight: "600", marginTop: 1 },
     mealMeta: { fontSize: 12, marginTop: 1 },
+    loadMoreBtn: {
+      borderRadius: 12, borderWidth: 1, paddingVertical: 12,
+      alignItems: "center", marginBottom: 12,
+    },
+    loadMoreText: { fontSize: 14, fontWeight: "600" },
   });
 }

@@ -33,7 +33,7 @@ export function WeeklyCalChart({ history, targetCalories }: Props) {
 
   return (
     <View style={[styles.container, { backgroundColor: c.surface, borderColor: c.border }]}>
-      <Text style={[styles.title, { color: c.text }]}>Weekly Calories</Text>
+      <Text style={[styles.title, { color: c.text }]}>{language === "zh" ? "本周卡路里" : "Weekly Calories"}</Text>
 
       {/* Target line label */}
       {targetCalories != null && (

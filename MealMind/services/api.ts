@@ -77,8 +77,8 @@ export interface HealthProfile {
   use_imperial?: boolean;
   // ── Meal generation preferences ─────────────────────────────────────────────
   cuisine_preferences?: string[];
-  flavour_preference?: string;
-  preferred_max_prep_mins?: number;
+  flavour_preference?: string | null;
+  preferred_max_prep_mins?: number | null;
 }
 
 export async function getProfile(): Promise<HealthProfile> {

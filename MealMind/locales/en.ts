@@ -144,7 +144,7 @@ const en = {
   // ── Shopping ──────────────────────────────────────────────────────────────
   generate_list: "Generate List",
   shopping_empty_title: "Your list is empty",
-  shopping_empty_body: "Add recipes from the Recipes tab, then tap Generate List.",
+  shopping_empty_body: "Confirm meals in Discover or add recipes from the Recipes tab, then tap Generate List.",
   no_recipes_selected: "Go to Recipes → add recipes to your list first.",
   items_progress: (checked: number, total: number) => `${checked} / ${total} items`,
 
@@ -181,11 +181,13 @@ const en = {
 
   // ── History ───────────────────────────────────────────────────────────────
   history_heading: "Meal History",
-  history_subtitle: "Your last 7 daily plans.",
+  history_subtitle: "Your past daily plans.",
   history_empty_title: "No history yet",
   history_empty_body: "Generate your first daily plan and it will appear here.",
   calories_label: "kcal",
   search_history: "Search history…",
+  load_more: "Load more",
+  weekly_cal_chart: "Weekly Calories",
 
   // ── My Recipes ────────────────────────────────────────────────────────────
   tab_my_recipes: "My Recipes",
@@ -256,6 +258,25 @@ const en = {
   // ── Serving size (meal card) ──────────────────────────────────────────────
   serving_size: "Serving size",
   for_n_people: "for",
+
+  // ── Discover / meal card ──────────────────────────────────────────────────
+  meal_saved_toast: "Saved — tap Recipes to edit",
+
+  // ── Profile restrictions ──────────────────────────────────────────────────
+  ai_custom_note: "Note: AI may not always respect custom entries — double-check your plan.",
+
+  // ── Landing page ──────────────────────────────────────────────────────────
+  landing_hero_title: "Eat smarter, every day",
+  landing_hero_sub: "AI-powered meal planning tailored to your health goals, pantry, and taste.",
+  landing_f1_title: "Personalised meal plans",
+  landing_f1_sub: "Breakfast, lunch & dinner generated for you daily",
+  landing_f2_title: "Pantry-aware shopping",
+  landing_f2_sub: "Only buy what you're missing — reduce waste automatically",
+  landing_f3_title: "One-tap recipe saving",
+  landing_f3_sub: "Find, customise, and reuse recipes you love",
+  landing_cta_start: "Get started — it's free",
+  landing_cta_signin: "Already have an account?",
+  landing_fine_print: "No credit card required · Free to use",
 } as const;
 
 export type TranslationKey = keyof typeof en;

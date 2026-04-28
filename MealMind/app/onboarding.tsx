@@ -12,16 +12,19 @@ import { useAppStore } from "@/store/useAppStore";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useTheme } from "@/hooks/useTheme";
 import { LanguageToggle } from "@/components/LanguageToggle";
+import { saveProfile } from "@/services/api";
 
 export default function OnboardingScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const c = useTheme();
-  const { setHasOnboarded, language } = useAppStore();
+  const { setHasOnboarded, language, profile } = useAppStore();
 
   function handleStart() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setHasOnboarded(true);
+    // N-08: persist profile data so it isn't lost if user force-closes before reaching Profile tab
+    saveProfile(profile).catch(() => {/* best-effort */});
     router.replace("/(tabs)/discover");
   }
 

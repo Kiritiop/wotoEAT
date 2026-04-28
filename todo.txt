@@ -1,10 +1,11 @@
-──────────────────────────────────────────────────────────
-ORIGINAL GOALS (for reference)
-──────────────────────────────────────────────────────────
+Currently, the steps still arnt show when I search a recipe,
+it just says "7 steps" for example and I cant see the steps. 
+The user is able to see the steps when they save to recipe but 
+I want the steps to be shown directly when the recipe is generated
 
-1. 编辑食谱 — edit & save recipes per user habits          [DONE]
-2. 推荐逻辑 — pantry matching + auto-cart on confirm       [DONE]
-3. 收藏→编辑 — save recipe then customize it               [DONE A1-A6]
+
+we also need a main page that allows the visitor to know what 
+our app does and not just go directly to a login page
 
 ──────────────────────────────────────────────────────────
 REMAINING FEATURES

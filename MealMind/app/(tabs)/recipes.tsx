@@ -73,6 +73,9 @@ export default function RecipesScreen() {
   async function handleSaveEdit() {
     if (!selectedRecipe) return;
     if (!editTitle.trim()) { setEditError("Title is required."); return; }
+    // N-06: validate ingredient amounts before saving
+    const badIng = editIngredients.find((i) => i.name.trim() && isNaN(parseFloat(i.amount)));
+    if (badIng) { setEditError(`Amount for "${badIng.name}" must be a number.`); return; }
     setEditSaving(true);
     setEditError(null);
     try {
@@ -156,10 +159,16 @@ export default function RecipesScreen() {
     const reduced: string[] = [];
 
     for (const ing of recipe.ingredients) {
-      const idx = newPantry.findIndex(
-        (p) => p.name.toLowerCase().includes(ing.name.toLowerCase()) ||
-               ing.name.toLowerCase().includes(p.name.toLowerCase())
-      );
+      // N-04: require whole-word match to prevent "fish" hitting "catfish", "garlic" hitting "garlic bread" etc.
+      const idx = newPantry.findIndex((p) => {
+        const pn = p.name.toLowerCase();
+        const ingName = ing.name.toLowerCase();
+        if (pn === ingName) return true;
+        const escapedIng = ingName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const escapedPn = pn.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return new RegExp(`(^|\\s)${escapedIng}(\\s|$)`).test(pn) ||
+               new RegExp(`(^|\\s)${escapedPn}(\\s|$)`).test(ingName);
+      });
       if (idx !== -1) {
         const pantryItem = newPantry[idx];
         const newAmount = Math.max(0, pantryItem.amount - ing.amount);
@@ -599,7 +608,7 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     content: { padding: 16, paddingBottom: 40 },
     uploadBtn: {
       flexDirection: "row", alignItems: "center", justifyContent: "center",
-      backgroundColor: c.accent, borderRadius: 14, paddingVertical: 13,
+      backgroundColor: c.primary, borderRadius: 14, paddingVertical: 13,
       gap: 8, marginBottom: 16,
     },
     uploadBtnText: { color: "#FFF", fontSize: 15, fontWeight: "700" },

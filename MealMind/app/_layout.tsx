@@ -50,12 +50,14 @@ export default function RootLayout() {
   // Redirect based on auth + onboarding state
   useEffect(() => {
     if (!ready) return;
-    const seg0 = segments[0] as string;
+    const seg0 = segments[0] as string | undefined;
     const inAuth = seg0 === "auth";
     const inOnboarding = seg0 === "onboarding";
+    // Root index (landing page) — valid unauthenticated destination
+    const atLanding = seg0 === undefined || seg0 === "index";
 
-    if (!session && !inAuth) {
-      router.replace("/auth/sign-in");
+    if (!session && !inAuth && !atLanding) {
+      router.replace("/");
     } else if (session && inAuth) {
       if (!hasOnboarded) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -84,6 +86,7 @@ export default function RootLayout() {
             headerShown: false,
           }}
         >
+          <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="auth" />
           <Stack.Screen name="onboarding" />
