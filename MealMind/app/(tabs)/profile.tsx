@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -40,6 +40,18 @@ export default function ProfileScreen() {
   const [showOtherAllergyInput, setShowOtherAllergyInput] = useState(false);
   const [otherRestrictionText, setOtherRestrictionText] = useState("");
   const [showOtherRestrictionInput, setShowOtherRestrictionInput] = useState(false);
+
+  // BUG-08: local display states prevent float drift from repeated kg↔lbs round-trips
+  const toDisplay = (kg: number | undefined, imperial: boolean, factor: number) =>
+    kg != null ? (imperial ? (kg * factor).toFixed(1) : kg.toString()) : "";
+  const [weightDisplay, setWeightDisplay] = useState(() => toDisplay(profile.weight_kg, !!profile.use_imperial, 2.20462));
+  const [heightDisplay, setHeightDisplay] = useState(() => toDisplay(profile.height_cm, !!profile.use_imperial, 1 / 2.54));
+
+  // Re-derive display when unit system toggles
+  useEffect(() => {
+    setWeightDisplay(toDisplay(profile.weight_kg, !!profile.use_imperial, 2.20462));
+    setHeightDisplay(toDisplay(profile.height_cm, !!profile.use_imperial, 1 / 2.54));
+  }, [profile.use_imperial]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const standardAllergenValues = ALLERGEN_OPTIONS.map((a) => a.value as string);
   const standardRestrictionValues = DIETARY_RESTRICTION_OPTIONS.map((r) => r.value as string);
@@ -259,13 +271,11 @@ export default function ProfileScreen() {
                 keyboardType="decimal-pad"
                 placeholder={profile.use_imperial ? "e.g. 154" : t("onboarding_weight_placeholder")}
                 placeholderTextColor={c.textPlaceholder}
-                value={profile.use_imperial && profile.weight_kg
-                  ? (profile.weight_kg * 2.20462).toFixed(1)
-                  : (profile.weight_kg?.toString() ?? "")}
-                onChangeText={(v) => {
-                  const num = v ? parseFloat(v) : undefined;
+                value={weightDisplay}
+                onChangeText={(v) => { setWeightDisplay(v); setSaved(false); }}
+                onBlur={() => {
+                  const num = weightDisplay ? parseFloat(weightDisplay) : undefined;
                   setProfile({ weight_kg: num != null ? (profile.use_imperial ? num / 2.20462 : num) : undefined });
-                  setSaved(false);
                 }}
               />
             </View>
@@ -278,13 +288,11 @@ export default function ProfileScreen() {
                 keyboardType="decimal-pad"
                 placeholder={profile.use_imperial ? "e.g. 67" : t("onboarding_height_placeholder")}
                 placeholderTextColor={c.textPlaceholder}
-                value={profile.use_imperial && profile.height_cm
-                  ? (profile.height_cm / 2.54).toFixed(1)
-                  : (profile.height_cm?.toString() ?? "")}
-                onChangeText={(v) => {
-                  const num = v ? parseFloat(v) : undefined;
+                value={heightDisplay}
+                onChangeText={(v) => { setHeightDisplay(v); setSaved(false); }}
+                onBlur={() => {
+                  const num = heightDisplay ? parseFloat(heightDisplay) : undefined;
                   setProfile({ height_cm: num != null ? (profile.use_imperial ? num * 2.54 : num) : undefined });
-                  setSaved(false);
                 }}
               />
             </View>

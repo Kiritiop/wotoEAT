@@ -33,6 +33,7 @@ interface AppState {
   // ── Daily meal plan ───────────────────────────────────────────────────────
   dailyPlan: DailyMealPlan | null;
   setDailyPlan: (plan: DailyMealPlan) => void;
+  patchDailyPlan: (plan: DailyMealPlan) => void;
   clearDailyPlan: () => void;
 
   // ── Meal ratings ──────────────────────────────────────────────────────────
@@ -103,6 +104,7 @@ export const useAppStore = create<AppState>()(
       // ── Daily plan ───────────────────────────────────────────────────────
       dailyPlan: null,
       setDailyPlan: (plan) => set({ dailyPlan: plan, confirmedSlots: [] }),
+      patchDailyPlan: (plan) => set({ dailyPlan: plan }),
       clearDailyPlan: () => set({ dailyPlan: null, confirmedSlots: [] }),
 
       // ── Ratings ──────────────────────────────────────────────────────────

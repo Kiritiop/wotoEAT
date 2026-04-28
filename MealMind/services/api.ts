@@ -188,6 +188,7 @@ export interface SavedRecipe {
   title: string;
   source_name?: string;
   source_url?: string;
+  servings?: number;
   prep_time_mins?: number;
   calories_per_serving?: number;
   ingredients?: Ingredient[];
@@ -297,6 +298,11 @@ export async function saveRecipe(recipe: Recipe): Promise<SavedRecipe> {
 export async function getSavedRecipes(): Promise<SavedRecipe[]> {
   const res = await api.get("/recipes/saved");
   return res.data as SavedRecipe[];
+}
+
+export async function updateRecipe(id: string, recipe: Recipe): Promise<SavedRecipe> {
+  const res = await api.put(`/recipes/${id}`, { recipe });
+  return res.data as SavedRecipe;
 }
 
 export async function deleteRecipe(id: string): Promise<void> {

@@ -72,7 +72,8 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
     try {
       const result = await generateRecipeByName(dishName.trim(), language, globalServings ?? 2);
       setRecipe(result);
-      setPreviewServings(result.servings || globalServings || 2);
+      // BUG-14: use the user's requested servings, not whatever the API returned
+      setPreviewServings(globalServings ?? 2);
       setPhase("preview");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {

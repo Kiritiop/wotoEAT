@@ -151,7 +151,8 @@ export default function PantryScreen() {
       }
 
       // Task 3: stack amounts if same ingredient already exists (when adding, not editing)
-      const existing = editingItem ? null : pantry.find((p) => p.name === item.name && p.unit === item.unit);
+      // BUG-11: stack by name only — unit mismatch (g vs "") shouldn't prevent consolidation
+      const existing = editingItem ? null : pantry.find((p) => p.name === item.name);
       const savedItem = existing
         ? { ...item, amount: Math.round((existing.amount + item.amount) * 10) / 10 }
         : item;
@@ -200,7 +201,7 @@ export default function PantryScreen() {
 
   async function handleShareShopping() {
     if (!shoppingList) return;
-    await Share.share({ message: formatShoppingListText(shoppingList) });
+    await Share.share({ message: formatShoppingListText(shoppingList, language) });
   }
 
   const { total: totalItems, checked: checkedItems } = shoppingList

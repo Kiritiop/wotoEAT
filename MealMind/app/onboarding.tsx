@@ -17,7 +17,7 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const c = useTheme();
-  const { setHasOnboarded } = useAppStore();
+  const { setHasOnboarded, language } = useAppStore();
 
   function handleStart() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -55,9 +55,7 @@ export default function OnboardingScreen() {
                   <Ionicons name={icon} size={18} color={c.primary} />
                 </View>
                 <Text style={[styles.bulletText, { color: c.textSecondary }]}>
-                  {i === 0
-                    ? (c as any).__lang === "zh" ? labelsZh[i] : labels[i]
-                    : labels[i]}
+                  {language === "zh" ? labelsZh[i] : labels[i]}
                 </Text>
               </View>
             );

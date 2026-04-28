@@ -89,7 +89,7 @@ export default function HistoryScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={c.primary} />}
       >
-        {loading && <ActivityIndicator color={c.primary} style={{ marginTop: 32 }} />}
+        {(!authReady || loading) && <ActivityIndicator color={c.primary} style={{ marginTop: 32 }} />}
 
         <ErrorBanner message={error} style={{ marginBottom: 12 }} />
 

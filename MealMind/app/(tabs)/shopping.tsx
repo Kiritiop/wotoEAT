@@ -56,7 +56,7 @@ export default function ShoppingScreen() {
 
   async function handleShare() {
     if (!shoppingList) return;
-    await Share.share({ message: formatShoppingListText(shoppingList) });
+    await Share.share({ message: formatShoppingListText(shoppingList, language) });
   }
 
   const { total: totalItems, checked: checkedItems } = shoppingList

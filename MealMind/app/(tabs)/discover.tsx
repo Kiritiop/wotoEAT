@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import {
   View,
   Text,
@@ -61,13 +61,66 @@ function MealSlotCard({
   const [showInfo, setShowInfo] = useState(false);
   const c = useTheme();
   const { t, strings } = useTranslation();
-  const { language, planServings, shoppingList, addToShoppingList, removeFromShoppingList, confirmedSlots, toggleConfirmedSlot } = useAppStore();
+  const { language, servings: storeServings, pantry, shoppingList, addToShoppingList, removeFromShoppingList, addRecipe, removeRecipe, confirmedSlots, toggleConfirmedSlot } = useAppStore();
   const isConfirmed = confirmedSlots.includes(meal.slot);
 
-  // Serving size scaler — always defaults to 1 regardless of previous selections
-  const baseServingsRef = useRef(planServings || 1);
-  const [displayServings, setDisplayServings] = useState(1);
-  const scaleFactor = displayServings / (baseServingsRef.current || 1);
+  // B1: client-side pantry matching — extract name portion of "100g chicken breast" → "chicken breast"
+  function ingredientNameFrom(s: string): string {
+    const m = s.match(/^[\d.]+\s*[a-zA-Z一-鿿]*\s+(.+)$/);
+    return (m ? m[1] : s).trim().toLowerCase();
+  }
+  const pantryMatches = (meal.ingredients ?? []).filter((ing) => {
+    const n = ingredientNameFrom(ing);
+    return pantry.some((p) => p.name.toLowerCase().includes(n) || n.includes(p.name.toLowerCase()));
+  });
+  const missingIngredients = (meal.ingredients ?? []).filter((ing) => {
+    const n = ingredientNameFrom(ing);
+    return !pantry.some((p) => p.name.toLowerCase().includes(n) || n.includes(p.name.toLowerCase()));
+  });
+
+  // B2: track which ingredients were auto-added so we can undo on un-confirm
+  const [autoAddedIngs, setAutoAddedIngs] = useState<string[]>([]);
+  const [cartBanner, setCartBanner] = useState<string | null>(null);
+
+  function handleConfirm() {
+    const willConfirm = !isConfirmed;
+    toggleConfirmedSlot(meal.slot);
+    if (willConfirm) {
+      // BUG-04: add meal to selectedRecipes so shopping list generation has input
+      addRecipe({
+        title: meal.name,
+        servings: storeServings || 1,
+        prep_time_mins: meal.prep_time_mins,
+        calories_per_serving: meal.calories_per_serving,
+        ingredients: (meal.ingredients ?? []).map(parseIngredient),
+        steps: meal.steps ?? [],
+        tags: meal.tags ?? [],
+        warnings: [],
+        source_name: "wotoEAT Plan",
+      });
+      const toAdd = missingIngredients.filter((ing) => !inCart(ing));
+      toAdd.forEach((ing) => addToShoppingList(cartCategory, ing));
+      setAutoAddedIngs(toAdd);
+      if (toAdd.length > 0) {
+        setCartBanner(language === "zh"
+          ? `${toAdd.length} 个食材已加入购物车`
+          : `${toAdd.length} item${toAdd.length > 1 ? "s" : ""} added to cart`);
+        setTimeout(() => setCartBanner(null), 3000);
+      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else {
+      removeRecipe(meal.name);
+      autoAddedIngs.forEach((ing) => removeFromShoppingList(cartCategory, ing));
+      setAutoAddedIngs([]);
+      setCartBanner(null);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  }
+
+  // Serving size scaler — plan amounts are per-serving, so scaleFactor = displayServings (BUG-02)
+  // Init from user's default servings preference (BUG-13)
+  const [displayServings, setDisplayServings] = useState(storeServings || 1);
+  const scaleFactor = displayServings;
   const accent = SLOT_COLOUR[meal.slot] ?? "#2E7D32";
   const icon = (SLOT_ICON[meal.slot] ?? "restaurant") as React.ComponentProps<typeof Ionicons>["name"];
   const hasMacros = meal.protein_g != null || meal.carbs_g != null || meal.fat_g != null;
@@ -78,9 +131,14 @@ function MealSlotCard({
   const translatedIngredients = useBatchTranslated(meal.ingredients ?? []);
   const translatedSteps = useBatchTranslated(meal.steps ?? []);
 
-  const cartCategory = meal.name;
+  // BUG-05: slot prefix prevents collision when two meals share the same name
+  const cartCategory = `${meal.slot}-${meal.name}`;
   const cartItems = shoppingList?.groups.find((g) => g.category === cartCategory)?.items ?? [];
-  const inCart = (ing: string) => cartItems.some((i) => i.name === ing);
+  // BUG-07: normalize ingredient names so "200g chicken" matches "chicken" already in cart
+  const inCart = (ing: string) => {
+    const n = ingredientNameFrom(ing);
+    return cartItems.some((i) => i.name === ing || ingredientNameFrom(i.name) === n);
+  };
   const allInCart = (meal.ingredients ?? []).length > 0 && (meal.ingredients ?? []).every(inCart);
 
   function toggleIngredient(ing: string) {
@@ -179,11 +237,11 @@ function MealSlotCard({
           <CompChip icon="ellipse" label={meal.components.staple} color="#D97706" />
         </View>
 
-        {meal.uses_pantry_items.length > 0 && (
+        {pantryMatches.length > 0 && (
           <View style={[cardStyles.pantryRow, { backgroundColor: c.successBg }]}>
             <Ionicons name="checkmark-circle" size={13} color="#16A34A" />
             <Text style={cardStyles.pantryText}>
-              {t("using_from_pantry")} {meal.uses_pantry_items.join(", ")}
+              {t("using_from_pantry")} {pantryMatches.map(ingredientNameFrom).join(", ")}
             </Text>
           </View>
         )}
@@ -237,7 +295,7 @@ function MealSlotCard({
               borderColor: isConfirmed ? c.success : c.border,
               backgroundColor: isConfirmed ? c.successBg : "transparent",
             }]}
-            onPress={() => { toggleConfirmedSlot(meal.slot); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+            onPress={handleConfirm}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Ionicons
@@ -257,6 +315,13 @@ function MealSlotCard({
             <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={14} color={c.textMuted} />
           </TouchableOpacity>
         </View>
+
+        {cartBanner && (
+          <View style={[cardStyles.cartBanner, { backgroundColor: c.successBg }]}>
+            <Ionicons name="cart" size={13} color={c.success} />
+            <Text style={[cardStyles.cartBannerText, { color: c.success }]}>{cartBanner}</Text>
+          </View>
+        )}
 
         {showInfo && (
           <View style={[cardStyles.infoPanel, { backgroundColor: c.surfaceAlt, borderColor: c.border }]}>
@@ -428,7 +493,7 @@ function CompChip({ icon, label, color }: {
 }
 
 export default function TodayScreen() {
-  const { profile, pantry, dailyPlan, setDailyPlan, clearDailyPlan, language, ratings, setRating, servings, setPlanServings } = useAppStore();
+  const { profile, pantry, dailyPlan, setDailyPlan, patchDailyPlan, clearDailyPlan, language, ratings, setRating, servings, setPlanServings } = useAppStore();
   const router = useRouter();
   const { t } = useTranslation();
   const c = useTheme();
@@ -485,11 +550,13 @@ export default function TodayScreen() {
         setPlanServings(servings);
       } else {
         // Merge: keep existing meals for other slots, replace/add the generated one
-        const newMeal = plan.meals.find((m) => m.slot === slotFilter) ?? plan.meals[0];
+        const newMeal = plan.meals.find((m) => m.slot === slotFilter);
+        if (!newMeal) throw new Error("Plan did not return a meal for the requested slot.");
         const kept = dailyPlan.meals.filter((m) => m.slot !== newMeal.slot);
         const merged = [...kept, newMeal].sort((a, b) => (SLOT_ORDER[a.slot] ?? 0) - (SLOT_ORDER[b.slot] ?? 0));
         const newTotal = merged.reduce((s, m) => s + (m.calories_per_serving ?? 0), 0);
-        setDailyPlan({ ...dailyPlan, meals: merged, total_calories: newTotal });
+        // patchDailyPlan preserves confirmedSlots (BUG-01)
+        patchDailyPlan({ ...dailyPlan, meals: merged, total_calories: newTotal });
       }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -509,7 +576,8 @@ export default function TodayScreen() {
       const newMeal = await swapMeal(slot, dailyPlan as DailyMealPlan, profile, pantry, language);
       const updatedMeals = dailyPlan.meals.map((m) => m.slot === slot ? newMeal : m);
       const newTotal = updatedMeals.reduce((sum, m) => sum + (m.calories_per_serving ?? 0), 0);
-      setDailyPlan({ ...dailyPlan, meals: updatedMeals, total_calories: newTotal });
+      // patchDailyPlan preserves confirmedSlots (BUG-01)
+      patchDailyPlan({ ...dailyPlan, meals: updatedMeals, total_calories: newTotal });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not swap meal.");
@@ -761,6 +829,8 @@ const cardStyles = StyleSheet.create({
   infoIconBtn: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   saveIconBtn: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   confirmIconBtn: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  cartBanner: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginTop: 6 },
+  cartBannerText: { fontSize: 12, fontWeight: "600" },
   infoPanel: { borderRadius: 12, borderWidth: 1, padding: 12, gap: 8, marginTop: 2 },
   macroRow: { flexDirection: "row", gap: 12, flexWrap: "wrap" },
   macroCell: { alignItems: "center", minWidth: 48 },

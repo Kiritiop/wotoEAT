@@ -1,9 +1,10 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
   FlatList,
   TouchableOpacity,
+  TextInput,
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
@@ -15,24 +16,25 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { getSavedRecipes, deleteRecipe, upsertPantry } from "@/services/api";
+import { getSavedRecipes, deleteRecipe, updateRecipe, upsertPantry } from "@/services/api";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useAppStore } from "@/store/useAppStore";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import FindRecipeModal from "@/components/FindRecipeModal";
-import type { SavedRecipe } from "@/services/api";
+import type { SavedRecipe, Ingredient } from "@/services/api";
 
 type RecipeTab = "saved" | "favorites" | "frequent" | "done";
 
 export default function RecipesScreen() {
-  const { authReady, recipeLabels, addRecipeLabel, removeRecipeLabel, pantry, setPantry, language } = useAppStore();
+  const { authReady, recipeLabels, addRecipeLabel, removeRecipeLabel, pantry, setPantry, language, removeFromShoppingList } = useAppStore();
   const c = useTheme();
   const { t, strings } = useTranslation();
   const router = useRouter();
 
   const [recipes, setRecipes] = useState<SavedRecipe[]>([]);
+  const hasFetchedRef = useRef(false);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
@@ -41,12 +43,74 @@ export default function RecipesScreen() {
   const [activeTab, setActiveTab] = useState<RecipeTab>("saved");
   const [showFindRecipe, setShowFindRecipe] = useState(false);
 
+  // ── Edit mode ─────────────────────────────────────────────────────────────
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editPrepTime, setEditPrepTime] = useState("");
+  const [editCalories, setEditCalories] = useState("");
+  const [editServings, setEditServings] = useState("");
+  const [editIngredients, setEditIngredients] = useState<{ name: string; amount: string; unit: string }[]>([]);
+  const [editSteps, setEditSteps] = useState<string[]>([]);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  function openEditMode(recipe: SavedRecipe) {
+    setEditTitle(recipe.title);
+    setEditPrepTime(recipe.prep_time_mins != null ? String(recipe.prep_time_mins) : "");
+    setEditCalories(recipe.calories_per_serving != null ? String(recipe.calories_per_serving) : "");
+    setEditServings(recipe.servings != null ? String(recipe.servings) : "");
+    setEditIngredients((recipe.ingredients ?? []).map((ing) => ({
+      name: ing.name,
+      amount: String(ing.amount),
+      unit: ing.unit,
+    })));
+    setEditSteps([...(recipe.steps ?? [])]);
+    setEditError(null);
+    setIsEditing(true);
+    Haptics.selectionAsync();
+  }
+
+  async function handleSaveEdit() {
+    if (!selectedRecipe) return;
+    if (!editTitle.trim()) { setEditError("Title is required."); return; }
+    setEditSaving(true);
+    setEditError(null);
+    try {
+      const ingredients: Ingredient[] = editIngredients
+        .filter((i) => i.name.trim())
+        .map((i) => ({ name: i.name.trim(), amount: parseFloat(i.amount) || 1, unit: i.unit.trim() }));
+      const updated = await updateRecipe(selectedRecipe.id, {
+        title: editTitle.trim(),
+        servings: parseInt(editServings) || 2,
+        prep_time_mins: parseInt(editPrepTime) || 0,
+        calories_per_serving: parseInt(editCalories) || undefined,
+        ingredients,
+        steps: editSteps.filter((s) => s.trim()),
+        tags: selectedRecipe.tags ?? [],
+        warnings: [],
+        source_name: selectedRecipe.source_name,
+      });
+      setRecipes((prev) => prev.map((r) => r.id === updated.id ? updated : r));
+      setSelectedRecipe(updated);
+      setIsEditing(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Could not save.");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
   const loadRecipes = useCallback(async (isRefresh = false) => {
     if (!authReady) return;
+    // BUG-16: skip redundant fetches on every modal open/close; only refetch on explicit refresh
+    if (!isRefresh && hasFetchedRef.current) return;
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
       const data = await getSavedRecipes();
       setRecipes(data);
+      hasFetchedRef.current = true;
     } catch {
       // Silently ignore load errors
     } finally {
@@ -108,6 +172,15 @@ export default function RecipesScreen() {
     const filteredPantry = newPantry.filter((p) => p.amount > 0);
     setPantry(filteredPantry);
     try { await upsertPantry(filteredPantry); } catch { /* best-effort */ }
+
+    // BUG-09: clean up shopping list items for this recipe (try all slot prefixes)
+    const slots = ["breakfast", "lunch", "dinner"];
+    for (const slot of slots) {
+      const category = `${slot}-${recipe.title}`;
+      (recipe.ingredients ?? []).forEach((ing) => removeFromShoppingList(category, ing.name));
+    }
+    // Also try bare title in case it was added without a slot prefix
+    (recipe.ingredients ?? []).forEach((ing) => removeFromShoppingList(recipe.title, ing.name));
 
     addRecipeLabel(recipe.id, "done");
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -288,62 +361,211 @@ export default function RecipesScreen() {
         onSaved={() => { loadRecipes(); setActiveTab("saved"); }}
       />
 
-      {/* Recipe detail modal */}
-      <Modal visible={!!selectedRecipe} animationType="slide" presentationStyle="pageSheet">
+      {/* Recipe detail / edit modal */}
+      <Modal visible={!!selectedRecipe} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { setIsEditing(false); setSelectedRecipe(null); }}>
         {selectedRecipe && (
           <SafeAreaView style={[styles.safe, { backgroundColor: c.bg }]}>
             <View style={[styles.modalHeader, { borderBottomColor: c.border }]}>
-              <Text style={[styles.modalTitle, { color: c.text }]} numberOfLines={2}>
-                {selectedRecipe.title}
-              </Text>
-              <TouchableOpacity onPress={() => setSelectedRecipe(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Ionicons name="close" size={24} color={c.textMuted} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView contentContainerStyle={styles.modalContent} showsVerticalScrollIndicator={false}>
-              {selectedRecipe.source_name && (
-                <Text style={[styles.detailSource, { color: c.primary }]}>{selectedRecipe.source_name}</Text>
+              {isEditing ? (
+                <TextInput
+                  style={[styles.editTitleInput, { color: c.text, borderColor: c.border, backgroundColor: c.inputBg }]}
+                  value={editTitle}
+                  onChangeText={setEditTitle}
+                  placeholder="Recipe title"
+                  placeholderTextColor={c.textPlaceholder}
+                />
+              ) : (
+                <Text style={[styles.modalTitle, { color: c.text }]} numberOfLines={2}>
+                  {selectedRecipe.title}
+                </Text>
               )}
-              <View style={styles.detailMeta}>
-                {selectedRecipe.prep_time_mins != null && (
-                  <View style={[styles.detailChip, { backgroundColor: c.surfaceAlt }]}>
-                    <Ionicons name="time-outline" size={13} color={c.textMuted} />
-                    <Text style={[styles.detailChipText, { color: c.textMuted }]}>{selectedRecipe.prep_time_mins} {t("min_label")}</Text>
-                  </View>
+              <View style={styles.modalHeaderActions}>
+                {!isEditing && (
+                  <TouchableOpacity onPress={() => openEditMode(selectedRecipe)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                    <Ionicons name="pencil-outline" size={20} color={c.primary} />
+                  </TouchableOpacity>
                 )}
-                {selectedRecipe.calories_per_serving != null && (
-                  <View style={[styles.detailChip, { backgroundColor: c.surfaceAlt }]}>
-                    <Ionicons name="flame-outline" size={13} color={c.textMuted} />
-                    <Text style={[styles.detailChipText, { color: c.textMuted }]}>{selectedRecipe.calories_per_serving} {t("calories_label")}</Text>
-                  </View>
-                )}
+                <TouchableOpacity onPress={() => { setIsEditing(false); setSelectedRecipe(null); }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Ionicons name="close" size={24} color={c.textMuted} />
+                </TouchableOpacity>
               </View>
-              {(selectedRecipe.ingredients?.length ?? 0) > 0 && (
+            </View>
+
+            <ScrollView contentContainerStyle={styles.modalContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              {isEditing ? (
                 <>
-                  <Text style={[styles.detailSectionLabel, { color: c.textPlaceholder }]}>
-                    {t("ingredients_label")} ({selectedRecipe.ingredients!.length})
-                  </Text>
-                  {selectedRecipe.ingredients!.map((ing, i) => (
-                    <View key={i} style={[styles.detailIngRow, { borderBottomColor: c.borderLight }]}>
-                      <Text style={[styles.detailIngName, { color: c.textSecondary }]}>{ing.name}</Text>
-                      <Text style={[styles.detailIngAmt, { color: c.textMuted }]}>{ing.amount} {ing.unit}</Text>
+                  {/* Basic fields */}
+                  <Text style={[styles.editFieldLabel, { color: c.textMuted }]}>PREP TIME (MIN)</Text>
+                  <TextInput
+                    style={[styles.editInput, { color: c.text, borderColor: c.border, backgroundColor: c.inputBg }]}
+                    value={editPrepTime}
+                    onChangeText={setEditPrepTime}
+                    keyboardType="number-pad"
+                    placeholder="e.g. 30"
+                    placeholderTextColor={c.textPlaceholder}
+                  />
+                  <Text style={[styles.editFieldLabel, { color: c.textMuted }]}>CALORIES / SERVING</Text>
+                  <TextInput
+                    style={[styles.editInput, { color: c.text, borderColor: c.border, backgroundColor: c.inputBg }]}
+                    value={editCalories}
+                    onChangeText={setEditCalories}
+                    keyboardType="number-pad"
+                    placeholder="e.g. 450"
+                    placeholderTextColor={c.textPlaceholder}
+                  />
+                  <Text style={[styles.editFieldLabel, { color: c.textMuted }]}>SERVINGS</Text>
+                  <TextInput
+                    style={[styles.editInput, { color: c.text, borderColor: c.border, backgroundColor: c.inputBg }]}
+                    value={editServings}
+                    onChangeText={setEditServings}
+                    keyboardType="number-pad"
+                    placeholder="e.g. 2"
+                    placeholderTextColor={c.textPlaceholder}
+                  />
+
+                  {/* Ingredients */}
+                  <View style={styles.editSectionHeader}>
+                    <Text style={[styles.editFieldLabel, { color: c.textMuted, marginBottom: 0 }]}>INGREDIENTS</Text>
+                    <TouchableOpacity
+                      onPress={() => setEditIngredients((prev) => [...prev, { name: "", amount: "1", unit: "" }])}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="add-circle" size={22} color={c.primary} />
+                    </TouchableOpacity>
+                  </View>
+                  {editIngredients.map((ing, i) => (
+                    <View key={i} style={styles.editIngRow}>
+                      <TextInput
+                        style={[styles.editIngName, { color: c.text, borderColor: c.border, backgroundColor: c.inputBg }]}
+                        value={ing.name}
+                        onChangeText={(v) => setEditIngredients((prev) => prev.map((x, j) => j === i ? { ...x, name: v } : x))}
+                        placeholder="Ingredient"
+                        placeholderTextColor={c.textPlaceholder}
+                      />
+                      <TextInput
+                        style={[styles.editIngAmt, { color: c.text, borderColor: c.border, backgroundColor: c.inputBg }]}
+                        value={ing.amount}
+                        onChangeText={(v) => setEditIngredients((prev) => prev.map((x, j) => j === i ? { ...x, amount: v } : x))}
+                        keyboardType="decimal-pad"
+                        placeholder="Amt"
+                        placeholderTextColor={c.textPlaceholder}
+                      />
+                      <TextInput
+                        style={[styles.editIngUnit, { color: c.text, borderColor: c.border, backgroundColor: c.inputBg }]}
+                        value={ing.unit}
+                        onChangeText={(v) => setEditIngredients((prev) => prev.map((x, j) => j === i ? { ...x, unit: v } : x))}
+                        placeholder="Unit"
+                        placeholderTextColor={c.textPlaceholder}
+                      />
+                      <TouchableOpacity
+                        onPress={() => setEditIngredients((prev) => prev.filter((_, j) => j !== i))}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons name="trash-outline" size={18} color={c.error} />
+                      </TouchableOpacity>
                     </View>
                   ))}
-                </>
-              )}
-              {(selectedRecipe.steps?.length ?? 0) > 0 && (
-                <>
-                  <Text style={[styles.detailSectionLabel, { color: c.textPlaceholder }]}>
-                    {t("steps_label")} ({selectedRecipe.steps!.length})
-                  </Text>
-                  {selectedRecipe.steps!.map((step, i) => (
-                    <View key={i} style={styles.detailStep}>
+
+                  {/* Steps */}
+                  <View style={styles.editSectionHeader}>
+                    <Text style={[styles.editFieldLabel, { color: c.textMuted, marginBottom: 0 }]}>STEPS</Text>
+                    <TouchableOpacity
+                      onPress={() => setEditSteps((prev) => [...prev, ""])}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="add-circle" size={22} color={c.primary} />
+                    </TouchableOpacity>
+                  </View>
+                  {editSteps.map((step, i) => (
+                    <View key={i} style={styles.editStepRow}>
                       <View style={[styles.detailStepNum, { backgroundColor: c.primary }]}>
                         <Text style={styles.detailStepNumText}>{i + 1}</Text>
                       </View>
-                      <Text style={[styles.detailStepText, { color: c.textSecondary }]}>{step}</Text>
+                      <TextInput
+                        style={[styles.editStepInput, { color: c.text, borderColor: c.border, backgroundColor: c.inputBg }]}
+                        value={step}
+                        onChangeText={(v) => setEditSteps((prev) => prev.map((s, j) => j === i ? v : s))}
+                        placeholder={`Step ${i + 1}`}
+                        placeholderTextColor={c.textPlaceholder}
+                        multiline
+                      />
+                      <TouchableOpacity
+                        onPress={() => setEditSteps((prev) => prev.filter((_, j) => j !== i))}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons name="trash-outline" size={18} color={c.error} />
+                      </TouchableOpacity>
                     </View>
                   ))}
+
+                  <ErrorBanner message={editError} style={{ marginTop: 8 }} />
+
+                  <View style={styles.editActions}>
+                    <TouchableOpacity
+                      style={[styles.editCancelBtn, { backgroundColor: c.surfaceAlt }]}
+                      onPress={() => { setIsEditing(false); setEditError(null); }}
+                    >
+                      <Text style={[styles.editCancelText, { color: c.textMuted }]}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.editSaveBtn, { backgroundColor: editSaving ? c.disabled : c.primary }]}
+                      onPress={handleSaveEdit}
+                      disabled={editSaving}
+                    >
+                      {editSaving
+                        ? <ActivityIndicator size="small" color="#FFF" />
+                        : <Text style={styles.editSaveBtnText}>Save changes</Text>
+                      }
+                    </TouchableOpacity>
+                  </View>
+                </>
+              ) : (
+                <>
+                  {selectedRecipe.source_name && (
+                    <Text style={[styles.detailSource, { color: c.primary }]}>{selectedRecipe.source_name}</Text>
+                  )}
+                  <View style={styles.detailMeta}>
+                    {selectedRecipe.prep_time_mins != null && (
+                      <View style={[styles.detailChip, { backgroundColor: c.surfaceAlt }]}>
+                        <Ionicons name="time-outline" size={13} color={c.textMuted} />
+                        <Text style={[styles.detailChipText, { color: c.textMuted }]}>{selectedRecipe.prep_time_mins} {t("min_label")}</Text>
+                      </View>
+                    )}
+                    {selectedRecipe.calories_per_serving != null && (
+                      <View style={[styles.detailChip, { backgroundColor: c.surfaceAlt }]}>
+                        <Ionicons name="flame-outline" size={13} color={c.textMuted} />
+                        <Text style={[styles.detailChipText, { color: c.textMuted }]}>{selectedRecipe.calories_per_serving} {t("calories_label")}</Text>
+                      </View>
+                    )}
+                  </View>
+                  {(selectedRecipe.ingredients?.length ?? 0) > 0 && (
+                    <>
+                      <Text style={[styles.detailSectionLabel, { color: c.textPlaceholder }]}>
+                        {t("ingredients_label")} ({selectedRecipe.ingredients!.length})
+                      </Text>
+                      {selectedRecipe.ingredients!.map((ing, i) => (
+                        <View key={i} style={[styles.detailIngRow, { borderBottomColor: c.borderLight }]}>
+                          <Text style={[styles.detailIngName, { color: c.textSecondary }]}>{ing.name}</Text>
+                          <Text style={[styles.detailIngAmt, { color: c.textMuted }]}>{ing.amount} {ing.unit}</Text>
+                        </View>
+                      ))}
+                    </>
+                  )}
+                  {(selectedRecipe.steps?.length ?? 0) > 0 && (
+                    <>
+                      <Text style={[styles.detailSectionLabel, { color: c.textPlaceholder }]}>
+                        {t("steps_label")} ({selectedRecipe.steps!.length})
+                      </Text>
+                      {selectedRecipe.steps!.map((step, i) => (
+                        <View key={i} style={styles.detailStep}>
+                          <View style={[styles.detailStepNum, { backgroundColor: c.primary }]}>
+                            <Text style={styles.detailStepNumText}>{i + 1}</Text>
+                          </View>
+                          <Text style={[styles.detailStepText, { color: c.textSecondary }]}>{step}</Text>
+                        </View>
+                      ))}
+                    </>
+                  )}
                 </>
               )}
             </ScrollView>
@@ -405,8 +627,9 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
       flexDirection: "row", alignItems: "center", justifyContent: "space-between",
       paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: StyleSheet.hairlineWidth,
     },
+    modalHeaderActions: { flexDirection: "row", alignItems: "center", gap: 14 },
     modalTitle: { fontSize: 18, fontWeight: "700", flex: 1, marginRight: 12 },
-    modalContent: { padding: 20, paddingBottom: 40 },
+    modalContent: { padding: 20, paddingBottom: 60 },
     detailSource: { fontSize: 13, fontWeight: "600", marginBottom: 12 },
     detailMeta: { flexDirection: "row", gap: 8, marginBottom: 16 },
     detailChip: { flexDirection: "row", alignItems: "center", gap: 4, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
@@ -425,5 +648,45 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     detailStepNum: { width: 22, height: 22, borderRadius: 11, alignItems: "center", justifyContent: "center", flexShrink: 0 },
     detailStepNumText: { fontSize: 11, fontWeight: "800", color: "#FFF" },
     detailStepText: { fontSize: 13, lineHeight: 18, flex: 1 },
+    // Edit mode
+    editTitleInput: {
+      flex: 1, fontSize: 17, fontWeight: "700", borderWidth: 1, borderRadius: 10,
+      paddingHorizontal: 12, paddingVertical: 8, marginRight: 12,
+    },
+    editFieldLabel: {
+      fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5,
+      marginTop: 14, marginBottom: 4,
+    },
+    editInput: {
+      borderWidth: 1, borderRadius: 10, paddingHorizontal: 14,
+      paddingVertical: 10, fontSize: 14,
+    },
+    editSectionHeader: {
+      flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+      marginTop: 18, marginBottom: 6,
+    },
+    editIngRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 },
+    editIngName: {
+      flex: 3, borderWidth: 1, borderRadius: 8,
+      paddingHorizontal: 10, paddingVertical: 8, fontSize: 13,
+    },
+    editIngAmt: {
+      flex: 1, borderWidth: 1, borderRadius: 8,
+      paddingHorizontal: 8, paddingVertical: 8, fontSize: 13, textAlign: "center",
+    },
+    editIngUnit: {
+      flex: 1, borderWidth: 1, borderRadius: 8,
+      paddingHorizontal: 8, paddingVertical: 8, fontSize: 13, textAlign: "center",
+    },
+    editStepRow: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginBottom: 8 },
+    editStepInput: {
+      flex: 1, borderWidth: 1, borderRadius: 8,
+      paddingHorizontal: 10, paddingVertical: 8, fontSize: 13, lineHeight: 18,
+    },
+    editActions: { flexDirection: "row", gap: 10, marginTop: 20 },
+    editCancelBtn: { flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: "center" },
+    editCancelText: { fontSize: 15, fontWeight: "600" },
+    editSaveBtn: { flex: 2, borderRadius: 12, paddingVertical: 14, alignItems: "center" },
+    editSaveBtnText: { color: "#FFF", fontSize: 15, fontWeight: "700" },
   });
 }

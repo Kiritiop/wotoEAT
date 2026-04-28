@@ -1,1 +1,189 @@
-I'm on english setting but i see the days of the week in chinese? fix
+──────────────────────────────────────────────────────────
+ORIGINAL GOALS (for reference)
+──────────────────────────────────────────────────────────
+
+1. 编辑食谱 — edit & save recipes per user habits          [DONE]
+2. 推荐逻辑 — pantry matching + auto-cart on confirm       [DONE]
+3. 收藏→编辑 — save recipe then customize it               [DONE A1-A6]
+
+──────────────────────────────────────────────────────────
+REMAINING FEATURES
+──────────────────────────────────────────────────────────
+
+  A7. "Customize" shortcut from discover meal cards
+      After bookmarking a meal from the plan, show a prompt
+      "Tap to edit in Recipes" so users can immediately
+      personalize it without hunting through the tab.
+
+  C1. After saving from FindRecipeModal, auto-switch to the
+      Saved tab and highlight the new recipe.
+
+  C2. After saving from a plan meal card, show a brief toast
+      linking to the Recipes tab ("Saved — tap to edit").
+
+──────────────────────────────────────────────────────────
+BUG-12  profile.tsx — Deselecting flavour/prep-time sets
+        undefined instead of null; backend may treat
+        absent key differently from explicit null.
+        Fix: set to null or empty string on deselect.
+
+BUG-17  api.ts — Silent translation fallback gives no
+        signal to the user when the backend is down.
+        Fix: expose a `translationFailed` flag and show
+        a subtle banner ("Translation unavailable").
+
+──────────────────────────────────────────────────────────
+NEW ISSUES (UX + logic audit)
+──────────────────────────────────────────────────────────
+
+=== CRITICAL ===
+
+  N-01  discover.tsx ~69 — Ingredient regex breaks on
+        "2 eggs" / "a handful of nuts" (no unit between
+        amount and name). Falls back to full string, so
+        pantry matching and cart normalization fail for
+        these very common formats.
+        Fix: broaden regex: try unit-present form first,
+        then unit-absent form ("^([\d.]+)\s+(.+)$"),
+        then bare string.
+
+  N-02  store/useAppStore.ts ~98 — setLanguage clears
+        dailyPlan but NOT confirmedSlots, leaving stale
+        checkmarks after the plan is wiped.
+        Fix: also reset confirmedSlots in setLanguage.
+
+  N-03  useAppStore.ts ~157-161 — addToShoppingList
+        stores raw ingredient strings (e.g. "200g chicken")
+        as item.name with amount:1 unit:"". The display in
+        IngredientRow then shows "1  200g chicken" —
+        amount and unit fields are meaningless.
+        Fix: when auto-adding from discover confirm, parse
+        the raw string into {name, amount, unit} using
+        parseIngredient before storing.
+
+  N-04  recipes.tsx handleMarkDone ~160-169 — fuzzy match
+        "fish" hits "catfish", "garlic" hits "garlic bread".
+        Pantry items get incorrectly reduced.
+        Fix: require full-word match (word boundary check)
+        or exact substring from start of name.
+
+=== HIGH ===
+
+  N-05  pantry.tsx ~154-158 — Stacking ignores unit after
+        the BUG-11 fix. "500 ml oil" + "200 ml oil" stacks
+        correctly, but "500 ml oil" + "1 L oil" also stacks
+        and adds 500+1 = 501 ml — wrong quantity.
+        Fix: only stack when units are the same; otherwise
+        add as a separate entry (or convert to common unit).
+
+  N-06  recipes.tsx ~79-92 — Edit form silently defaults
+        ingredient amount to 1 when the user types non-numeric
+        text. No validation error is shown before saving.
+        Fix: show an inline error per ingredient row if
+        amount is not a valid number; block save.
+
+  N-07  history.tsx ~41 — History hardcoded to 7 days with
+        no pagination or "load more". Users cannot review
+        plans older than a week.
+        Fix: add a "Load more" button that calls
+        getPlanHistory(limit) with an increasing limit,
+        or paginate by passing an offset/date cursor.
+
+  N-08  onboarding.tsx ~22-26 — handleStart only calls
+        setHasOnboarded(true) and navigates; it never
+        calls saveProfile(). If the user filled in profile
+        data during onboarding and force-closes the app
+        before reaching the Profile tab, changes are lost.
+        Fix: call saveProfile(profile) in handleStart
+        before navigating (best-effort, catch and ignore).
+
+  N-09  discover.tsx ~33-40 — scaleIngredientStr silently
+        skips ingredients without a leading number (e.g.
+        "a handful", "some oil"). Scaling does nothing and
+        the amount shown is always 1× regardless of the
+        stepper setting.
+        Fix: detect non-numeric quantities and show a
+        "~" prefix to signal the amount is approximate,
+        or skip the scaling display for those items.
+
+=== MEDIUM ===
+
+  N-10  profile.tsx — Custom allergies and dietary
+        restrictions are stored in the profile and sent to
+        the backend, but there is no UI hint that AI-generated
+        plans may not fully respect freeform text restrictions.
+        Fix: show a small note "AI may not always respect
+        custom restrictions — double-check your plan."
+
+  N-11  profile.tsx ~425-444 — After addCustomRestriction /
+        addCustomAllergen, the text input hides but the
+        "Other" chip stays in selected/active state visually,
+        implying more text can be added. The input should
+        fully reset (chip back to unselected, input hidden).
+        Fix: also call setShowOtherRestrictionInput(false) and
+        setShowOtherAllergyInput(false) after a successful add.
+
+  N-12  shopping.tsx / discover.tsx — Empty shopping list
+        state says "Add recipes from Recipes tab, then tap
+        Generate". But confirming meals in Discover ALSO adds
+        to selectedRecipes (after our fix). The hint text is
+        now stale and confusing.
+        Fix: update empty-state copy to mention both paths:
+        "Confirm meals in Discover or find recipes in Recipes,
+        then tap Generate."
+
+  N-13  discover.tsx — Confirming a meal (✅) calls addRecipe
+        in the store, but if the user later removes that
+        recipe from selectedRecipes via the Pantry/Shopping
+        tab, the confirm checkbox stays checked in the meal
+        card. No bidirectional sync between confirmedSlots
+        and selectedRecipes.
+        Fix: derive "confirmed" from whether the meal title
+        exists in selectedRecipes, OR keep them independent
+        and accept the visual mismatch (document it).
+
+  N-14  shopping.ts — generateShoppingList sends multiple
+        recipes to the backend, but if two recipes share
+        the same ingredient with different units, the backend
+        likely returns duplicates instead of consolidating.
+        Fix: pre-consolidate ingredients client-side by
+        name before sending, summing amounts where units match.
+
+=== LOW / POLISH ===
+
+  N-15  api.ts — BUG-17 (silent translation fallback) is
+        still unaddressed. Users see English text in a
+        Chinese session with no explanation.
+
+  N-16  history.tsx — The WeeklyCalChart title "Weekly
+        Calories" is hardcoded English in the component.
+        Fix: use a translation key.
+
+  N-17  discover.tsx — The "What to eat?" / "吃点啥" CTA
+        button label doesn't update live when the user
+        switches language during the same session (only
+        updates after re-mount). Likely because t() is
+        called once at render; should be reactive.
+        Investigate whether useTranslation already handles
+        this or if a language key change needs a re-render.
+
+  N-18  recipes.tsx — The "Find recipe" button in the
+        Recipes tab uses accent color (orange), inconsistent
+        with the primary green used everywhere else for
+        primary actions.
+        Fix: change to primary color to match app style.
+
+──────────────────────────────────────────────────────────
+PRIORITY ORDER
+──────────────────────────────────────────────────────────
+
+  1. N-01  ingredient regex (breaks pantry matching + cart)
+  2. N-02  confirmedSlots not cleared on language change
+  3. N-03  shopping list items stored with wrong structure
+  4. N-04  mark done over-aggressive pantry reduction
+  5. N-05  pantry stacking ignores unit mismatch
+  6. N-06  recipe edit doesn't validate ingredient amounts
+  7. N-07  history 7-day limit
+  8. N-08  onboarding doesn't save profile
+  9. N-09  non-numeric ingredient scaling
+ 10. N-10 through N-18  (medium/low)
