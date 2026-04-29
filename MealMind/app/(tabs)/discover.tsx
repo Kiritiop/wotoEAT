@@ -4,6 +4,7 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
+  TextInput,
   StyleSheet,
   ActivityIndicator,
   Share,
@@ -673,6 +674,7 @@ export default function TodayScreen() {
   const [maxTime, setMaxTime] = useState<number | null>(() => profile.preferred_max_prep_mins ?? null);
   const [showSettings, setShowSettings] = useState(false);
   const [selectedSlots, setSelectedSlots] = useState<MealTypeTag[]>(["any"]);
+  const [ingredientKeyword, setIngredientKeyword] = useState("");
   const [showFindRecipe, setShowFindRecipe] = useState(false);
 
   const MEAL_TYPE_TAGS: { key: MealTypeTag; labelEn: string; labelZh: string }[] = [
@@ -721,6 +723,7 @@ export default function TodayScreen() {
         servings,
         targetSlots as ("breakfast" | "lunch" | "dinner")[],
         flavour.trim() || undefined,
+        ingredientKeyword.trim() || undefined,
       );
 
       if (isAny || !dailyPlan) {
@@ -823,6 +826,25 @@ export default function TodayScreen() {
               </TouchableOpacity>
             );
           })}
+        </View>
+
+        {/* ── Ingredient keyword search ── */}
+        <View style={[styles.ingSearchRow, { backgroundColor: c.inputBg, borderColor: ingredientKeyword.trim() ? c.primary : c.border }]}>
+          <Ionicons name="leaf-outline" size={15} color={ingredientKeyword.trim() ? c.primary : c.textPlaceholder} />
+          <TextInput
+            style={[styles.ingSearchInput, { color: c.text }]}
+            placeholder={language === "zh" ? "必须包含食材…（如 tomato）" : "Must include ingredient… (e.g. tomato)"}
+            placeholderTextColor={c.textPlaceholder}
+            value={ingredientKeyword}
+            onChangeText={setIngredientKeyword}
+            returnKeyType="done"
+            autoCapitalize="none"
+          />
+          {ingredientKeyword.length > 0 && (
+            <TouchableOpacity onPress={() => setIngredientKeyword("")} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+              <Ionicons name="close-circle" size={15} color={c.textPlaceholder} />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* ── Collapsible filters panel ── */}
@@ -1091,6 +1113,8 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     mealTypeRow: { flexDirection: "row", gap: 8, marginBottom: 12, flexWrap: "wrap" },
     mealTypeChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
     mealTypeChipText: { fontSize: 13, fontWeight: "600" },
+    ingSearchRow: { flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 12 },
+    ingSearchInput: { flex: 1, fontSize: 13, paddingVertical: 0 },
     // Filters panel
     settingsPanel: { borderRadius: 14, borderWidth: 1, padding: 14 },
     filterLabel: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 6 },

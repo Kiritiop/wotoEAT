@@ -1,32 +1,31 @@
-Put copyright and stuff to register my work. Add a about the creator section at the end of the profile section and a small section at the bottom of main page
+✅ Put copyright and stuff to register my work. Add a about the creator section at the end of the profile section and a small section at the bottom of main page
 includes my name Jerry Wang, my contact info such as email wzirui102348@gmail.com my linkdin https://www.linkedin.com/in/wang-jerry/ kofi https://ko-fi.com/kiritiop
 
-When adding items to pantry, we need side scrolling feature with tags, sorted by item type. for example: meat will have tags, beef, mutton, fish, pork, etc as tags that the user can scroll from left to right.
+✅ When adding items to pantry, we need side scrolling feature with tags, sorted by item type. for example: meat will have tags, beef, mutton, fish, pork, etc as tags that the user can scroll from left to right.
 for each category of items, put at least 20 of the most commonly used ones, and let the user add their own at the end of the 20
 the user only need to click on the tags to add them to pantry.
 these should all only appear when the user clicks add item to pantry
-Remove all units of measurement, we only care if the user has the ingredient or not and we dont care about the amount
+✅ Remove all units of measurement, we only care if the user has the ingredient or not and we dont care about the amount
 
-the meal card in main genetating screen should be clickable, details should pop-up like the one in my recipes
+✅ the meal card in main genetating screen should be clickable, details should pop-up like the one in my recipes
 
-tabs need changes. in My recipes, the tabs should be. Saved, Liked, History, Mine
+✅ tabs need changes. in My recipes, the tabs should be. Saved, Liked, History, Mine
 The history tab will be moved into this one and remove its slot as a tab in the bar below, the last My profile tab should be changed to just "Me" or 我 in chinese for the main one, instead of today, change it to woto and 吃点啥 in chinese
 for history remove the calorie chart but keep everything else for now
 
-My entire app is now going to be tags based so everything should include a lot of tags
+✅ My entire app is now going to be tags based so everything should include a lot of tags
 the recipes should have a list of tags relating to the dish such as; the flavor, major ingredients, etc.
-for the save recipes, the user should be able to add their own tags to the specific dish. This way the user is able to search recipes using tags
-The user should also be able to add their own recipes. provide blank a template for the user and add a add recipe button on top, move the search magnifiing glass to top right of corner as a small one
+✅ for the save recipes, the user should be able to add their own tags to the specific dish. This way the user is able to search recipes using tags
+✅ The user should also be able to add their own recipes. provide blank a template for the user and add a add recipe button on top, move the search magnifiing glass to top right of corner as a small one
 
-Editing a recipe in saved should duplicate it and save the newly edited one to Mine, change the "save changes" button to "save to Mine"
-the editing function should be on the meal/recipe card instead of having to click into it then click edit. currently the edit function is broken idk why
-mealmind-production-dc38.up.railway.app/recipes/5949453c-d740-4995-9e32-95e43145017d:1  Failed to load resource: the server responded with a status of 405 ()
+✅ Editing a recipe in saved should duplicate it and save the newly edited one to Mine, change the "save changes" button to "save to Mine"
+✅ the editing function should be on the meal/recipe card instead of having to click into it then click edit. currently the edit function is broken idk why
+✅ mealmind-production-dc38.up.railway.app/recipes/5949453c-d740-4995-9e32-95e43145017d:1  Failed to load resource: the server responded with a status of 405 ()
 
+✅ the search functions for My Recipes should only seach recipes inside of My Recipes instead of generating a recipe
 
-the search functions for My Recipes should only seach recipes inside of My Recipes instead of generating a recipe
-
-the tags for the main preferences for meal type should be Any, Breakfast, Lunch, Diner, with any being the default where it will generate a random meal for any occasion. the user is able to select more than one ie breakfast and lunch and we will generate two meals one for each
-User can search recipes based on tags and not specific meal name, like if they want to search recipes with tomato they can enter tomato as a tag and not search recipes to make a tomato
+✅ the tags for the main preferences for meal type should be Any, Breakfast, Lunch, Diner, with any being the default where it will generate a random meal for any occasion. the user is able to select more than one ie breakfast and lunch and we will generate two meals one for each
+✅ User can search recipes based on tags and not specific meal name, like if they want to search recipes with tomato they can enter tomato as a tag and not search recipes to make a tomato
 
 ─────────────────────────────────────────────────────────────────────────────
 CLARIFICATIONS (confirmed 2026-04-29)
@@ -49,293 +48,63 @@ DETAILED IMPLEMENTATION BREAKDOWN
 ─────────────────────────────────────────────────────────────────────────────
 
 ═══════════════════════════════════════════════════════════════════════════════
-TASK A — Copyright & About Creator
-Files: app/(tabs)/profile.tsx, app/index.tsx, locales/en.ts, locales/zh.ts
+✅ TASK A — Copyright & About Creator
 ═══════════════════════════════════════════════════════════════════════════════
-A-1  Add locale keys (en + zh):
-       about_creator: "About the Creator" / "关于作者"
-       about_copyright: "© 2026 Jerry Wang · wotoEAT" (same both)
-       about_support: "Support the project" / "支持项目"
-       Links are raw URLs, no locale key needed.
-A-2  Profile tab (profile.tsx) — add section after Save Profile button:
-       - Section header "About the Creator"
-       - Name row: "Jerry Wang"
-       - Email row: tappable → Linking.openURL("mailto:wzirui102348@gmail.com")
-       - LinkedIn row: tappable → Linking.openURL("https://www.linkedin.com/in/wang-jerry/")
-       - Ko-fi row: tappable → Linking.openURL("https://ko-fi.com/kiritiop")
-       - Copyright line at bottom of section
-A-3  Landing page (index.tsx) — compact footer below CTA buttons:
-       - "Made by Jerry Wang" with small LinkedIn + Ko-fi icon links inline
-       - Copyright line in muted small text
+Done: locale keys, profile.tsx "About the Creator" section, index.tsx footer.
 
 ═══════════════════════════════════════════════════════════════════════════════
-TASK B — Pantry Revamp: Tag Picker + Remove All Units/Amounts
-Files (backend): mealmind-api/db/models.py, mealmind-api/db/supabase_client.py,
-                 mealmind-api/db/schema.sql, mealmind-api/routers/pantry.py,
-                 mealmind-api/ai/prompts.py (shopping list prompt)
-Files (frontend): store/useAppStore.ts, app/(tabs)/pantry.tsx,
-                  components/PantryTagPicker.tsx (new), app/(tabs)/discover.tsx,
-                  app/(tabs)/recipes.tsx, locales/en.ts, locales/zh.ts
-─────────────────────────────────────────────────────────────────────────────
-B-1  BACKEND — Update PantryItem model (models.py):
-       Remove `amount: float` and `unit: str`, keep only `name: str`
-       Update PantryItemDB accordingly.
-       Update UpsertPantryRequest to use updated PantryItem.
-B-2  BACKEND — Update schema.sql pantry table:
-       Remove `amount` and `unit` columns.
-       Add migration comment: ALTER TABLE pantry DROP COLUMN amount; DROP COLUMN unit;
-       (Run in Supabase SQL editor on production)
-B-3  BACKEND — Update supabase_client.py upsert_pantry_items:
-       No longer sends amount/unit fields.
-B-4  BACKEND — Update shopping list prompt (prompts.py):
-       shopping_list_prompt and plan_shopping_prompt receive pantry as list of
-       names only (strings), not dicts with amounts. Update pantry display in
-       prompt to just list names: "- chicken\n- garlic\n..." instead of JSON.
-       Remove amounts/units from ShoppingListItem model and shopping list
-       response format — items are just {name, checked} (no amount/unit).
-       Update shopping list prompt to NOT request amount/unit in response.
-B-5  BACKEND — Update ShoppingListItem model (models.py):
-       Remove `amount: float` and `unit: str`, keep `name: str`, `checked: bool`.
-       Update ShoppingGroup and ShoppingList accordingly.
-       Update GenerateShoppingListRequest: pantry becomes list[str] (names only).
-B-6  FRONTEND — Update PantryItem type in useAppStore.ts:
-       type PantryItem = { id?: string; name: string }  (remove amount, unit)
-       Update addToPantry, setPantry, all state references.
-B-7  FRONTEND — Update discover.tsx:
-       "using_from_pantry" check: pantry items are now just names (strings or
-       {name} objects). Remove any amount-based pantry logic.
-       Shopping list addToShoppingList: items become {name} only (no amount/unit).
-       Update store's addToShoppingList signature to accept just name string.
-B-8  FRONTEND — Update recipes.tsx handleMarkDone:
-       No longer reduces amounts — just removes the item from pantry by name.
-B-9  FRONTEND — Update shopping list display in shopping.tsx (if exists):
-       Remove amount/unit columns from list items. Show only name + checkbox.
-B-10 FRONTEND — Create components/PantryTagPicker.tsx (modal):
-       Shown when "Add ingredient" is tapped in pantry.tsx.
-       Layout: FlatList of category sections, each with horizontal ScrollView of tags.
-       Tapping a tag that isn't in pantry: adds it, tag turns green/checked.
-       Tapping a tag already in pantry: removes it (toggle).
-       At end of each category row: "＋ Custom" tag → small TextInput appears inline.
-       Categories and 20 items each:
-         "Meat & Protein" (肉类 & 蛋白质): chicken, beef, pork, lamb, fish, shrimp,
-           tofu, eggs, turkey, duck, salmon, tuna, crab, bacon, sausage, ham,
-           ground beef, chicken breast, pork belly, sardines
-         "Vegetables" (蔬菜): onion, garlic, tomato, potato, carrot, broccoli,
-           spinach, bell pepper, mushroom, cucumber, zucchini, eggplant, celery,
-           corn, cabbage, lettuce, kale, green onion, ginger, leek
-         "Grains & Carbs" (谷物 & 主食): rice, pasta, bread, noodles, oats,
-           quinoa, flour, tortilla, couscous, barley, panko, cornstarch,
-           sourdough, ramen, soba, udon, rice noodles, pita, oat flour, breadcrumbs
-         "Dairy" (乳制品): milk, butter, cheese, yogurt, cream, cream cheese,
-           sour cream, mozzarella, parmesan, cheddar, heavy cream, condensed milk,
-           whipped cream, gouda, brie, ricotta, cottage cheese, kefir, ghee, feta
-         "Pantry Staples" (常备调料): olive oil, vegetable oil, soy sauce, salt,
-           sugar, vinegar, honey, ketchup, mustard, mayo, hot sauce, fish sauce,
-           oyster sauce, sesame oil, coconut milk, tomato paste, chicken stock,
-           baking soda, baking powder, pepper
-         "Fruits" (水果): apple, banana, lemon, lime, orange, strawberry,
-           blueberry, mango, avocado, grapes, pineapple, watermelon, peach,
-           pear, raspberry, cherry, kiwi, pomelo, papaya, coconut
-         "Herbs & Spices" (香料 & 调味): basil, cilantro, parsley, thyme,
-           rosemary, cumin, paprika, chili powder, turmeric, oregano, bay leaf,
-           coriander, cinnamon, cardamom, cloves, nutmeg, star anise, dill,
-           mint, saffron
-         "Frozen & Canned" (冷冻 & 罐装): frozen peas, frozen corn, canned tomatoes,
-           canned beans, canned tuna, canned chickpeas, frozen edamame,
-           canned lentils, canned olives, frozen spinach, canned soup,
-           canned pumpkin, frozen mixed veg, canned corn, frozen shrimp,
-           frozen fruit, canned artichokes, canned sardines, canned crab,
-           canned coconut milk
-B-11 FRONTEND — Update pantry.tsx:
-       Remove the old inline add form (name/amount/unit fields).
-       Replace with single "＋ Add Ingredients" button that opens PantryTagPicker.
-       Pantry list items: just name chip with delete (×) button. No amounts shown.
+✅ TASK B — Pantry Revamp: Tag Picker + Remove All Units/Amounts
+═══════════════════════════════════════════════════════════════════════════════
+Done: PantryTagPicker component, pantry.tsx rewrite, backend models/supabase/prompts
+updated to name-only, ShoppingItem simplified, discover.tsx/api.ts updated.
 
 ═══════════════════════════════════════════════════════════════════════════════
-TASK C — Fix 405 API Error: Add Recipe Update Endpoint
-Files (backend): mealmind-api/db/models.py, mealmind-api/db/supabase_client.py,
-                 mealmind-api/routers/recipes.py
-Files (frontend): services/api.ts, app/(tabs)/recipes.tsx
-─────────────────────────────────────────────────────────────────────────────
-C-1  BACKEND — Add UpdateRecipeRequest model (models.py):
-       class UpdateRecipeRequest(BaseModel):
-           recipe: Recipe
-           recipe_tab: Optional[str] = "saved"  # "saved" | "mine"
-C-2  BACKEND — Add update_recipe function (supabase_client.py):
-       def update_recipe(recipe_id: str, user_id: str, recipe: dict) -> Any:
-           result = get_client().table("saved_recipes")
-               .update(recipe).eq("id", recipe_id).eq("user_id", user_id).execute()
-           return result.data[0] if result.data else {}
-C-3  BACKEND — Add PUT /recipes/{recipe_id} endpoint (routers/recipes.py):
-       @router.put("/{recipe_id}", response_model=dict)
-       async def update(recipe_id, req: UpdateRecipeRequest, user_id=Depends(...)):
-           updated = db.update_recipe(recipe_id, user_id, req.recipe.model_dump())
-           if not updated:
-               raise HTTPException(404, "Recipe not found")
-           return updated
-C-4  FRONTEND — Add updateRecipe API call (services/api.ts):
-       export async function updateRecipe(id: string, recipe: Recipe): Promise<Recipe>
-       → PUT /recipes/{id} with recipe body
-C-5  FRONTEND — Wire up update call in recipes.tsx edit flow (see Task F for
-     the "Save to Mine" duplication logic, which replaces direct update for Saved).
+✅ TASK C — Fix 405 API Error: Add Recipe Update Endpoint
+═══════════════════════════════════════════════════════════════════════════════
+Done: PUT /recipes/{id} endpoint added, UpdateRecipeRequest model, update_recipe
+in supabase_client.py, updateRecipe in api.ts.
 
 ═══════════════════════════════════════════════════════════════════════════════
-TASK D — Recipe Generation Caching
-Files (backend): mealmind-api/ai/claude.py
-─────────────────────────────────────────────────────────────────────────────
-D-1  BACKEND — Add caching to generate_recipe_by_name (claude.py):
-       Key: hash of (dish_name.lower().strip(), language, servings)
-       TTL: 7 days (604800 seconds) — generated recipes don't expire quickly
-       Before calling AI: check cache_get(key), return if found
-       After AI call: cache_set(key, result, 604800)
-       This means "kung pao chicken" in English only calls AI once per week.
-D-2  NOTE: The SQLite cache at /tmp resets on deploy. For persistent cross-
-     deploy caching, consider saving popular recipes to Supabase in a shared
-     `recipe_cache` table (not user-specific). This is a future enhancement.
+✅ TASK D — Recipe Generation Caching
+═══════════════════════════════════════════════════════════════════════════════
+Done: generate_recipe_by_name caches with 7-day TTL in claude.py.
 
 ═══════════════════════════════════════════════════════════════════════════════
-TASK E — Clickable Meal Card on Discover Screen
-Files: app/(tabs)/discover.tsx, components/MealDetailModal.tsx (new)
-─────────────────────────────────────────────────────────────────────────────
-E-1  Create components/MealDetailModal.tsx:
-       Props: meal (DailyPlanMeal), visible, onClose, onSwap, onSave
-       Shows: name, description, cuisine, prep time, difficulty,
-              nutrition (calories/protein/carbs/fat/fiber per serving),
-              tags chips row, ingredients list, numbered steps list
-       Footer: "Swap" button + "Save to Recipes" button
-       Style: matches the expanded card in recipes.tsx (consistent look)
-E-2  In discover.tsx: wrap each MealSlotCard (or the card container) in
-     Pressable/TouchableOpacity. On press → set selectedMeal state and
-     show MealDetailModal with that meal's data.
-     Pass existing onSwap and handleSaveMeal handlers through to the modal.
+✅ TASK E — Clickable Meal Card on Discover Screen
+═══════════════════════════════════════════════════════════════════════════════
+Done: MealSlotCard has showDetail state + inline detail modal with swap/save
+actions. Card body is a Pressable that opens the modal.
 
 ═══════════════════════════════════════════════════════════════════════════════
-TASK F — Tab Structure & Navigation Changes
-Files: app/(tabs)/_layout.tsx, app/(tabs)/recipes.tsx, app/(tabs)/history.tsx,
-       locales/en.ts, locales/zh.ts
-─────────────────────────────────────────────────────────────────────────────
-F-1  Rename bottom tab "Today" → "woto" (en) / "吃点啥" (zh)
-       Update locale key tab_today.
-F-2  Rename bottom tab "Profile" → "Me" (en) / "我" (zh)
-       Update locale key tab_profile.
-F-3  Remove "History" from bottom tab bar (_layout.tsx):
-       Delete or comment out the history tab entry.
-       The history.tsx screen file can stay — its logic will be embedded.
-F-4  In recipes.tsx, replace current tabs:
-       OLD: Saved | Favorites | Frequent | Made
-       NEW: Saved | Liked | History | Mine
-       - "Saved"   = AI-generated + URL-parsed recipes (unchanged logic)
-       - "Liked"   = recipes where is_favorite=true (current Favorites, renamed)
-       - "History" = embedded daily plan history (import logic from history.tsx,
-                     remove WeeklyCalChart component, keep list + search + load more)
-       - "Mine"    = recipes with source="user" or source="edit" (user-created +
-                     duplicates from editing Saved)
-F-5  Add `source?: "saved" | "user" | "edit"` field to saved recipe objects.
-     "saved" = existing AI/URL recipes. "user" = created via blank template.
-     "edit"  = duplicated from Saved via "Save to Mine" edit flow.
-     Backend: add `recipe_type` text column to saved_recipes table,
-     or use `source_name` field (already exists) to distinguish.
-     Easiest: use existing `source_name` field — set to "__mine__" for Mine tab.
-F-6  Update locale keys:
-       tab_today → "woto" / "吃点啥"
-       tab_profile → "Me" / "我"
-       saved_tab (existing), liked_tab → "Liked" / "已收藏"
-       history_tab → "History" / "历史"
-       mine_tab → "Mine" / "我的"
-       Remove: frequent_tab, done_tab, mark_frequent, mark_done,
-               done_reduces_pantry locale keys (no longer used)
+✅ TASK F — Tab Structure & Navigation Changes
+═══════════════════════════════════════════════════════════════════════════════
+Done: tab_today="woto", tab_profile="Me", History hidden from tab bar,
+recipes tabs = Saved|Liked|History|Mine, source_name="__mine__" for Mine tab.
 
 ═══════════════════════════════════════════════════════════════════════════════
-TASK G — Tags Display + User Tag Addition on Saved Recipes
-Files: app/(tabs)/recipes.tsx, services/api.ts, locales/en.ts, locales/zh.ts
-─────────────────────────────────────────────────────────────────────────────
-NOTE: Tags are already auto-generated by AI and stored in DB (tags text[]).
-The Recipe model already has tags: list[str]. This task is frontend display only.
-─────────────────────────────────────────────────────────────────────────────
-G-1  Show tags as chips on each recipe card in Saved tab:
-       Horizontal ScrollView of tag chips below recipe title.
-       Each chip: small pill with tag text. One consistent color (primary light).
-G-2  In recipe detail/edit view: show all tags with a "＋ Add Tag" button:
-       Tapping "＋ Add Tag" opens a small inline TextInput.
-       User types tag, presses enter/done → tag added to local tags array.
-       Auto-save tags to backend via PUT /recipes/{id} (Task C endpoint).
-G-3  Tag-based filtering in My Recipes:
-       Tapping any tag chip on any card → filters active tab to show only
-       recipes containing that tag. Tap again to deselect filter.
-       Active tag filter shown as a dismissible pill above the recipe list.
+✅ TASK G — Tags Display + User Tag Addition on Saved Recipes
+═══════════════════════════════════════════════════════════════════════════════
+Done: tag chips on cards (tappable to filter), add-tag inline input in detail
+view, tag filter pill dismissible above list (G-3).
 
 ═══════════════════════════════════════════════════════════════════════════════
-TASK H — My Recipes UI: Search, Add Own, Edit Flow
-Files: app/(tabs)/recipes.tsx, app/recipe/upload.tsx (existing),
-       services/api.ts, locales/en.ts, locales/zh.ts
-─────────────────────────────────────────────────────────────────────────────
-H-1  Move search to top-right corner as magnifying glass icon:
-       Tapping icon toggles an animated search bar expanding from right.
-       Searching filters the CURRENT tab's recipes by name + tags (local filter,
-       no AI generation triggered). The "Find Recipe" AI generation button
-       should be a separate distinct CTA (keep it, but separate from search).
-H-2  Add "＋ New Recipe" button at top of recipes list (Saved/Mine tabs):
-       Opens a blank recipe creation form (reuse/adapt recipe/upload.tsx).
-       Fields: title, tags (comma-separated or tag chips), ingredients (names
-       only — no amounts per B-4), steps (numbered list), prep time, notes.
-       On save → POST /recipes/save with source_name="__mine__" → goes to Mine tab.
-H-3  Edit directly on card (not inside detail):
-       Add a small edit (pencil) icon button on each recipe card.
-       Tapping opens the edit sheet/modal directly without navigating into detail.
-       Fix current broken edit: was calling PUT /recipes/{id} which didn't exist
-       (405 error). Now works via Task C's new PUT endpoint.
-H-4  "Edit Saved → Save to Mine" duplication flow:
-       When user opens edit on a SAVED recipe and presses save:
-         1. POST /recipes/save with edited recipe + source_name="__mine__"
-            (creates a new duplicate in Mine tab)
-         2. Do NOT modify the original Saved recipe
-         3. Close the edit modal, switch active tab to "Mine"
-       Rename button from "Save changes" → "Save to Mine"
-       When editing a MINE recipe: PUT /recipes/{id} (updates in-place, no dupe).
-H-5  Fix editError not cleared: when opening edit modal, clear editError state.
+✅ TASK H — My Recipes UI: Search, Add Own, Edit Flow
+═══════════════════════════════════════════════════════════════════════════════
+Done: search icon top-right, "New Recipe" blank template button (H-2), pencil
+edit on card (H-3), Save-to-Mine duplication flow (H-4), editError cleared (H-5).
 
 ═══════════════════════════════════════════════════════════════════════════════
-TASK I — Meal Type Tags on Discover Screen  [PENDING UI DESIGN]
-Files: app/(tabs)/discover.tsx, services/api.ts, locales/en.ts, locales/zh.ts
-Backend: mealmind-api/routers/meals.py, mealmind-api/ai/prompts.py (already has slots)
-─────────────────────────────────────────────────────────────────────────────
-NOTE: Backend already supports slots: Optional[list[str]] in DailyPlanRequest.
-The daily_plan_prompt already handles "GENERATE ONLY THESE MEAL SLOTS: ..."
-─────────────────────────────────────────────────────────────────────────────
-I-1  Replace current meal filter UI with tag selector: Any | Breakfast | Lunch | Dinner
-       Multi-select pill tags. "Any" selected by default.
-       Selecting a specific type deselects "Any". Selecting "Any" deselects others.
-       Multiple specific types can be selected simultaneously.
-I-2  Update generate plan API call:
-       "Any" selected → pass slots=["any"] OR pick a random slot on backend
-       BACKEND: in daily_plan_prompt, if slots=["any"], instruct AI to generate
-       exactly 1 meal for any meal time it deems appropriate.
-       Specific types selected → pass those as slots (e.g. slots=["breakfast","lunch"])
-I-3  Update discover.tsx UI to handle variable meal count (1-3 cards):
-       Remove assumption of always 3 meals. Render whatever meals[] the plan returns.
-I-4  Update locale keys:
-       meal_type_any: "Any" / "任意"
-       (existing breakfast/lunch/dinner keys already exist)
-I-5  Ingredient tag search on Discover:
-       Below the meal type tags, add a secondary tag filter: "Search by ingredient"
-       Small input or tappable chips of common ingredients.
-       Entering/selecting an ingredient tag appends it to the generate request
-       as a cuisine_preference or new field, so AI includes that ingredient.
-       NOTE: This filters the generated meal to use that ingredient, not filters
-       an existing list. Just adds to the prompt constraints.
+✅ TASK I — Meal Type Tags on Discover Screen
+═══════════════════════════════════════════════════════════════════════════════
+Done: Any|Breakfast|Lunch|Dinner multi-select tags always visible below top bar,
+multi-slot generation, ingredient keyword search input wired to AI prompt
+(flavour_preference + ingredient_keyword added to backend model/router/prompt).
 
 ═══════════════════════════════════════════════════════════════════════════════
-KNOWN BUGS (from prior audit — fix alongside feature work)
+✅ KNOWN BUGS — All Fixed
 ═══════════════════════════════════════════════════════════════════════════════
-BUG-A  sign-up.tsx: supabase.auth.signUp() not in try-catch — network error
-       leaves the submit button permanently disabled (loading: true forever)
-       Fix: wrap in try/catch, set loading=false in catch, show error message.
-BUG-B  forgot-password.tsx: hardcoded English strings ("Enter your email...",
-       "Sending…") — should use t() translation keys.
-BUG-C  profile.tsx: weight/height onBlur doesn't validate — typing letters
-       silently stores undefined. Fix: parse and validate on blur, show error.
-BUG-D  discover.tsx: scaleFactor = displayServings is wrong when plan was
-       generated for >1 serving. Fix: scaleFactor = displayServings / planServings
-       where planServings is stored when plan is generated (default 2).
-BUG-E  recipes.tsx: editError not cleared when reopening edit modal — old error
-       persists from previous failed save. Fix: clear editError in openEditMode.
+BUG-A ✅ sign-up.tsx: wrapped in try/catch/finally.
+BUG-B ✅ forgot-password.tsx: uses t() keys, wrapped in try/catch/finally.
+BUG-C ✅ profile.tsx: weight/height validated on blur with isNaN check.
+BUG-D ✅ discover.tsx: scaleFactor = displayServings / (planServings || storeServings || 1).
+BUG-E ✅ recipes.tsx: editError cleared in openEditMode.

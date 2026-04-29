@@ -82,6 +82,8 @@ async def generate_daily_plan(
     recent_ratings: dict | None = None,
     servings: int = 2,
     slots: list[str] | None = None,
+    flavour_preference: str | None = None,
+    ingredient_keyword: str | None = None,
 ) -> tuple[dict, bool]:
     cache_data = {
         "profile": profile,
@@ -92,6 +94,8 @@ async def generate_daily_plan(
         "ratings": recent_ratings,
         "servings": servings,
         "slots": slots,
+        "flavour": flavour_preference,
+        "ingredient": ingredient_keyword,
     }
     key = _cache_key(cache_data)
     cached = cache_get(key)
@@ -107,6 +111,8 @@ async def generate_daily_plan(
                 profile, pantry, cuisine_preference,
                 max_prep_time_mins, language, recent_ratings,
                 servings=servings, slots=slots,
+                flavour_preference=flavour_preference,
+                ingredient_keyword=ingredient_keyword,
             ),
         }],
     )

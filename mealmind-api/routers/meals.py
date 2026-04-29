@@ -51,6 +51,8 @@ async def daily_plan(
             recent_ratings=req.recent_ratings,
             servings=req.servings,
             slots=req.slots,
+            flavour_preference=req.flavour_preference,
+            ingredient_keyword=req.ingredient_keyword,
         )
         meals = [
             DailyPlanMeal(

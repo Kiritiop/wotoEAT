@@ -110,6 +110,8 @@ class DailyPlanRequest(BaseModel):
     recent_ratings: Optional[dict] = None  # {"meal name": "up"|"down"}
     servings: int = 2
     slots: Optional[list[str]] = None      # e.g. ["lunch"] — generate only these slots
+    flavour_preference: Optional[str] = None   # e.g. "spicy", "savory"
+    ingredient_keyword: Optional[str] = None   # must-include ingredient
 
 
 class PlanShoppingRequest(BaseModel):

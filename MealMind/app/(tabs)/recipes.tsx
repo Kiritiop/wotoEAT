@@ -61,6 +61,27 @@ export default function RecipesScreen() {
   const [showTagInput, setShowTagInput] = useState(false);
   const [newTagText, setNewTagText] = useState("");
 
+  // ── Tag filter (G-3) ──────────────────────────────────────────────────────
+  const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
+
+  // ── New recipe creation (H-2) ─────────────────────────────────────────────
+  const [isNewRecipe, setIsNewRecipe] = useState(false);
+
+  function openNewRecipe() {
+    setEditTitle("");
+    setEditPrepTime("");
+    setEditCalories("");
+    setEditServings("2");
+    setEditIngredients([{ name: "", amount: "1", unit: "" }]);
+    setEditSteps([""]);
+    setEditTags([]);
+    setEditError(null);
+    setIsNewRecipe(true);
+    setIsEditing(true);
+    setSelectedRecipe({ id: "", title: "", source_name: "__mine__", tags: [], ingredients: [], steps: [], warnings: [] });
+    Haptics.selectionAsync();
+  }
+
   function openEditMode(recipe: SavedRecipe) {
     setEditTitle(recipe.title);
     setEditPrepTime(recipe.prep_time_mins != null ? String(recipe.prep_time_mins) : "");
@@ -101,7 +122,14 @@ export default function RecipesScreen() {
         source_name: "__mine__",
       };
 
-      if (selectedRecipe.source_name === "__mine__") {
+      if (isNewRecipe) {
+        // Brand new user recipe
+        const created = await saveRecipe(recipePayload);
+        setRecipes((prev) => [created, ...prev]);
+        setSelectedRecipe(null);
+        setActiveTab("mine");
+        setIsNewRecipe(false);
+      } else if (selectedRecipe.source_name === "__mine__") {
         // Mine recipe: update in-place
         const updated = await updateRecipe(selectedRecipe.id, recipePayload);
         setRecipes((prev) => prev.map((r) => r.id === updated.id ? updated : r));
@@ -206,7 +234,7 @@ export default function RecipesScreen() {
     prevTabRef.current = activeTab;
   }
 
-  // Filter recipes by active tab then search text
+  // Filter recipes by active tab, tag filter, then search text
   const filteredRecipes = recipes.filter((r) => {
     const labels = recipeLabels[r.id] ?? [];
     let tabMatch = false;
@@ -214,6 +242,7 @@ export default function RecipesScreen() {
     else if (activeTab === "liked") tabMatch = labels.includes("favorite");
     else if (activeTab === "mine") tabMatch = r.source_name === "__mine__";
     if (!tabMatch) return false;
+    if (activeTagFilter && !(r.tags ?? []).some((t) => t.toLowerCase() === activeTagFilter.toLowerCase())) return false;
     if (!searchText.trim()) return true;
     const q = searchText.trim().toLowerCase();
     return r.title.toLowerCase().includes(q) || (r.tags ?? []).some((t) => t.toLowerCase().includes(q));
@@ -237,7 +266,7 @@ export default function RecipesScreen() {
             <TouchableOpacity
               key={key}
               style={[styles.tab, activeTab === key && { borderBottomColor: c.primary, borderBottomWidth: 2 }]}
-              onPress={() => { setActiveTab(key); setSearchText(""); setShowSearch(false); Haptics.selectionAsync(); }}
+              onPress={() => { setActiveTab(key); setSearchText(""); setShowSearch(false); setActiveTagFilter(null); Haptics.selectionAsync(); }}
             >
               <Ionicons name={icon} size={14} color={activeTab === key ? c.primary : c.textMuted} />
               <Text style={[styles.tabLabel, { color: activeTab === key ? c.primary : c.textMuted }, activeTab === key && { fontWeight: "700" }]}>
@@ -325,10 +354,27 @@ export default function RecipesScreen() {
         }
         ListHeaderComponent={
           <View>
-            <TouchableOpacity style={styles.uploadBtn} onPress={() => setShowFindRecipe(true)}>
-              <Ionicons name="search" size={18} color="#FFF" />
-              <Text style={styles.uploadBtnText}>{t("find_recipe")}</Text>
-            </TouchableOpacity>
+            <View style={styles.headerBtnRow}>
+              <TouchableOpacity style={[styles.uploadBtn, { flex: 1 }]} onPress={() => setShowFindRecipe(true)}>
+                <Ionicons name="search" size={18} color="#FFF" />
+                <Text style={styles.uploadBtnText}>{t("find_recipe")}</Text>
+              </TouchableOpacity>
+              {(activeTab === "saved" || activeTab === "mine") && (
+                <TouchableOpacity style={[styles.newRecipeBtn, { backgroundColor: c.surfaceAlt, borderColor: c.border }]} onPress={openNewRecipe}>
+                  <Ionicons name="add" size={18} color={c.primary} />
+                  <Text style={[styles.newRecipeBtnText, { color: c.primary }]}>{language === "zh" ? "新建" : "New"}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            {activeTagFilter && (
+              <View style={styles.tagFilterPill}>
+                <Ionicons name="pricetag" size={12} color={c.primary} />
+                <Text style={[styles.tagFilterText, { color: c.primary }]}>{activeTagFilter}</Text>
+                <TouchableOpacity onPress={() => setActiveTagFilter(null)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                  <Ionicons name="close-circle" size={14} color={c.primary} />
+                </TouchableOpacity>
+              </View>
+            )}
             {loading && <ActivityIndicator style={{ marginTop: 24 }} color={c.primary} />}
             <ErrorBanner message={deleteError} style={{ marginBottom: 10 }} />
             {filteredRecipes.length > 0 && (
@@ -380,11 +426,18 @@ export default function RecipesScreen() {
                 </View>
                 {(item.tags?.length ?? 0) > 0 && (
                   <View style={styles.tags}>
-                    {item.tags!.slice(0, 3).map((tag) => (
-                      <View key={tag} style={[styles.tag, { backgroundColor: c.chipBg }]}>
-                        <Text style={[styles.tagText, { color: c.chipText }]}>{tag}</Text>
-                      </View>
-                    ))}
+                    {item.tags!.slice(0, 3).map((tag) => {
+                      const isActive = activeTagFilter?.toLowerCase() === tag.toLowerCase();
+                      return (
+                        <TouchableOpacity
+                          key={tag}
+                          style={[styles.tag, { backgroundColor: isActive ? c.primary : c.chipBg }]}
+                          onPress={() => { setActiveTagFilter(isActive ? null : tag); Haptics.selectionAsync(); }}
+                        >
+                          <Text style={[styles.tagText, { color: isActive ? "#FFF" : c.chipText }]}>{tag}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
                 )}
               </TouchableOpacity>
@@ -444,7 +497,7 @@ export default function RecipesScreen() {
       />
 
       {/* Recipe detail / edit modal */}
-      <Modal visible={!!selectedRecipe} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { setIsEditing(false); setSelectedRecipe(null); }}>
+      <Modal visible={!!selectedRecipe} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { setIsEditing(false); setIsNewRecipe(false); setSelectedRecipe(null); }}>
         {selectedRecipe && (
           <SafeAreaView style={[styles.safe, { backgroundColor: c.bg }]}>
             <View style={[styles.modalHeader, { borderBottomColor: c.border }]}>
@@ -467,7 +520,7 @@ export default function RecipesScreen() {
                     <Ionicons name="pencil-outline" size={20} color={c.primary} />
                   </TouchableOpacity>
                 )}
-                <TouchableOpacity onPress={() => { setIsEditing(false); setSelectedRecipe(null); }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <TouchableOpacity onPress={() => { setIsEditing(false); setIsNewRecipe(false); setSelectedRecipe(null); }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                   <Ionicons name="close" size={24} color={c.textMuted} />
                 </TouchableOpacity>
               </View>
@@ -817,5 +870,10 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     editCancelText: { fontSize: 15, fontWeight: "600" },
     editSaveBtn: { flex: 2, borderRadius: 12, paddingVertical: 14, alignItems: "center" },
     editSaveBtnText: { color: "#FFF", fontSize: 15, fontWeight: "700" },
+    headerBtnRow: { flexDirection: "row", gap: 8, marginBottom: 12 },
+    newRecipeBtn: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 14, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 13 },
+    newRecipeBtnText: { fontSize: 15, fontWeight: "700" },
+    tagFilterPill: { flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: c.primaryLight, marginBottom: 10 },
+    tagFilterText: { fontSize: 13, fontWeight: "600" },
   });
 }

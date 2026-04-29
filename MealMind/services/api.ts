@@ -241,6 +241,7 @@ export async function getDailyPlan(
   servings = 2,
   slots?: ("breakfast" | "lunch" | "dinner")[],
   flavour_preference?: string,
+  ingredient_keyword?: string,
 ): Promise<{ plan: DailyMealPlan; cached: boolean }> {
   const res = await api.post("/meals/daily-plan", {
     profile,
@@ -248,6 +249,7 @@ export async function getDailyPlan(
     cuisine_preference: cuisine_preference || null,
     max_prep_time_mins: max_prep_time_mins || null,
     flavour_preference: flavour_preference || null,
+    ingredient_keyword: ingredient_keyword || null,
     language,
     recent_ratings: recent_ratings || null,
     servings,

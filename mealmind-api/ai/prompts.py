@@ -49,6 +49,8 @@ def daily_plan_prompt(
     recent_ratings: dict | None = None,
     servings: int = 2,
     slots: list[str] | None = None,
+    flavour_preference: str | None = None,
+    ingredient_keyword: str | None = None,
 ) -> str:
     pantry_str = "\n".join(f"- {n}" for n in pantry) if pantry else "(empty)"
     profile_str = json.dumps(profile, indent=2)
@@ -67,6 +69,10 @@ def daily_plan_prompt(
         constraints.append(f"- Daily protein goal: {profile['protein_goal_g']}g — prioritise high-protein options")
     if servings != 2:
         constraints.append(f"- Servings per meal: {servings} people")
+    if flavour_preference:
+        constraints.append(f"- Preferred flavour profile: {flavour_preference}")
+    if ingredient_keyword:
+        constraints.append(f"- MUST include ingredient: {ingredient_keyword} — every meal should use or complement this ingredient")
     constraints_str = "\n".join(constraints) if constraints else "None"
 
     slots_note = ""
