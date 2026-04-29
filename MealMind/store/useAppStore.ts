@@ -56,7 +56,7 @@ interface AppState {
   setShoppingList: (list: ShoppingList) => void;
   toggleShoppingItem: (category: string, itemName: string) => void;
   clearShoppingList: () => void;
-  addToShoppingList: (category: string, item: { name: string; amount: number; unit: string }) => void;
+  addToShoppingList: (category: string, name: string) => void;
   removeFromShoppingList: (category: string, itemName: string) => void;
 
   // ── Recipe labels (favorite, frequent, done) ──────────────────────────────
@@ -150,19 +150,18 @@ export const useAppStore = create<AppState>()(
           return { shoppingList: { ...state.shoppingList, groups } };
         }),
       clearShoppingList: () => set({ shoppingList: null }),
-      // N-03: accepts structured item so amount/unit are stored correctly instead of "1 + raw string"
-      addToShoppingList: (category, item) =>
+      addToShoppingList: (category, name) =>
         set((state) => {
           const base = state.shoppingList ?? { groups: [] };
           const idx = base.groups.findIndex((g) => g.category === category);
           if (idx >= 0) {
-            if (base.groups[idx].items.some((i) => i.name === item.name)) return state;
+            if (base.groups[idx].items.some((i) => i.name === name)) return state;
             const newGroups = base.groups.map((g, i) =>
-              i === idx ? { ...g, items: [...g.items, { name: item.name, amount: item.amount, unit: item.unit }] } : g
+              i === idx ? { ...g, items: [...g.items, { name }] } : g
             );
             return { shoppingList: { ...base, groups: newGroups } };
           }
-          return { shoppingList: { ...base, groups: [...base.groups, { category, items: [{ name: item.name, amount: item.amount, unit: item.unit }] }] } };
+          return { shoppingList: { ...base, groups: [...base.groups, { category, items: [{ name }] }] } };
         }),
       removeFromShoppingList: (category, itemName) =>
         set((state) => {

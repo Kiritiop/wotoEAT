@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
-from db.models import ParseRecipeRequest, Recipe, SaveRecipeRequest, GenerateRecipeRequest, TranslateRequest
+from db.models import ParseRecipeRequest, Recipe, SaveRecipeRequest, GenerateRecipeRequest, TranslateRequest, UpdateRecipeRequest
 from ai.claude import parse_recipe, generate_recipe_by_name, translate_texts
 from ai.sqlite_cache import rate_limit_check
 from utils.scraper import fetch_page_html
@@ -108,6 +108,24 @@ async def get_one(
     if not recipe:
         raise HTTPException(status_code=404, detail="Recipe not found")
     return recipe
+
+
+@router.put("/{recipe_id}", response_model=dict)
+async def update(
+    recipe_id: str,
+    req: UpdateRecipeRequest,
+    user_id: str = Depends(require_user_id),
+):
+    """PUT /recipes/{id} — updates an existing saved recipe."""
+    try:
+        updated = db.update_recipe(recipe_id, user_id, req.recipe.model_dump())
+        if not updated:
+            raise HTTPException(status_code=404, detail="Recipe not found")
+        return updated
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Database error: {exc}")
 
 
 @router.delete("/{recipe_id}")

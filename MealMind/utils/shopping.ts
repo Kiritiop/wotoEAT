@@ -9,7 +9,7 @@ export function formatShoppingListText(list: ShoppingList, language = "en"): str
   for (const group of list.groups) {
     lines.push(`\n${group.category.toUpperCase()}`);
     for (const item of group.items) {
-      lines.push(`${item.checked ? checked : unchecked} ${item.name} — ${item.amount} ${item.unit}`);
+      lines.push(`${item.checked ? checked : unchecked} ${item.name}`);
     }
   }
   return lines.join("\n");

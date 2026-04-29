@@ -1,11 +1,11 @@
 const zh = {
   // ── Tabs ──────────────────────────────────────────────────────────────────
-  tab_today: "今日",
+  tab_today: "吃点啥",
   tab_shopping: "购物",
   tab_pantry: "食材",
   tab_recipes: "食谱",
 
-  tab_profile: "我的",
+  tab_profile: "我",
   tab_history: "历史",
 
   // ── Common ────────────────────────────────────────────────────────────────
@@ -192,9 +192,8 @@ const zh = {
   // ── My Recipes ────────────────────────────────────────────────────────────
   tab_my_recipes: "我的食谱",
   saved_tab: "已保存",
-  favorites_tab: "收藏",
-  frequent_tab: "常做",
-  done_tab: "已做",
+  liked_tab: "已喜欢",
+  mine_tab: "我的",
   mark_favorite: "收藏",
   mark_frequent: "常做",
   mark_done: "标记已做",
@@ -264,6 +263,15 @@ const zh = {
 
   // ── Profile restrictions ──────────────────────────────────────────────────
   ai_custom_note: "注意：AI可能不完全遵守自定义限制，请在烹饪前检查计划。",
+
+  // ── Forgot password ───────────────────────────────────────────────────────
+  reset_password_hint: "请输入您的邮箱，我们将发送重置链接。",
+  sending: "发送中…",
+
+  // ── About the creator ─────────────────────────────────────────────────────
+  about_creator: "关于作者",
+  about_support: "支持项目",
+  about_copyright: "© 2026 Jerry Wang · wotoEAT",
 
   // ── Landing page ──────────────────────────────────────────────────────────
   landing_hero_title: "每天吃得更聪明",

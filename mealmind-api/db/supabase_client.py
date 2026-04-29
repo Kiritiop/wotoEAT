@@ -44,7 +44,7 @@ def get_pantry(user_id: str) -> list[Any]:
 
 
 def upsert_pantry_items(user_id: str, items: list[dict]) -> list[Any]:
-    rows = [{"user_id": user_id, **item} for item in items]
+    rows = [{"user_id": user_id, "name": item["name"]} for item in items]
     result = (
         get_client()
         .table("pantry")
@@ -98,6 +98,18 @@ def get_recipe_by_id(recipe_id: str, user_id: str) -> Any:
         .execute()
     )
     return result.data[0] if result.data else None
+
+
+def update_recipe(recipe_id: str, user_id: str, recipe: dict) -> Any:
+    result = (
+        get_client()
+        .table("saved_recipes")
+        .update(recipe)
+        .eq("id", recipe_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    return result.data[0] if result.data else {}
 
 
 def delete_recipe(recipe_id: str, user_id: str) -> None:

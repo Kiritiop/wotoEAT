@@ -103,7 +103,7 @@ class DailyMealPlan(BaseModel):
 
 class DailyPlanRequest(BaseModel):
     profile: HealthProfile = Field(default_factory=HealthProfile)
-    pantry: list[dict] = Field(default_factory=list)
+    pantry: list[str] = Field(default_factory=list)
     cuisine_preference: Optional[str] = None
     max_prep_time_mins: Optional[int] = None
     language: str = "en"
@@ -114,7 +114,7 @@ class DailyPlanRequest(BaseModel):
 
 class PlanShoppingRequest(BaseModel):
     plan: DailyMealPlan
-    pantry: list[dict] = Field(default_factory=list)
+    pantry: list[str] = Field(default_factory=list)
     language: str = "en"
 
 
@@ -122,7 +122,7 @@ class SwapMealRequest(BaseModel):
     slot: str  # "breakfast" | "lunch" | "dinner"
     current_plan: DailyMealPlan
     profile: HealthProfile = Field(default_factory=HealthProfile)
-    pantry: list[dict] = Field(default_factory=list)
+    pantry: list[str] = Field(default_factory=list)
     language: str = "en"
 
 
@@ -146,6 +146,10 @@ class Recipe(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     source_url: Optional[str] = None
     source_name: Optional[str] = None
+
+
+class UpdateRecipeRequest(BaseModel):
+    recipe: Recipe
 
 
 class ParseRecipeRequest(BaseModel):
@@ -173,8 +177,6 @@ class TranslateRequest(BaseModel):
 
 class PantryItem(BaseModel):
     name: str
-    amount: float
-    unit: str
 
 
 class PantryItemDB(PantryItem):
@@ -192,9 +194,6 @@ class UpsertPantryRequest(BaseModel):
 
 class ShoppingListItem(BaseModel):
     name: str
-    amount: float
-    unit: str
-    calories: Optional[float] = None
     checked: bool = False
 
 
@@ -210,7 +209,7 @@ class ShoppingList(BaseModel):
 
 class GenerateShoppingListRequest(BaseModel):
     recipes: list[Recipe]
-    pantry: list[PantryItem] = Field(default_factory=list)
+    pantry: list[str] = Field(default_factory=list)
     language: str = "en"
 
 

@@ -202,17 +202,12 @@ export interface SavedRecipe {
 
 export interface PantryItem {
   name: string;
-  amount: number;
-  unit: string;
 }
 
 // ─── Shopping List ───────────────────────────────────────────────────────────
 
 export interface ShoppingItem {
   name: string;
-  amount: number;
-  unit: string;
-  calories?: number;
   checked?: boolean;
 }
 
@@ -249,7 +244,7 @@ export async function getDailyPlan(
 ): Promise<{ plan: DailyMealPlan; cached: boolean }> {
   const res = await api.post("/meals/daily-plan", {
     profile,
-    pantry,
+    pantry: pantry.map((p) => p.name),
     cuisine_preference: cuisine_preference || null,
     max_prep_time_mins: max_prep_time_mins || null,
     flavour_preference: flavour_preference || null,
@@ -314,7 +309,7 @@ export async function generateShoppingList(
   pantry: PantryItem[],
   language = "en"
 ): Promise<ShoppingList> {
-  const res = await api.post("/shopping/generate", { recipes, pantry, language });
+  const res = await api.post("/shopping/generate", { recipes, pantry: pantry.map((p) => p.name), language });
   return res.data;
 }
 
@@ -323,7 +318,7 @@ export async function generatePlanShoppingList(
   pantry: PantryItem[],
   language = "en"
 ): Promise<ShoppingList> {
-  const res = await api.post("/shopping/from-plan", { plan, pantry, language });
+  const res = await api.post("/shopping/from-plan", { plan, pantry: pantry.map((p) => p.name), language });
   return res.data;
 }
 
@@ -379,7 +374,7 @@ export async function swapMeal(
     slot,
     current_plan: currentPlan,
     profile,
-    pantry,
+    pantry: pantry.map((p) => p.name),
     language,
   });
   return res.data as DailyPlanMeal;

@@ -41,12 +41,17 @@ export default function SignUpScreen() {
       return;
     }
     setLoading(true);
-    const { error: signUpError } = await supabase.auth.signUp({ email, password });
-    setLoading(false);
-    if (signUpError) {
-      setError(signUpError.message);
-    } else {
-      setSuccess(true);
+    try {
+      const { error: signUpError } = await supabase.auth.signUp({ email, password });
+      if (signUpError) {
+        setError(signUpError.message);
+      } else {
+        setSuccess(true);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("error"));
+    } finally {
+      setLoading(false);
     }
   }
 

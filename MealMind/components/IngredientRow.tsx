@@ -29,28 +29,15 @@ export function IngredientRow({ item, onToggle, showCheckbox = false }: Props) {
         </View>
       )}
 
-      <View style={styles.nameBlock}>
-        <Text
-          style={[
-            styles.name,
-            { color: c.text },
-            item.checked && { color: c.textPlaceholder, textDecorationLine: "line-through" },
-          ]}
-          numberOfLines={1}
-        >
-          {item.name}
-        </Text>
-        {item.calories != null && (
-          <Text style={[styles.calories, { color: c.textPlaceholder }]}>{item.calories} kcal</Text>
-        )}
-      </View>
-
-      <Text style={[
-        styles.amount,
-        { color: c.textMuted },
-        item.checked && { color: c.textPlaceholder, textDecorationLine: "line-through" },
-      ]}>
-        {item.amount} {item.unit}
+      <Text
+        style={[
+          styles.name,
+          { color: c.text, flex: 1 },
+          item.checked && { color: c.textPlaceholder, textDecorationLine: "line-through" },
+        ]}
+        numberOfLines={1}
+      >
+        {item.name}
       </Text>
     </TouchableOpacity>
   );

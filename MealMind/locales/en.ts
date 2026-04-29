@@ -1,11 +1,11 @@
 const en = {
   // ── Tabs ──────────────────────────────────────────────────────────────────
-  tab_today: "Today",
+  tab_today: "woto",
   tab_shopping: "Shopping",
   tab_pantry: "Pantry",
   tab_recipes: "Recipes",
 
-  tab_profile: "Profile",
+  tab_profile: "Me",
   tab_history: "History",
 
   // ── Common ────────────────────────────────────────────────────────────────
@@ -192,9 +192,8 @@ const en = {
   // ── My Recipes ────────────────────────────────────────────────────────────
   tab_my_recipes: "My Recipes",
   saved_tab: "Saved",
-  favorites_tab: "Favorites",
-  frequent_tab: "Frequent",
-  done_tab: "Made",
+  liked_tab: "Liked",
+  mine_tab: "Mine",
   mark_favorite: "Favorite",
   mark_frequent: "Frequent",
   mark_done: "Mark as Made",
@@ -264,6 +263,15 @@ const en = {
 
   // ── Profile restrictions ──────────────────────────────────────────────────
   ai_custom_note: "Note: AI may not always respect custom entries — double-check your plan.",
+
+  // ── Forgot password ───────────────────────────────────────────────────────
+  reset_password_hint: "Enter your email and we'll send you a reset link.",
+  sending: "Sending…",
+
+  // ── About the creator ─────────────────────────────────────────────────────
+  about_creator: "About the Creator",
+  about_support: "Support this project",
+  about_copyright: "© 2026 Jerry Wang · wotoEAT",
 
   // ── Landing page ──────────────────────────────────────────────────────────
   landing_hero_title: "Eat smarter, every day",

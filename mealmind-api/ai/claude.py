@@ -182,6 +182,12 @@ async def swap_single_meal(
 # ---------------------------------------------------------------------------
 
 async def generate_recipe_by_name(dish_name: str, language: str = "en", servings: int = 2) -> dict:
+    cache_data = {"dish": dish_name.lower().strip(), "lang": language, "servings": servings}
+    key = _cache_key(cache_data)
+    cached = cache_get(key)
+    if cached is not None:
+        return cached
+
     response = await _client.chat.completions.create(
         model=MODEL,
         max_tokens=2500,
@@ -190,6 +196,7 @@ async def generate_recipe_by_name(dish_name: str, language: str = "en", servings
     result = json.loads(_clean_json(_extract_text(response)))
     if "error" in result:
         raise ValueError(result["error"])
+    cache_set(key, result, 604800)  # cache for 7 days
     return result
 
 

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -278,8 +279,10 @@ export default function ProfileScreen() {
                 value={weightDisplay}
                 onChangeText={(v) => { setWeightDisplay(v); setSaved(false); }}
                 onBlur={() => {
-                  const num = weightDisplay ? parseFloat(weightDisplay) : undefined;
-                  setProfile({ weight_kg: num != null ? (profile.use_imperial ? num / 2.20462 : num) : undefined });
+                  if (weightDisplay === "") { setProfile({ weight_kg: undefined }); return; }
+                  const num = parseFloat(weightDisplay);
+                  if (!isNaN(num) && num > 0) setProfile({ weight_kg: profile.use_imperial ? num / 2.20462 : num });
+                  else setWeightDisplay(profile.weight_kg != null ? toDisplay(profile.weight_kg, !!profile.use_imperial, 2.20462) : "");
                 }}
               />
             </View>
@@ -295,8 +298,10 @@ export default function ProfileScreen() {
                 value={heightDisplay}
                 onChangeText={(v) => { setHeightDisplay(v); setSaved(false); }}
                 onBlur={() => {
-                  const num = heightDisplay ? parseFloat(heightDisplay) : undefined;
-                  setProfile({ height_cm: num != null ? (profile.use_imperial ? num * 2.54 : num) : undefined });
+                  if (heightDisplay === "") { setProfile({ height_cm: undefined }); return; }
+                  const num = parseFloat(heightDisplay);
+                  if (!isNaN(num) && num > 0) setProfile({ height_cm: profile.use_imperial ? num * 2.54 : num });
+                  else setHeightDisplay(profile.height_cm != null ? toDisplay(profile.height_cm, !!profile.use_imperial, 1 / 2.54) : "");
                 }}
               />
             </View>
@@ -549,6 +554,34 @@ export default function ProfileScreen() {
           <Text style={[styles.signOutText, { color: c.error }]}>{t("sign_out")}</Text>
         </TouchableOpacity>
 
+        {/* About the Creator */}
+        <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border, marginTop: 10 }]}>
+          <Text style={[styles.sectionTitle, { color: c.text, marginBottom: 14 }]}>{t("about_creator")}</Text>
+
+          <View style={styles.aboutRow}>
+            <Ionicons name="person-circle-outline" size={18} color={c.primary} />
+            <Text style={[styles.aboutLabel, { color: c.text }]}>Jerry Wang</Text>
+          </View>
+
+          <TouchableOpacity style={styles.aboutRow} onPress={() => Linking.openURL("mailto:wzirui102348@gmail.com")}>
+            <Ionicons name="mail-outline" size={18} color={c.primary} />
+            <Text style={[styles.aboutLink, { color: c.primary }]}>wzirui102348@gmail.com</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.aboutRow} onPress={() => Linking.openURL("https://www.linkedin.com/in/wang-jerry/")}>
+            <Ionicons name="logo-linkedin" size={18} color={c.primary} />
+            <Text style={[styles.aboutLink, { color: c.primary }]}>linkedin.com/in/wang-jerry</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.aboutRow} onPress={() => Linking.openURL("https://ko-fi.com/kiritiop")}>
+            <Ionicons name="cafe-outline" size={18} color={c.primary} />
+            <Text style={[styles.aboutLink, { color: c.primary }]}>{t("about_support")} · ko-fi.com/kiritiop</Text>
+          </TouchableOpacity>
+
+          <View style={[styles.aboutDivider, { borderColor: c.border }]} />
+          <Text style={[styles.aboutCopyright, { color: c.textMuted }]}>{t("about_copyright")}</Text>
+        </View>
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -625,5 +658,10 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     },
     signOutText: { fontSize: 15, fontWeight: "600" },
     aiNote: { fontSize: 11, fontStyle: "italic", marginTop: 6 },
+    aboutRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8 },
+    aboutLabel: { fontSize: 14, fontWeight: "600" },
+    aboutLink: { fontSize: 14, fontWeight: "500", textDecorationLine: "underline" },
+    aboutDivider: { borderTopWidth: 1, marginVertical: 10 },
+    aboutCopyright: { fontSize: 12, textAlign: "center" },
   });
 }

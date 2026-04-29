@@ -19,7 +19,7 @@ async def generate(
     Optionally saves the list to Supabase when user is authenticated.
     """
     recipes_dicts = [r.model_dump() for r in req.recipes]
-    pantry_dicts = [p.model_dump() for p in req.pantry]
+    pantry_dicts = req.pantry
 
     try:
         result = await generate_shopping_list(recipes_dicts, pantry_dicts, req.language)

@@ -30,14 +30,19 @@ export default function ForgotPasswordScreen() {
       return;
     }
     setLoading(true);
-    const { error: supaErr } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: "wotoeat://reset-password",
-    });
-    setLoading(false);
-    if (supaErr) {
-      setError(supaErr.message);
-    } else {
-      setSent(true);
+    try {
+      const { error: supaErr } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: "wotoeat://reset-password",
+      });
+      if (supaErr) {
+        setError(supaErr.message);
+      } else {
+        setSent(true);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("error"));
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -59,7 +64,7 @@ export default function ForgotPasswordScreen() {
         </View>
         <Text style={[styles.title, { color: c.text }]}>{t("reset_password")}</Text>
         <Text style={[styles.subtitle, { color: c.textMuted }]}>
-          Enter your email and we'll send you a reset link.
+          {t("reset_password_hint")}
         </Text>
 
         {sent ? (
@@ -89,7 +94,7 @@ export default function ForgotPasswordScreen() {
               disabled={loading}
             >
               <Text style={styles.btnText}>
-                {loading ? "Sending…" : t("send_reset_link")}
+                {loading ? t("sending") : t("send_reset_link")}
               </Text>
             </TouchableOpacity>
           </>

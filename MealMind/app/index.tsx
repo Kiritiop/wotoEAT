@@ -4,6 +4,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -95,6 +96,22 @@ export default function LandingScreen() {
           </View>
 
           <Text style={[styles.finePrint, { color: c.textPlaceholder }]}>{t("landing_fine_print")}</Text>
+
+          {/* Creator footer */}
+          <View style={styles.creatorFooter}>
+            <Text style={[styles.creatorText, { color: c.textMuted }]}>
+              {t("about_copyright")}
+            </Text>
+            <View style={styles.creatorLinks}>
+              <TouchableOpacity onPress={() => Linking.openURL("https://www.linkedin.com/in/wang-jerry/")}>
+                <Text style={[styles.creatorLink, { color: c.primary }]}>LinkedIn</Text>
+              </TouchableOpacity>
+              <Text style={[styles.creatorDot, { color: c.textMuted }]}>·</Text>
+              <TouchableOpacity onPress={() => Linking.openURL("https://ko-fi.com/kiritiop")}>
+                <Text style={[styles.creatorLink, { color: c.primary }]}>Ko-fi</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -146,5 +163,10 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     signinLabel: { fontSize: 14 },
     signinLink: { fontSize: 14, fontWeight: "700" },
     finePrint: { fontSize: 12, textAlign: "center", marginTop: 4 },
+    creatorFooter: { alignItems: "center", gap: 4, marginTop: 20 },
+    creatorText: { fontSize: 11 },
+    creatorLinks: { flexDirection: "row", alignItems: "center", gap: 6 },
+    creatorLink: { fontSize: 11, fontWeight: "600" },
+    creatorDot: { fontSize: 11 },
   });
 }

@@ -50,7 +50,7 @@ def daily_plan_prompt(
     servings: int = 2,
     slots: list[str] | None = None,
 ) -> str:
-    pantry_str = json.dumps(pantry, indent=2) if pantry else "[]"
+    pantry_str = "\n".join(f"- {n}" for n in pantry) if pantry else "(empty)"
     profile_str = json.dumps(profile, indent=2)
     lang_note = _LANG_INSTRUCTION.get(language, _LANG_INSTRUCTION["en"])
 
@@ -71,8 +71,11 @@ def daily_plan_prompt(
 
     slots_note = ""
     if slots:
-        slot_list = ", ".join(slots)
-        slots_note = f"\nGENERATE ONLY THESE MEAL SLOTS: {slot_list}. Omit the others entirely."
+        if slots == ["any"]:
+            slots_note = "\nGENERATE EXACTLY 1 MEAL for whichever meal time (breakfast, lunch, or dinner) best fits the user's profile. Return exactly 1 object in the meals array."
+        else:
+            slot_list = ", ".join(slots)
+            slots_note = f"\nGENERATE ONLY THESE MEAL SLOTS: {slot_list}. Omit all others. Return exactly {len(slots)} meal(s) in the meals array."
 
     ratings_section = ""
     if recent_ratings:
@@ -171,27 +174,25 @@ SEMANTIC INGREDIENT MATCHING (critical — read carefully):
 
 def plan_shopping_prompt(plan: dict, pantry: list, language: str = "en") -> str:
     lang_note = _LANG_INSTRUCTION.get(language, _LANG_INSTRUCTION["en"])
+    pantry_str = "\n".join(f"- {n}" for n in pantry) if pantry else "(empty)"
     return f"""You are a smart shopping list assistant.
 {lang_note}
 
-Generate a detailed, grouped shopping list for this daily meal plan.
+Generate a grouped shopping list for this daily meal plan.
 Subtract any ingredients already in the user's pantry.
 
 DAILY MEAL PLAN:
 {json.dumps(plan, indent=2)}
 
 USER'S PANTRY (already owned — subtract these):
-{json.dumps(pantry, indent=2)}
+{pantry_str}
 
-{_UNIT_WEIGHTS}
 {_MATCHING_RULES}
 
 RULES:
-1. List every ingredient needed across all 3 meals with realistic amounts
-2. Remove anything the user already has in their pantry (semantic match, not just exact name)
+1. List every ingredient needed across all meals
+2. Remove anything the user already has in their pantry (semantic match — see rules above)
 3. Group items into: Produce, Meat & Fish, Dairy & Eggs, Bakery, Pantry & Dry Goods, Other
-4. Use sensible units: grams/kg for weight, ml/L for liquid, pieces for countables
-5. Include estimated calories where possible
 
 Respond with ONLY valid JSON, no markdown:
 {{
@@ -199,11 +200,11 @@ Respond with ONLY valid JSON, no markdown:
     {{
       "category": "string",
       "items": [
-        {{"name": "string", "amount": number, "unit": "string", "calories": number or null}}
+        {{"name": "string"}}
       ]
     }}
   ],
-  "total_calories": integer or null
+  "total_calories": null
 }}"""
 
 
@@ -239,6 +240,7 @@ WEBPAGE HTML (truncated):
 
 def shopping_list_prompt(recipes: list, pantry: list, language: str = "en") -> str:
     lang_note = _LANG_INSTRUCTION.get(language, _LANG_INSTRUCTION["en"])
+    pantry_str = "\n".join(f"- {n}" for n in pantry) if pantry else "(empty)"
     return f"""You are a smart shopping list assistant.
 {lang_note}
 Generate a de-duplicated, grouped shopping list from the selected recipes,
@@ -248,19 +250,15 @@ SELECTED RECIPES:
 {json.dumps(recipes, indent=2)}
 
 USER'S PANTRY (already owned — subtract these):
-{json.dumps(pantry, indent=2)}
+{pantry_str}
 
-{_UNIT_WEIGHTS}
 {_MATCHING_RULES}
 
 RULES:
-1. Combine identical ingredients across recipes (sum their quantities)
+1. De-duplicate identical ingredients across recipes
 2. Remove anything the user already owns (semantic match — see matching rules above)
-3. Group items into these categories: Produce, Meat & Fish, Dairy & Eggs,
-   Bakery, Pantry & Dry Goods, Frozen, Beverages, Other
-4. Use sensible units: grams/kg for weight, ml/L for liquid, pieces for countables
-5. Include estimated calories where possible
-6. Translate all item names and category names to the response language
+3. Group items into: Produce, Meat & Fish, Dairy & Eggs, Bakery, Pantry & Dry Goods, Frozen, Beverages, Other
+4. Translate all item names and category names to the response language
 
 Respond with ONLY valid JSON, no markdown:
 {{
@@ -268,11 +266,11 @@ Respond with ONLY valid JSON, no markdown:
     {{
       "category": "string",
       "items": [
-        {{"name": "string", "amount": number, "unit": "string", "calories": number or null}}
+        {{"name": "string"}}
       ]
     }}
   ],
-  "total_calories": integer or null
+  "total_calories": null
 }}"""
 
 
@@ -286,7 +284,7 @@ def swap_meal_prompt(
     lang_note = _LANG_INSTRUCTION.get(language, _LANG_INSTRUCTION["en"])
     other_meals = [m for m in current_plan.get("meals", []) if m.get("slot") != slot]
     current_meal = next((m for m in current_plan.get("meals", []) if m.get("slot") == slot), {})
-    pantry_str = json.dumps(pantry, indent=2) if pantry else "[]"
+    pantry_str = "\n".join(f"- {n}" for n in pantry) if pantry else "(empty)"
     profile_str = json.dumps(profile, indent=2)
 
     return f"""You are a professional nutritionist and chef.
