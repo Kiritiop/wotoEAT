@@ -199,6 +199,18 @@ const en = {
   mark_done: "Mark as Made",
   done_reduces_pantry: "Pantry inventory will be reduced for matching ingredients.",
   remove_label: "Remove",
+  new_recipe: "New Recipe",
+  my_recipe: "My Recipe",
+  add_tag: "Add tag",
+  recipe_title_placeholder: "Recipe title…",
+  unconfirm: "Unplan",
+  edit_field_prep: "Prep time (min)",
+  edit_field_calories: "Calories / serving",
+  edit_field_servings: "Servings",
+  edit_field_ingredients: "Ingredients",
+  edit_field_steps: "Steps",
+  tags_label: "Tags",
+  more_tags: (n: number) => `+${n} more`,
 
   // ── Servings ──────────────────────────────────────────────────────────────
   servings: "Servings",
@@ -248,6 +260,7 @@ const en = {
   // ── Filters (discover) ────────────────────────────────────────────────────
   meal_type: "Meal type",
   search_recipes: "Search recipes…",
+  from_pantry: "From your pantry",
 
   // ── Allergies ─────────────────────────────────────────────────────────────
   allergy_other: "Other",

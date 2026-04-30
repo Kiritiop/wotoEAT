@@ -54,6 +54,18 @@ def upsert_pantry_items(user_id: str, items: list[dict]) -> list[Any]:
     return result.data or []
 
 
+def replace_pantry(user_id: str, items: list[dict]) -> list[Any]:
+    """Replace the user's entire pantry atomically: delete all then insert new set."""
+    client = get_client()
+    # Delete all existing items for this user
+    client.table("pantry").delete().eq("user_id", user_id).execute()
+    if not items:
+        return []
+    rows = [{"user_id": user_id, "name": item["name"]} for item in items]
+    result = client.table("pantry").insert(rows).execute()
+    return result.data or []
+
+
 def delete_pantry_item(user_id: str, item_name: str) -> None:
     (
         get_client()

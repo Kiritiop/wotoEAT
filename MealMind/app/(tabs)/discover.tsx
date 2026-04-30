@@ -144,10 +144,10 @@ function MealSlotCard({
   // BUG-05: slot prefix prevents collision when two meals share the same name
   const cartCategory = `${meal.slot}-${meal.name}`;
   const cartItems = shoppingList?.groups.find((g) => g.category === cartCategory)?.items ?? [];
-  // BUG-07: normalize ingredient names so "200g chicken" matches "chicken" already in cart
+  // Normalize both sides so "200g chicken breast" matches cart item "chicken breast"
   const inCart = (ing: string) => {
     const n = ingredientNameFrom(ing);
-    return cartItems.some((i) => i.name === ing || ingredientNameFrom(i.name) === n);
+    return cartItems.some((i) => ingredientNameFrom(i.name) === n);
   };
   const allInCart = (meal.ingredients ?? []).length > 0 && (meal.ingredients ?? []).every(inCart);
 
@@ -634,7 +634,7 @@ function MealSlotCard({
                     onPress={() => { handleConfirm(); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); }}
                   >
                     <Ionicons name={isConfirmed ? "checkmark-circle" : "checkmark-circle-outline"} size={16} color={isConfirmed ? c.success : c.textMuted} />
-                    <Text style={[cardStyles.modalActionText, { color: isConfirmed ? c.success : c.textMuted }]}>{isConfirmed ? t("confirm") : t("confirm")}</Text>
+                    <Text style={[cardStyles.modalActionText, { color: isConfirmed ? c.success : c.textMuted }]}>{isConfirmed ? t("unconfirm") : t("confirm")}</Text>
                   </TouchableOpacity>
                 </View>
               </SafeAreaViewRN>
@@ -660,7 +660,7 @@ function CompChip({ icon, label, color }: {
 }
 
 export default function TodayScreen() {
-  const { profile, pantry, dailyPlan, setDailyPlan, patchDailyPlan, clearDailyPlan, language, ratings, setRating, servings, setPlanServings } = useAppStore();
+  const { profile, pantry, dailyPlan, setDailyPlan, patchDailyPlan, clearDailyPlan, language, ratings, setRating, servings, setPlanServings, removeRecipe, confirmedSlots, toggleConfirmedSlot } = useAppStore();
   const router = useRouter();
   const { t } = useTranslation();
   const c = useTheme();
@@ -755,11 +755,16 @@ export default function TodayScreen() {
     setSwappingSlot(slot);
     setError(null);
     try {
+      const oldMeal = dailyPlan.meals.find((m) => m.slot === slot);
       const newMeal = await swapMeal(slot, dailyPlan as DailyMealPlan, profile, pantry, language);
       const updatedMeals = dailyPlan.meals.map((m) => m.slot === slot ? newMeal : m);
       const newTotal = updatedMeals.reduce((sum, m) => sum + (m.calories_per_serving ?? 0), 0);
-      // patchDailyPlan preserves confirmedSlots (BUG-01)
       patchDailyPlan({ ...dailyPlan, meals: updatedMeals, total_calories: newTotal });
+      // Clear the old meal's confirmation and shopping list entries
+      if (oldMeal) {
+        removeRecipe(oldMeal.name);
+        if (confirmedSlots.includes(slot)) toggleConfirmedSlot(slot);
+      }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not swap meal.");
@@ -810,46 +815,71 @@ export default function TodayScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ── Always-visible meal type tags ── */}
-        <View style={styles.mealTypeRow}>
-          {MEAL_TYPE_TAGS.map((tag) => {
-            const active = selectedSlots.includes(tag.key);
-            return (
-              <TouchableOpacity
-                key={tag.key}
-                style={[styles.mealTypeChip, { backgroundColor: active ? c.primary : c.chipBg, borderColor: active ? c.primary : c.border }]}
-                onPress={() => { toggleMealType(tag.key); Haptics.selectionAsync(); }}
-              >
-                <Text style={[styles.mealTypeChipText, { color: active ? "#FFF" : c.chipText }]}>
-                  {language === "zh" ? tag.labelZh : tag.labelEn}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* ── Ingredient keyword search ── */}
-        <View style={[styles.ingSearchRow, { backgroundColor: c.inputBg, borderColor: ingredientKeyword.trim() ? c.primary : c.border }]}>
-          <Ionicons name="leaf-outline" size={15} color={ingredientKeyword.trim() ? c.primary : c.textPlaceholder} />
-          <TextInput
-            style={[styles.ingSearchInput, { color: c.text }]}
-            placeholder={language === "zh" ? "必须包含食材…（如 tomato）" : "Must include ingredient… (e.g. tomato)"}
-            placeholderTextColor={c.textPlaceholder}
-            value={ingredientKeyword}
-            onChangeText={setIngredientKeyword}
-            returnKeyType="done"
-            autoCapitalize="none"
-          />
-          {ingredientKeyword.length > 0 && (
-            <TouchableOpacity onPress={() => setIngredientKeyword("")} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-              <Ionicons name="close-circle" size={15} color={c.textPlaceholder} />
-            </TouchableOpacity>
-          )}
-        </View>
-
         {/* ── Collapsible filters panel ── */}
         {showSettings && (
           <View style={[styles.settingsPanel, { backgroundColor: c.surface, borderColor: c.border }]}>
+
+            {/* Meal type */}
+            <Text style={[styles.filterLabel, { color: c.textMuted }]}>{t("meal_type")}</Text>
+            <View style={styles.filterChipRow}>
+              {MEAL_TYPE_TAGS.map((tag) => {
+                const active = selectedSlots.includes(tag.key);
+                return (
+                  <TouchableOpacity
+                    key={tag.key}
+                    style={[styles.filterChip, { backgroundColor: active ? c.primary : c.chipBg, borderColor: active ? c.primary : c.border }]}
+                    onPress={() => toggleMealType(tag.key)}
+                  >
+                    <Text style={[styles.filterChipText, { color: active ? "#FFF" : c.chipText }]}>
+                      {language === "zh" ? tag.labelZh : tag.labelEn}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Ingredient keyword */}
+            <Text style={[styles.filterLabel, { color: c.textMuted, marginTop: 10 }]}>
+              {language === "zh" ? "必须包含食材" : "Must include ingredient"}
+            </Text>
+            <View style={[styles.ingSearchRow, { backgroundColor: c.inputBg, borderColor: ingredientKeyword.trim() ? c.primary : c.border }]}>
+              <Ionicons name="leaf-outline" size={15} color={ingredientKeyword.trim() ? c.primary : c.textPlaceholder} />
+              <TextInput
+                style={[styles.ingSearchInput, { color: c.text }]}
+                placeholder={language === "zh" ? "例如 tomato, 鸡蛋…" : "e.g. tomato, eggs…"}
+                placeholderTextColor={c.textPlaceholder}
+                value={ingredientKeyword}
+                onChangeText={setIngredientKeyword}
+                returnKeyType="done"
+                autoCapitalize="none"
+              />
+              {ingredientKeyword.length > 0 && (
+                <TouchableOpacity onPress={() => setIngredientKeyword("")} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                  <Ionicons name="close-circle" size={15} color={c.textPlaceholder} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Pantry recommendations */}
+            {pantry.length > 0 && (
+              <>
+                <Text style={[styles.filterLabel, { color: c.textMuted, marginTop: 10 }]}>{t("from_pantry")}</Text>
+                <View style={styles.filterChipRow}>
+                  {pantry.map((item) => {
+                    const active = ingredientKeyword.trim().toLowerCase() === item.name.toLowerCase();
+                    return (
+                      <TouchableOpacity
+                        key={item.name}
+                        style={[styles.filterChip, { backgroundColor: active ? c.primary : c.chipBg, borderColor: active ? c.primary : c.border }]}
+                        onPress={() => { setIngredientKeyword(active ? "" : item.name); Haptics.selectionAsync(); }}
+                      >
+                        <Text style={[styles.filterChipText, { color: active ? "#FFF" : c.chipText }]}>{item.name}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </>
+            )}
 
             {/* Cuisine */}
             <Text style={[styles.filterLabel, { color: c.textMuted, marginTop: 10 }]}>{t("cuisine_pref")}</Text>
@@ -1109,11 +1139,7 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
       shadowOpacity: 0.35, shadowRadius: 10, elevation: 6,
     },
     generateBtnLargeText: { color: "#FFF", fontSize: 22, fontWeight: "800", letterSpacing: 0.3 },
-    // Meal type tags (always visible)
-    mealTypeRow: { flexDirection: "row", gap: 8, marginBottom: 12, flexWrap: "wrap" },
-    mealTypeChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
-    mealTypeChipText: { fontSize: 13, fontWeight: "600" },
-    ingSearchRow: { flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 12 },
+    ingSearchRow: { flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8 },
     ingSearchInput: { flex: 1, fontSize: 13, paddingVertical: 0 },
     // Filters panel
     settingsPanel: { borderRadius: 14, borderWidth: 1, padding: 14 },

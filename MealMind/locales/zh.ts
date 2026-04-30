@@ -199,6 +199,18 @@ const zh = {
   mark_done: "标记已做",
   done_reduces_pantry: "匹配的食材将从库存中扣除。",
   remove_label: "移除",
+  new_recipe: "新建食谱",
+  my_recipe: "我的食谱",
+  add_tag: "添加标签",
+  recipe_title_placeholder: "食谱名称…",
+  unconfirm: "取消计划",
+  edit_field_prep: "备餐时间（分钟）",
+  edit_field_calories: "每份热量",
+  edit_field_servings: "份量",
+  edit_field_ingredients: "食材",
+  edit_field_steps: "步骤",
+  tags_label: "标签",
+  more_tags: (n: number) => `+${n}`,
 
   // ── Servings ──────────────────────────────────────────────────────────────
   servings: "份量",
@@ -248,6 +260,7 @@ const zh = {
   // ── Filters (discover) ────────────────────────────────────────────────────
   meal_type: "餐次",
   search_recipes: "搜索食谱…",
+  from_pantry: "来自我的食材",
 
   // ── Allergies ─────────────────────────────────────────────────────────────
   allergy_other: "其他",

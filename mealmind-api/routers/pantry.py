@@ -21,13 +21,12 @@ async def upsert_pantry(
     user_id: str = Depends(require_user_id),
 ):
     """
-    POST /pantry
-    Body: { "items": [{ "name": "...", "amount": 1, "unit": "kg" }] }
-    Upserts (insert or update) pantry items. Matches on user_id + name.
+    POST /pantry — replaces the user's entire pantry with the submitted list.
+    Body: { "items": [{ "name": "chicken" }, ...] }
     """
     try:
         items = [item.model_dump() for item in req.items]
-        return db.upsert_pantry_items(user_id, items)
+        return db.replace_pantry(user_id, items)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 

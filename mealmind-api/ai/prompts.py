@@ -23,7 +23,7 @@ RULES:
 - Include a mix of familiar and slightly adventurous dishes
 - difficulty must be one of: "easy", "medium", "hard"
 - prep_time_mins is realistic total time including cooking
-- tags must ALWAYS be in English regardless of any language setting (e.g. "high-protein", "gluten-free", "vegan", "quick", "one-pot")
+- tags must ALWAYS be in English. Generate 4-7 tags covering: dietary labels, key ingredients, flavour profile, cooking style, and occasion. Examples: "high-protein", "gluten-free", "chicken", "stir-fry", "spicy", "quick", "one-pot", "meal-prep", "kid-friendly"
 
 Respond with ONLY a valid JSON array. No explanation, no markdown fences.
 Each element must have exactly these keys:
@@ -114,7 +114,7 @@ RULES:
 6. difficulty must be one of: "easy", "medium", "hard"
 7. slot must be exactly: "breakfast", "lunch", or "dinner"
 8. nutrition_note should be one sentence explaining how the day meets the user's health goals
-9. tags must ALWAYS be in English regardless of the response language (e.g. "high-protein", "low-carb", "gluten-free", "quick", "one-pot")
+9. tags must ALWAYS be in English. Generate 4-7 tags per meal covering: dietary labels, key ingredients, flavour, cooking style, occasion (e.g. "high-protein", "chicken", "stir-fry", "spicy", "quick", "one-pot", "meal-prep")
 10. Include estimated macros (protein_g, carbs_g, fat_g, fiber_g) per serving for each meal
 
 Respond with ONLY valid JSON, no markdown fences:
@@ -224,7 +224,7 @@ RULES:
 - ingredients must have realistic amounts and units
 - calories_per_serving is an estimate — do your best or set to null
 - warnings are allergen notices e.g. ["contains nuts", "contains dairy"]
-- tags are dietary labels e.g. ["vegan", "gluten-free", "high-protein"]
+- tags are ALWAYS in English. Generate 4-7 tags covering: dietary labels, key ingredients, flavour, cooking style, occasion (e.g. "vegan", "gluten-free", "high-protein", "chicken", "stir-fry", "quick", "one-pot")
 
 Respond with ONLY valid JSON, no markdown. Use exactly these keys:
 {{
@@ -313,7 +313,7 @@ RULES:
 2. Must be meaningfully different from the current {slot} meal
 3. Must contain a vegetable, protein, and staple
 4. difficulty: "easy", "medium", or "hard"
-5. tags must ALWAYS be in English (e.g. "high-protein", "quick", "one-pot")
+5. tags must ALWAYS be in English. Generate 4-6 tags covering: dietary labels, key ingredients, flavour, cooking style (e.g. "high-protein", "chicken", "stir-fry", "spicy", "quick", "one-pot")
 6. Include estimated macros per serving
 
 Respond with ONLY a single valid JSON object, no markdown:
@@ -350,7 +350,7 @@ RULES:
 - ingredients must have realistic amounts and units scaled for {servings} serving(s) (e.g. {{"name": "chicken breast", "amount": 300, "unit": "g"}})
 - steps should be clear and actionable (4-8 steps)
 - calories_per_serving is a realistic estimate per individual serving
-- tags are dietary labels in English (e.g. "high-protein", "gluten-free", "quick")
+- tags are ALWAYS in English. Generate 4-7 tags: dietary labels, key ingredients, flavour, cooking style, occasion (e.g. "high-protein", "chicken", "gluten-free", "baked", "quick", "one-pot")
 - warnings are allergen notices in the response language (e.g. "contains eggs")
 
 Respond with ONLY valid JSON, no markdown:

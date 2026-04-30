@@ -104,9 +104,9 @@ export const useAppStore = create<AppState>()(
 
       // ── Daily plan ───────────────────────────────────────────────────────
       dailyPlan: null,
-      setDailyPlan: (plan) => set({ dailyPlan: plan, confirmedSlots: [] }),
+      setDailyPlan: (plan) => set({ dailyPlan: plan, confirmedSlots: [], selectedRecipes: [] }),
       patchDailyPlan: (plan) => set({ dailyPlan: plan }),
-      clearDailyPlan: () => set({ dailyPlan: null, confirmedSlots: [] }),
+      clearDailyPlan: () => set({ dailyPlan: null, confirmedSlots: [], selectedRecipes: [] }),
 
       // ── Ratings ──────────────────────────────────────────────────────────
       ratings: {},
