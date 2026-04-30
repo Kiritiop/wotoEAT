@@ -191,8 +191,8 @@ const zh = {
 
   // ── My Recipes ────────────────────────────────────────────────────────────
   tab_my_recipes: "我的食谱",
-  saved_tab: "已保存",
-  liked_tab: "已喜欢",
+  saved_tab: "收藏",
+  liked_tab: "喜欢",
   mine_tab: "我的",
   mark_favorite: "收藏",
   mark_frequent: "常做",

@@ -1,8 +1,3 @@
-the any, breakfast lunch dinner and the tag search should both be in preferences. inside of preferences there should also be a recommended ingredient tag, like for example the user only wants to eat meals with eggs and they have eggs in the pantry, the program should give them options in their pantry such as eggs, beef, etc. the user just have to click eggs to generate recipes with eggs. 
-
-another thing, in History, there should also be a find recipe search, but that would only be for the content within itself. Remove the search recipe function for all of the tbas in My Recipes
-
-For the profile section, they should be grouped and the options shouldnt be out like that the user has to click on the option like Allergies to show all the options to click on
 
 Search and new recipe boxes arnt aligned, there can’t be two search bars at the same time. Merge them into one. When the user searches something it should allow them to search it as a tag or search the thing directly
 
