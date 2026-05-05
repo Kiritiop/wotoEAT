@@ -504,8 +504,8 @@ function MealSlotCard({
         <Modal visible={showDetail} transparent animationType="slide" onRequestClose={() => setShowDetail(false)}>
           <Pressable style={cardStyles.modalOverlay} onPress={() => setShowDetail(false)}>
             <Pressable style={[cardStyles.modalSheet, { backgroundColor: c.surface }]} onPress={(e) => e.stopPropagation()}>
-              <SafeAreaViewRN edges={["bottom"]}>
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+              <SafeAreaViewRN edges={["bottom"]} style={{ flex: 1 }}>
+                <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 24 }}>
                   {/* Handle bar */}
                   <View style={[cardStyles.modalHandle, { backgroundColor: c.border }]} />
 

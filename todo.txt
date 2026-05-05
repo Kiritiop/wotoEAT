@@ -1,4 +1,3 @@
 
-Search and new recipe boxes arnt aligned, there can’t be two search bars at the same time. Merge them into one. When the user searches something it should allow them to search it as a tag or search the thing directly
 
 Make the clickable thing scrollable on main screen 
