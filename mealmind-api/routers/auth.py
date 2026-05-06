@@ -1,53 +1,67 @@
 """
-FastAPI dependency that extracts the Supabase user ID from a Bearer token.
+FastAPI dependency that extracts the Supabase user ID from a verified Bearer token.
 
-We manually decode the JWT payload (base64) to extract `sub` without relying
-on PyJWT signature verification — safe because the Supabase client already
-authenticated the user and we only need the user ID for data isolation.
+Tokens are verified using the Supabase JWT secret (HS256) via PyJWT.
+Set SUPABASE_JWT_SECRET in your environment (Railway / .env).
 """
-import base64
-import json
-from fastapi import Header
+import os
+import logging
+import jwt
+from fastapi import Header, HTTPException
 from typing import Optional
+
+logger = logging.getLogger(__name__)
+
+_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "")
 
 
 def _extract_sub(token: str) -> Optional[str]:
     """
-    Extract the `sub` claim by base64-decoding the JWT payload segment.
-    Works with any algorithm (HS256, RS256, ES256) — no signature verification
-    needed because the Supabase client already authenticated the user.
+    Decode and verify the JWT, returning the `sub` claim.
+    Raises ValueError on expired or invalid tokens.
     """
-    try:
-        parts = token.split(".")
-        if len(parts) != 3:
-            print(f"[auth] bad JWT: {len(parts)} parts")
+    if not _JWT_SECRET:
+        logger.warning("[auth] SUPABASE_JWT_SECRET not set — JWT signatures are NOT verified")
+        try:
+            import base64, json
+            parts = token.split(".")
+            if len(parts) != 3:
+                return None
+            padded = parts[1] + "=" * (-len(parts[1]) % 4)
+            payload = json.loads(base64.urlsafe_b64decode(padded))
+            return payload.get("sub")
+        except Exception:
             return None
-        padded = parts[1] + "=" * (-len(parts[1]) % 4)
-        payload = json.loads(base64.urlsafe_b64decode(padded))
-        sub = payload.get("sub")
-        print(f"[auth] alg={json.loads(base64.urlsafe_b64decode(parts[0] + '=' * (-len(parts[0]) % 4))).get('alg')} sub={sub}")
-        return sub
-    except Exception as e:
-        print(f"[auth] decode error: {e}")
-        return None
+    try:
+        payload = jwt.decode(
+            token,
+            _JWT_SECRET,
+            algorithms=["HS256"],
+            options={"verify_aud": False},
+        )
+        return payload.get("sub")
+    except jwt.ExpiredSignatureError:
+        raise ValueError("Token has expired")
+    except jwt.InvalidTokenError as e:
+        raise ValueError(f"Invalid token: {e}")
 
 
 async def get_optional_user_id(
     authorization: Optional[str] = Header(None),
 ) -> Optional[str]:
     if not authorization or not authorization.startswith("Bearer "):
-        print(f"[auth] No Bearer token. authorization={repr(authorization)}")
         return None
     token = authorization.removeprefix("Bearer ")
-    sub = _extract_sub(token)
-    print(f"[auth] token_prefix={token[:20]}... sub={sub}")
-    return sub
+    try:
+        return _extract_sub(token)
+    except ValueError as e:
+        logger.debug("[auth] token rejected: %s", e)
+        return None
 
 
 async def require_user_id(
     authorization: Optional[str] = Header(None),
 ) -> str:
-    from fastapi import HTTPException
     user_id = await get_optional_user_id(authorization)
     if not user_id:
         raise HTTPException(status_code=401, detail="Authentication required")

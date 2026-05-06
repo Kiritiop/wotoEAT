@@ -141,22 +141,7 @@ export function PantryTagPicker({ visible, currentPantry, onClose, onSave, langu
                 {language === "zh" ? cat.labelZh : cat.label}
               </Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tagRow}>
-                {cat.items.map((item) => {
-                  const active = selected.has(item);
-                  return (
-                    <TouchableOpacity
-                      key={item}
-                      style={[styles.tag, { backgroundColor: active ? c.primary : c.chipBg, borderColor: active ? c.primary : c.border }]}
-                      onPress={() => toggle(item)}
-                      activeOpacity={0.7}
-                    >
-                      {active && <Ionicons name="checkmark" size={12} color="#FFF" />}
-                      <Text style={[styles.tagText, { color: active ? "#FFF" : c.chipText }]}>{item}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-
-                {/* Custom item input toggle */}
+                {/* Custom item input toggle — first */}
                 {showCustomInput[cat.key] ? (
                   <View style={[styles.customInputRow, { backgroundColor: c.inputBg, borderColor: c.border }]}>
                     <TextInput
@@ -184,6 +169,21 @@ export function PantryTagPicker({ visible, currentPantry, onClose, onSave, langu
                     </Text>
                   </TouchableOpacity>
                 )}
+
+                {cat.items.map((item) => {
+                  const active = selected.has(item);
+                  return (
+                    <TouchableOpacity
+                      key={item}
+                      style={[styles.tag, { backgroundColor: active ? c.primary : c.chipBg, borderColor: active ? c.primary : c.border }]}
+                      onPress={() => toggle(item)}
+                      activeOpacity={0.7}
+                    >
+                      {active && <Ionicons name="checkmark" size={12} color="#FFF" />}
+                      <Text style={[styles.tagText, { color: active ? "#FFF" : c.chipText }]}>{item}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </ScrollView>
             </View>
           ))}

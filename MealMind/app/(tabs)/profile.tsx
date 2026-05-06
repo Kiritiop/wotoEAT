@@ -112,6 +112,7 @@ export default function ProfileScreen() {
 
   async function handleSignOut() {
     await supabase.auth.signOut();
+    useAppStore.getState().resetAll();
   }
 
   const styles = makeStyles(c);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -65,6 +65,7 @@ function MealSlotCard({
   const [expanded, setExpanded] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
+  const scrollStartY = useRef(0);
   const c = useTheme();
   const { t, strings } = useTranslation();
   const { language, servings: storeServings, planServings, pantry, shoppingList, addToShoppingList, removeFromShoppingList, addRecipe, removeRecipe, selectedRecipes, toggleConfirmedSlot } = useAppStore();
@@ -505,7 +506,15 @@ function MealSlotCard({
           <Pressable style={cardStyles.modalOverlay} onPress={() => setShowDetail(false)}>
             <Pressable style={[cardStyles.modalSheet, { backgroundColor: c.surface }]} onPress={(e) => e.stopPropagation()}>
               <SafeAreaViewRN edges={["bottom"]} style={{ flex: 1 }}>
-                <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 24 }}>
+                <ScrollView
+                  showsVerticalScrollIndicator={false}
+                  style={{ flex: 1 }}
+                  contentContainerStyle={{ paddingBottom: 24 }}
+                  scrollEventThrottle={16}
+                  onScrollBeginDrag={(e) => { scrollStartY.current = e.nativeEvent.contentOffset.y; }}
+                  onScroll={(e) => { if (e.nativeEvent.contentOffset.y < -60) setShowDetail(false); }}
+                  onScrollEndDrag={(e) => { if (e.nativeEvent.contentOffset.y <= 0 && scrollStartY.current <= 0) setShowDetail(false); }}
+                >
                   {/* Handle bar */}
                   <View style={[cardStyles.modalHandle, { backgroundColor: c.border }]} />
 
@@ -669,7 +678,7 @@ export default function TodayScreen() {
   const [swappingSlot, setSwappingSlot] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Initialize from profile preferences so the user's saved cuisines are pre-selected
-  const [cuisine, setCuisine] = useState(() => profile.cuisine_preferences?.[0] ?? "");
+  const [cuisines, setCuisines] = useState<string[]>(() => profile.cuisine_preferences ?? []);
   const [flavour, setFlavour] = useState(() => profile.flavour_preference ?? "");
   const [maxTime, setMaxTime] = useState<number | null>(() => profile.preferred_max_prep_mins ?? null);
   const [showSettings, setShowSettings] = useState(false);
@@ -716,7 +725,7 @@ export default function TodayScreen() {
     try {
       const { plan } = await getDailyPlan(
         profile, pantry,
-        cuisine.trim() || undefined,
+        cuisines.length > 0 ? cuisines.join(", ") : undefined,
         maxTime ?? undefined,
         language,
         Object.keys(ratings).length > 0 ? ratings : undefined,
@@ -886,12 +895,12 @@ export default function TodayScreen() {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 6 }}>
               <View style={{ flexDirection: "row", gap: 6 }}>
                 {CUISINES.map((cu) => {
-                  const active = cu === "Any" ? !cuisine.trim() : cuisine === cu;
+                  const active = cu === "Any" ? cuisines.length === 0 : cuisines.includes(cu);
                   return (
                     <TouchableOpacity
                       key={cu}
                       style={[styles.filterChip, { backgroundColor: c.chipBg, borderColor: c.border }, active && { backgroundColor: c.primary, borderColor: c.primary }]}
-                      onPress={() => { setCuisine(cu === "Any" ? "" : cuisine === cu ? "" : cu); Haptics.selectionAsync(); }}
+                      onPress={() => { if (cu === "Any") { setCuisines([]); } else { setCuisines((prev) => prev.includes(cu) ? prev.filter((c) => c !== cu) : [...prev, cu]); } Haptics.selectionAsync(); }}
                     >
                       <Text style={[styles.filterChipText, { color: c.chipText }, active && { color: "#FFF", fontWeight: "700" }]}>
                         {translateCuisine(cu, language)}

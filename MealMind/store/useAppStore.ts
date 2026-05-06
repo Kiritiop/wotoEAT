@@ -76,6 +76,9 @@ interface AppState {
   // ── Confirmed meal slots for today's plan ─────────────────────────────────
   confirmedSlots: string[];
   toggleConfirmedSlot: (slot: string) => void;
+
+  // ── Sign-out reset ────────────────────────────────────────────────────────
+  resetAll: () => void;
 }
 
 const DEFAULT_PROFILE: HealthProfile = {};
@@ -157,11 +160,11 @@ export const useAppStore = create<AppState>()(
           if (idx >= 0) {
             if (base.groups[idx].items.some((i) => i.name === name)) return state;
             const newGroups = base.groups.map((g, i) =>
-              i === idx ? { ...g, items: [...g.items, { name }] } : g
+              i === idx ? { ...g, items: [...g.items, { name, checked: false }] } : g
             );
             return { shoppingList: { ...base, groups: newGroups } };
           }
-          return { shoppingList: { ...base, groups: [...base.groups, { category, items: [{ name }] }] } };
+          return { shoppingList: { ...base, groups: [...base.groups, { category, items: [{ name, checked: false }] }] } };
         }),
       removeFromShoppingList: (category, itemName) =>
         set((state) => {
@@ -202,6 +205,21 @@ export const useAppStore = create<AppState>()(
             ? state.confirmedSlots.filter((s) => s !== slot)
             : [...state.confirmedSlots, slot],
         })),
+
+      // ── Sign-out reset ────────────────────────────────────────────────────
+      resetAll: () =>
+        set({
+          profile: DEFAULT_PROFILE,
+          hasOnboarded: false,
+          dailyPlan: null,
+          ratings: {},
+          selectedRecipes: [],
+          pantry: [],
+          shoppingList: null,
+          recipeLabels: {},
+          confirmedSlots: [],
+          planServings: 2,
+        }),
     }),
     {
       name: "wotoeat-store",
@@ -215,6 +233,7 @@ export const useAppStore = create<AppState>()(
         pantry: state.pantry,
         ratings: state.ratings,
         selectedRecipes: state.selectedRecipes,
+        shoppingList: state.shoppingList,
         recipeLabels: state.recipeLabels,
         servings: state.servings,
         planServings: state.planServings,
