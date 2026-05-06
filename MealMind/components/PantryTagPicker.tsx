@@ -86,12 +86,14 @@ export function PantryTagPicker({ visible, currentPantry, onClose, onSave, langu
   const [selected, setSelected] = useState<Set<string>>(() => new Set(currentPantry));
   const [customInputs, setCustomInputs] = useState<Record<string, string>>({});
   const [showCustomInput, setShowCustomInput] = useState<Record<string, boolean>>({});
+  const [customItemsByCategory, setCustomItemsByCategory] = useState<Record<string, string[]>>({});
 
   // Reset selection to current pantry when modal opens
   const handleOpen = () => {
     setSelected(new Set(currentPantry));
     setCustomInputs({});
     setShowCustomInput({});
+    setCustomItemsByCategory({});
   };
 
   function toggle(name: string) {
@@ -108,6 +110,7 @@ export function PantryTagPicker({ visible, currentPantry, onClose, onSave, langu
     const val = (customInputs[catKey] ?? "").trim().toLowerCase();
     if (!val) return;
     setSelected((prev) => new Set([...prev, val]));
+    setCustomItemsByCategory((prev) => ({ ...prev, [catKey]: [val, ...(prev[catKey] ?? [])] }));
     setCustomInputs((prev) => ({ ...prev, [catKey]: "" }));
     setShowCustomInput((prev) => ({ ...prev, [catKey]: false }));
     Haptics.selectionAsync();
@@ -170,6 +173,20 @@ export function PantryTagPicker({ visible, currentPantry, onClose, onSave, langu
                   </TouchableOpacity>
                 )}
 
+                {(customItemsByCategory[cat.key] ?? []).map((item) => {
+                  const active = selected.has(item);
+                  return (
+                    <TouchableOpacity
+                      key={`custom-${item}`}
+                      style={[styles.tag, { backgroundColor: active ? c.primary : c.chipBg, borderColor: active ? c.primary : c.border }]}
+                      onPress={() => toggle(item)}
+                      activeOpacity={0.7}
+                    >
+                      {active && <Ionicons name="checkmark" size={12} color="#FFF" />}
+                      <Text style={[styles.tagText, { color: active ? "#FFF" : c.chipText }]}>{item}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
                 {cat.items.map((item) => {
                   const active = selected.has(item);
                   return (
@@ -191,7 +208,8 @@ export function PantryTagPicker({ visible, currentPantry, onClose, onSave, langu
           {/* Custom-added items not in any category */}
           {(() => {
             const allDefault = new Set(CATEGORIES.flatMap((c) => c.items));
-            const extras = [...selected].filter((s) => !allDefault.has(s));
+            const sessionCustom = new Set(Object.values(customItemsByCategory).flat());
+            const extras = [...selected].filter((s) => !allDefault.has(s) && !sessionCustom.has(s));
             if (extras.length === 0) return null;
             return (
               <View style={styles.category}>

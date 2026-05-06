@@ -684,6 +684,7 @@ export default function TodayScreen() {
   const [showSettings, setShowSettings] = useState(false);
   const [selectedSlots, setSelectedSlots] = useState<MealTypeTag[]>(["any"]);
   const [ingredientKeyword, setIngredientKeyword] = useState("");
+  const [selectedPantryItems, setSelectedPantryItems] = useState<string[]>([]);
   const [showFindRecipe, setShowFindRecipe] = useState(false);
 
   const MEAL_TYPE_TAGS: { key: MealTypeTag; labelEn: string; labelZh: string }[] = [
@@ -732,7 +733,7 @@ export default function TodayScreen() {
         servings,
         targetSlots as ("breakfast" | "lunch" | "dinner")[],
         flavour.trim() || undefined,
-        ingredientKeyword.trim() || undefined,
+        [...selectedPantryItems, ...(ingredientKeyword.trim() ? [ingredientKeyword.trim()] : [])].join(", ") || undefined,
       );
 
       if (isAny || !dailyPlan) {
@@ -875,12 +876,17 @@ export default function TodayScreen() {
                 <Text style={[styles.filterLabel, { color: c.textMuted, marginTop: 10 }]}>{t("from_pantry")}</Text>
                 <View style={styles.filterChipRow}>
                   {pantry.map((item) => {
-                    const active = ingredientKeyword.trim().toLowerCase() === item.name.toLowerCase();
+                    const active = selectedPantryItems.map(s => s.toLowerCase()).includes(item.name.toLowerCase());
                     return (
                       <TouchableOpacity
                         key={item.name}
                         style={[styles.filterChip, { backgroundColor: active ? c.primary : c.chipBg, borderColor: active ? c.primary : c.border }]}
-                        onPress={() => { setIngredientKeyword(active ? "" : item.name); Haptics.selectionAsync(); }}
+                        onPress={() => {
+                          setSelectedPantryItems(prev =>
+                            active ? prev.filter(s => s.toLowerCase() !== item.name.toLowerCase()) : [...prev, item.name]
+                          );
+                          Haptics.selectionAsync();
+                        }}
                       >
                         <Text style={[styles.filterChipText, { color: active ? "#FFF" : c.chipText }]}>{item.name}</Text>
                       </TouchableOpacity>
