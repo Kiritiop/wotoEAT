@@ -7,9 +7,9 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from "react-native";
 import { Link } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -52,9 +52,7 @@ export default function SignInScreen() {
         <LanguageToggle />
       </View>
       <View style={styles.inner}>
-        <View style={styles.logoWrap}>
-          <Ionicons name="leaf" size={36} color={c.primary} />
-        </View>
+        <Image source={require("@/assets/logo.png")} style={styles.logoWrap} resizeMode="contain" />
         <Text style={[styles.title, { color: c.text }]}>wotoEAT</Text>
         <Text style={[styles.subtitle, { color: c.textMuted }]}>{t("app_tagline")}</Text>
 
@@ -111,9 +109,7 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     langRow: { alignItems: "flex-end", paddingHorizontal: 20, paddingTop: 56 },
     inner: { flex: 1, justifyContent: "center", paddingHorizontal: 28, gap: 12 },
     logoWrap: {
-      width: 80, height: 80, borderRadius: 40,
-      backgroundColor: c.primaryLight,
-      alignItems: "center", justifyContent: "center",
+      width: 100, height: 100,
       alignSelf: "center", marginBottom: 4,
     },
     title: { fontSize: 32, fontWeight: "800", textAlign: "center" },

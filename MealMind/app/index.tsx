@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   Linking,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -45,9 +46,7 @@ export default function LandingScreen() {
       >
         {/* ── Hero ── */}
         <View style={styles.hero}>
-          <View style={[styles.logoRing, { backgroundColor: c.primaryLight }]}>
-            <Ionicons name="restaurant" size={52} color={c.primary} />
-          </View>
+          <Image source={require("@/assets/logo.png")} style={styles.logoRing} resizeMode="contain" />
           <Text style={[styles.appName, { color: c.text }]}>wotoEAT</Text>
           <Text style={[styles.heroTitle, { color: c.text }]}>{t("landing_hero_title")}</Text>
           <Text style={[styles.heroSub, { color: c.textMuted }]}>{t("landing_hero_sub")}</Text>
@@ -127,8 +126,7 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     // Hero
     hero: { alignItems: "center", paddingTop: 24, paddingBottom: 32, gap: 10 },
     logoRing: {
-      width: 100, height: 100, borderRadius: 50,
-      alignItems: "center", justifyContent: "center", marginBottom: 8,
+      width: 120, height: 120, marginBottom: 8, alignSelf: "center",
     },
     appName: { fontSize: 36, fontWeight: "900", letterSpacing: -0.5 },
     heroTitle: { fontSize: 22, fontWeight: "800", textAlign: "center", lineHeight: 28 },

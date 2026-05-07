@@ -7,6 +7,7 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -59,9 +60,7 @@ export default function ForgotPasswordScreen() {
           <Text style={[styles.backText, { color: c.primary }]}>{t("back")}</Text>
         </TouchableOpacity>
 
-        <View style={styles.logoWrap}>
-          <Ionicons name="lock-open-outline" size={36} color={c.primary} />
-        </View>
+        <Image source={require("@/assets/logo.png")} style={styles.logoWrap} resizeMode="contain" />
         <Text style={[styles.title, { color: c.text }]}>{t("reset_password")}</Text>
         <Text style={[styles.subtitle, { color: c.textMuted }]}>
           {t("reset_password_hint")}
@@ -111,9 +110,7 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     back: { flexDirection: "row", alignItems: "center", gap: 4, position: "absolute", top: 60, left: 28 },
     backText: { fontSize: 15, fontWeight: "600" },
     logoWrap: {
-      width: 80, height: 80, borderRadius: 40,
-      backgroundColor: c.primaryLight,
-      alignItems: "center", justifyContent: "center",
+      width: 100, height: 100,
       alignSelf: "center", marginBottom: 4,
     },
     title: { fontSize: 28, fontWeight: "800", textAlign: "center" },

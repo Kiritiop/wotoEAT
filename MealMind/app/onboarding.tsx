@@ -3,6 +3,7 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -39,9 +40,7 @@ export default function OnboardingScreen() {
 
       <View style={styles.body}>
         {/* Icon */}
-        <View style={[styles.iconWrap, { backgroundColor: c.primaryLight }]}>
-          <Ionicons name="restaurant" size={52} color={c.primary} />
-        </View>
+        <Image source={require("@/assets/logo.png")} style={styles.iconWrap} resizeMode="contain" />
 
         {/* Title */}
         <Text style={[styles.title, { color: c.text }]}>{t("onboarding_welcome")}</Text>
@@ -92,8 +91,7 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
       paddingHorizontal: 32, gap: 16,
     },
     iconWrap: {
-      width: 100, height: 100, borderRadius: 50,
-      alignItems: "center", justifyContent: "center", marginBottom: 8,
+      width: 120, height: 120, marginBottom: 8, alignSelf: "center",
     },
     title: { fontSize: 28, fontWeight: "800", textAlign: "center" },
     subtitle: { fontSize: 16, textAlign: "center", lineHeight: 22 },
