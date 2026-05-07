@@ -56,10 +56,16 @@ const CATEGORIES: Category[] = [
     items: ["milk", "butter", "cheese", "yogurt", "cream", "cream cheese", "sour cream", "mozzarella", "parmesan", "cheddar", "heavy cream", "condensed milk", "whipped cream", "gouda", "brie", "ricotta", "cottage cheese", "kefir", "ghee", "feta"],
   },
   {
-    key: "staples",
-    label: "Pantry Staples",
-    labelZh: "常备调料",
-    items: ["olive oil", "vegetable oil", "soy sauce", "salt", "sugar", "vinegar", "honey", "ketchup", "mustard", "mayo", "hot sauce", "fish sauce", "oyster sauce", "sesame oil", "coconut milk", "tomato paste", "chicken stock", "baking soda", "baking powder", "pepper"],
+    key: "condiments",
+    label: "Condiments & Sauces",
+    labelZh: "调味品 & 酱料",
+    items: ["soy sauce", "salt", "sugar", "pepper", "vinegar", "honey", "ketchup", "mustard", "mayo", "hot sauce", "fish sauce", "oyster sauce", "hoisin sauce", "sriracha", "Worcestershire sauce", "coconut milk", "tomato paste", "chicken stock", "baking soda", "baking powder"],
+  },
+  {
+    key: "oils",
+    label: "Cooking Oils",
+    labelZh: "烹饪油",
+    items: ["olive oil", "vegetable oil", "sesame oil", "coconut oil", "canola oil", "sunflower oil", "avocado oil", "peanut oil", "corn oil", "grapeseed oil", "chili oil", "toasted sesame oil", "lard", "shortening", "ghee", "truffle oil", "walnut oil", "flaxseed oil", "garlic oil", "cooking spray"],
   },
   {
     key: "fruits",
