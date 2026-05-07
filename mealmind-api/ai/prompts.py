@@ -57,46 +57,100 @@ def daily_plan_prompt(
     profile_str = json.dumps(profile, indent=2)
     lang_note = _LANG_INSTRUCTION.get(language, _LANG_INSTRUCTION["en"])
 
+    # ── Safety constraints (allergies, restrictions) ─────────────────────────
     constraints = []
+    if profile.get("allergies"):
+        constraints.append(
+            f"- ⚠️ CRITICAL SAFETY — User is allergic to: {', '.join(profile['allergies'])}. "
+            f"Do NOT include these in ANY form — not in main components, sauces, marinades, or garnishes. "
+            f"This is a hard safety requirement."
+        )
+    if profile.get("dietary_restrictions"):
+        constraints.append(f"- Dietary restrictions (MUST follow): {', '.join(profile['dietary_restrictions'])}")
+
+    # ── Calorie and nutrition goals ───────────────────────────────────────────
+    calorie_goal = profile.get("calorie_goal")
+    if calorie_goal:
+        b_cal = int(calorie_goal * 0.25)
+        l_cal = int(calorie_goal * 0.35)
+        d_cal = int(calorie_goal * 0.40)
+        constraints.append(
+            f"- HARD calorie target: {calorie_goal} kcal/day total. "
+            f"Per meal: breakfast ≈{b_cal} kcal, lunch ≈{l_cal} kcal, dinner ≈{d_cal} kcal. "
+            f"Stay within 10% of each target."
+        )
+    if profile.get("protein_goal_g"):
+        constraints.append(f"- Daily protein goal: {profile['protein_goal_g']}g — prioritise high-protein options across all meals")
+
+    # ── Health goal → actionable constraints ─────────────────────────────────
+    _GOAL_HINTS = {
+        "lose weight":        "prefer high-volume, lower-calorie meals (salads, soups, lean proteins, non-starchy veg); avoid fried foods and heavy sauces",
+        "build muscle":       "maximise protein in every meal; include a complete protein source (meat, fish, eggs, legumes) and complex carbs for energy",
+        "manage diabetes":    "avoid high-glycaemic staples (white rice, white bread, sugary sauces); prefer legumes, whole grains, and non-starchy vegetables",
+        "improve gut health": "include fibre-rich foods (legumes, whole grains, vegetables); add fermented or prebiotic ingredients where possible",
+        "heart health":       "favour healthy fats (olive oil, avocado, oily fish); limit saturated fat and sodium; include omega-3 sources",
+        "eat healthier":      "balance macros, prioritise whole foods, minimise processed ingredients and added sugar",
+    }
+    for goal in profile.get("health_goals", []):
+        hint = _GOAL_HINTS.get(goal.lower().strip())
+        if hint:
+            constraints.append(f"- Health goal '{goal}': {hint}")
+        else:
+            constraints.append(f"- Health goal: {goal} — tailor meals to support this goal")
+
+    # ── Practical filters ─────────────────────────────────────────────────────
     if cuisine_preference:
-        constraints.append(f"- Preferred cuisine: {cuisine_preference}")
+        constraints.append(f"- Preferred cuisine style: {cuisine_preference}")
     if max_prep_time_mins:
         constraints.append(f"- Max prep time per meal: {max_prep_time_mins} minutes")
-    if profile.get("dietary_restrictions"):
-        constraints.append(f"- Dietary restrictions: {', '.join(profile['dietary_restrictions'])}")
-    if profile.get("allergies"):
-        constraints.append(f"- Allergies (MUST avoid): {', '.join(profile['allergies'])}")
-    if profile.get("protein_goal_g"):
-        constraints.append(f"- Daily protein goal: {profile['protein_goal_g']}g — prioritise high-protein options")
-    if servings != 2:
-        constraints.append(f"- Servings per meal: {servings} people")
+    constraints.append(
+        f"- Servings per meal: {servings} {'person' if servings == 1 else 'people'} — "
+        f"ALL ingredient amounts in the ingredients array must be scaled for {servings} serving(s), not for 1 person"
+    )
     if flavour_preference:
         constraints.append(f"- Preferred flavour profile: {flavour_preference}")
     if ingredient_keyword:
-        constraints.append(f"- MUST include ingredient: {ingredient_keyword} — every meal should use or complement this ingredient")
+        constraints.append(f"- Must include: {ingredient_keyword} — incorporate this across the meals")
     if meal_style == "main_dish":
-        constraints.append("- MEAL STYLE: Main Dish only — focus on protein and vegetables. Avoid heavy staples (no rice, noodles, or bread as the meal centre). Set the staple component to a light side (e.g. a small salad, roasted veg, or 'none').")
+        constraints.append(
+            "- Meal style: Main Dish only — focus on protein + vegetables. "
+            "Avoid heavy staples (no rice, noodles, or bread as the meal centre). "
+            "Set the staple field to a light side (e.g. side salad, roasted veg) or 'none'."
+        )
+
     constraints_str = "\n".join(constraints) if constraints else "None"
 
     slots_note = ""
     if slots:
-        if slots == ["any"]:
-            slots_note = "\nGENERATE EXACTLY 1 MEAL for whichever meal time (breakfast, lunch, or dinner) best fits the user's profile. Return exactly 1 object in the meals array."
-        else:
-            slot_list = ", ".join(slots)
-            slots_note = f"\nGENERATE ONLY THESE MEAL SLOTS: {slot_list}. Omit all others. Return exactly {len(slots)} meal(s) in the meals array."
+        slot_list = ", ".join(slots)
+        slots_note = f"\nGENERATE ONLY THESE MEAL SLOTS: {slot_list}. Omit all others. Return exactly {len(slots)} meal(s) in the meals array."
 
+    # ── User taste memory ─────────────────────────────────────────────────────
     ratings_section = ""
     if recent_ratings:
         liked = [k for k, v in recent_ratings.items() if v == "up"]
         disliked = [k for k, v in recent_ratings.items() if v == "down"]
+        ratings_section = "\nUSER TASTE MEMORY — use this to personalise suggestions:"
         if liked:
-            ratings_section += f"\nUSER LIKED THESE MEALS (suggest similar): {', '.join(liked)}"
+            ratings_section += (
+                f"\n- Previously LIKED: {', '.join(liked)}. "
+                f"Identify what these have in common (cuisine, protein, cooking style) and favour those patterns."
+            )
         if disliked:
-            ratings_section += f"\nUSER DISLIKED THESE (avoid similar): {', '.join(disliked)}"
+            ratings_section += (
+                f"\n- Previously DISLIKED: {', '.join(disliked)}. "
+                f"Do NOT suggest these dishes again. Avoid similar flavour profiles and cooking methods."
+            )
 
-    return f"""You are a professional nutritionist and chef. Plan a full day of meals (breakfast, lunch, dinner) for this user.
+    rule_1 = (
+        "Each meal focuses on a protein and vegetable. The staple field should be a light side or 'none' — no rice, noodles, or bread as the main component."
+        if meal_style == "main_dish"
+        else "Each meal MUST contain three components: a vegetable, a protein, and a staple (carbohydrate)"
+    )
+
+    return f"""You are a professional nutritionist and chef. Plan a personalised day of meals for this user.
 {lang_note}{slots_note}
+{ratings_section}
 
 USER HEALTH PROFILE:
 {profile_str}
@@ -104,21 +158,22 @@ USER HEALTH PROFILE:
 USER'S PANTRY (items already available):
 {pantry_str}
 
-CONSTRAINTS:
+CONSTRAINTS (all are hard requirements):
 {constraints_str}
-{ratings_section}
 
 RULES:
-1. {"Each meal focuses on a protein and vegetable. The staple field should be a light side or 'none' — no rice, noodles, or bread as the main component." if meal_style == "main_dish" else "Each meal MUST contain three components: a vegetable, a protein, and a staple (carbohydrate)"}
-2. Breakfast can have lighter staples (oats, toast, congee, etc.)
-3. Use pantry items where possible — list which ones in uses_pantry_items
-4. shopping_reminders lists key ingredients NOT in the pantry that the user needs to buy
-5. Calories should be appropriate for the user's profile and goals
-6. difficulty must be one of: "easy", "medium", "hard"
-7. slot must be exactly: "breakfast", "lunch", or "dinner"
-8. nutrition_note should be one sentence explaining how the day meets the user's health goals
-9. tags must ALWAYS be in English. Generate 4-7 tags per meal covering: dietary labels, key ingredients, flavour, cooking style, occasion (e.g. "high-protein", "chicken", "stir-fry", "spicy", "quick", "one-pot", "meal-prep")
-10. Include estimated macros (protein_g, carbs_g, fat_g, fiber_g) per serving for each meal
+1. {rule_1}
+2. Distribute calories appropriately across the day: breakfast lightest (~25%), lunch medium (~35%), dinner largest (~40%). If a calorie target is set, stay within 10% of each meal's target.
+3. Do NOT repeat the same cuisine, protein source, or cooking method across all three meal slots. Aim for variety in flavour and texture throughout the day.
+4. Breakfast can have lighter staples (oats, toast, congee, smoothie bowl, etc.)
+5. Use pantry items where possible — list only items the user actually has in uses_pantry_items
+6. shopping_reminders lists key ingredients NOT in the pantry that the user needs to buy
+7. difficulty must be one of: "easy", "medium", "hard"
+8. slot must be exactly: "breakfast", "lunch", or "dinner"
+9. nutrition_note should be one sentence explaining how the day's meals meet the user's specific health goals
+10. tags must ALWAYS be in English. Generate 4-7 tags per meal: dietary labels, key ingredients, flavour, cooking style, occasion (e.g. "high-protein", "chicken", "stir-fry", "spicy", "quick", "one-pot", "meal-prep")
+11. Include estimated macros (protein_g, carbs_g, fat_g, fiber_g) per serving for each meal
+12. All ingredient amounts must be scaled for {servings} serving(s) — not for 1 person
 
 Respond with ONLY valid JSON, no markdown fences:
 {{
@@ -136,9 +191,9 @@ Respond with ONLY valid JSON, no markdown fences:
         "protein": "string",
         "staple": "string"
       }},
-      "uses_pantry_items": ["string"],
+      "uses_pantry_items": ["string — only items from the user's actual pantry list"],
       "tags": ["string"],
-      "ingredients": ["string — e.g. '2 eggs', '100g chicken breast'"],
+      "ingredients": ["string — amounts scaled for {servings} serving(s), e.g. '{servings*100}g chicken breast'"],
       "steps": ["string — concise cooking step, 4-6 steps total"],
       "protein_g": integer,
       "carbs_g": integer,
@@ -296,11 +351,34 @@ def swap_meal_prompt(
     pantry_str = "\n".join(f"- {n}" for n in pantry) if pantry else "(empty)"
     profile_str = json.dumps(profile, indent=2)
 
+    # Build the same hard-constraint block as daily_plan_prompt
+    constraints = []
+    if profile.get("allergies"):
+        constraints.append(
+            f"- ⚠️ CRITICAL SAFETY — User is allergic to: {', '.join(profile['allergies'])}. "
+            f"Do NOT include these in ANY form — not in main components, sauces, marinades, or garnishes."
+        )
+    if profile.get("dietary_restrictions"):
+        constraints.append(f"- Dietary restrictions (MUST follow): {', '.join(profile['dietary_restrictions'])}")
+    calorie_goal = profile.get("calorie_goal")
+    if calorie_goal:
+        slot_pct = {"breakfast": 0.25, "lunch": 0.35, "dinner": 0.40}.get(slot, 0.33)
+        constraints.append(f"- Target calories for this {slot}: ≈{int(calorie_goal * slot_pct)} kcal (stay within 10%)")
+    if profile.get("max_prep_time_mins"):
+        constraints.append(f"- Max prep time: {profile['max_prep_time_mins']} minutes")
+    constraints_str = "\n".join(constraints) if constraints else "None"
+
+    other_cuisines = {m.get("cuisine", "") for m in other_meals if m.get("cuisine")}
+    other_proteins = {m.get("components", {}).get("protein", "") for m in other_meals}
+
     return f"""You are a professional nutritionist and chef.
 {lang_note}
 
 The user wants to SWAP their {slot} meal for something different.
-Current {slot}: {current_meal.get("name", "unknown")} — suggest something clearly different.
+Current {slot}: {current_meal.get("name", "unknown")} — the replacement MUST be clearly different.
+
+HARD CONSTRAINTS (all required):
+{constraints_str}
 
 USER PROFILE:
 {profile_str}
@@ -308,16 +386,20 @@ USER PROFILE:
 USER'S PANTRY (use these if possible):
 {pantry_str}
 
-OTHER MEALS TODAY (avoid repeating similar flavours or proteins):
+OTHER MEALS TODAY (avoid repeating these cuisines and proteins):
+Cuisines already in today's plan: {', '.join(other_cuisines) or 'none'}
+Proteins already in today's plan: {', '.join(p for p in other_proteins if p) or 'none'}
 {json.dumps(other_meals, indent=2)}
 
 RULES:
 1. Return exactly ONE meal for the "{slot}" slot
-2. Must be meaningfully different from the current {slot} meal
-3. Must contain a vegetable, protein, and staple
-4. difficulty: "easy", "medium", or "hard"
-5. tags must ALWAYS be in English. Generate 4-6 tags covering: dietary labels, key ingredients, flavour, cooking style (e.g. "high-protein", "chicken", "stir-fry", "spicy", "quick", "one-pot")
-6. Include estimated macros per serving
+2. Must be meaningfully different from "{current_meal.get('name', 'current meal')}" — different cuisine, protein, and cooking method
+3. Must not repeat a cuisine or protein already present in today's other meals
+4. Must contain a vegetable, protein, and staple
+5. difficulty: "easy", "medium", or "hard"
+6. tags must ALWAYS be in English. Generate 4-6 tags: dietary labels, key ingredients, flavour, cooking style
+7. Include estimated macros per serving
+8. All ingredient amounts must be realistic for a single serving (or match the servings in the user profile)
 
 Respond with ONLY a single valid JSON object, no markdown:
 {{
@@ -329,7 +411,7 @@ Respond with ONLY a single valid JSON object, no markdown:
   "calories_per_serving": integer,
   "difficulty": "easy|medium|hard",
   "components": {{"vegetable": "string", "protein": "string", "staple": "string"}},
-  "uses_pantry_items": ["string"],
+  "uses_pantry_items": ["string — only items from the user's actual pantry"],
   "tags": ["string"],
   "ingredients": ["e.g. '2 eggs', '100g chicken breast'"],
   "steps": ["concise cooking step", "4-6 steps total"],

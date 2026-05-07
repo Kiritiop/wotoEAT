@@ -197,7 +197,7 @@ function MealSlotCard({
     try {
       const recipe: Recipe = {
         title: meal.name,
-        servings: 2,
+        servings: storeServings || 2,
         prep_time_mins: meal.prep_time_mins,
         calories_per_serving: meal.calories_per_serving,
         ingredients: (meal.ingredients ?? []).map(parseIngredient),
@@ -668,7 +668,9 @@ function CompChip({ icon, label, color }: {
 }
 
 export default function TodayScreen() {
-  const { profile, pantry, dailyPlan, setDailyPlan, patchDailyPlan, clearDailyPlan, language, ratings, setRating, servings, setPlanServings, removeRecipe, confirmedSlots, toggleConfirmedSlot } = useAppStore();
+  const { profile, pantry, dailyPlan, planDate, setDailyPlan, patchDailyPlan, clearDailyPlan, language, ratings, setRating, servings, setPlanServings, removeRecipe, confirmedSlots, toggleConfirmedSlot } = useAppStore();
+  const today = new Date().toISOString().slice(0, 10);
+  const planIsStale = !!dailyPlan && !!planDate && planDate !== today;
   const router = useRouter();
   const { t } = useTranslation();
   const c = useTheme();
@@ -676,6 +678,7 @@ export default function TodayScreen() {
   const [loading, setLoading] = useState(false);
   const [swappingSlot, setSwappingSlot] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [planCached, setPlanCached] = useState(false);
   // Initialize from profile preferences so the user's saved cuisines are pre-selected
   const [cuisines, setCuisines] = useState<string[]>(() => profile.cuisine_preferences ?? []);
   const [flavour, setFlavour] = useState(() => profile.flavour_preference ?? "");
@@ -729,7 +732,7 @@ export default function TodayScreen() {
       targetSlots = selectedSlots;
     }
     try {
-      const { plan } = await getDailyPlan(
+      const { plan, cached } = await getDailyPlan(
         profile, pantry,
         cuisines.length > 0 ? cuisines.join(", ") : undefined,
         maxTime ?? undefined,
@@ -742,10 +745,19 @@ export default function TodayScreen() {
         mealStyle,
       );
 
+      setPlanCached(cached);
       if (!dailyPlan) {
         setDailyPlan(plan);
         setPlanServings(servings);
       } else {
+        // Clean up stale confirmation state for slots being replaced
+        for (const newMeal of plan.meals) {
+          const old = dailyPlan.meals.find((m) => m.slot === newMeal.slot);
+          if (old) {
+            removeRecipe(old.name);
+            if (confirmedSlots.includes(newMeal.slot)) toggleConfirmedSlot(newMeal.slot);
+          }
+        }
         // Merge generated meals into the existing plan
         let merged = [...dailyPlan.meals];
         for (const newMeal of plan.meals) {
@@ -1006,6 +1018,21 @@ export default function TodayScreen() {
         {/* ── Plan section ── */}
         {dailyPlan && (
           <View style={styles.planSection}>
+            {/* Stale plan banner */}
+            {planIsStale && (
+              <TouchableOpacity
+                style={[styles.staleBanner, { backgroundColor: c.surface, borderColor: c.border }]}
+                onPress={() => { clearDailyPlan(); Haptics.selectionAsync(); }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="calendar-outline" size={14} color={c.textMuted} />
+                <Text style={[styles.staleBannerText, { color: c.textMuted }]}>
+                  {language === "zh" ? `这是 ${planDate} 的餐单，点击清除` : `Plan from ${planDate} — tap to clear`}
+                </Text>
+                <Ionicons name="close-circle-outline" size={14} color={c.textMuted} />
+              </TouchableOpacity>
+            )}
+
             {/* Summary row */}
             <View style={styles.summaryRow}>
               <View style={styles.totalBadge}>
@@ -1013,6 +1040,11 @@ export default function TodayScreen() {
                 <Text style={styles.totalText}>{displayCalories} {t("total_calories")}</Text>
               </View>
               <View style={styles.summaryActions}>
+                {planCached && (
+                  <Text style={[styles.cachedLabel, { color: c.textMuted }]}>
+                    {language === "zh" ? "缓存" : "cached"}
+                  </Text>
+                )}
                 <TouchableOpacity onPress={handleShare} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                   <Ionicons name="share-outline" size={18} color={c.textMuted} />
                 </TouchableOpacity>
@@ -1189,6 +1221,9 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     filterChipText: { fontSize: 13, fontWeight: "600" },
     // Plan
     planSection: { gap: 10 },
+    staleBanner: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1 },
+    staleBannerText: { flex: 1, fontSize: 12 },
+    cachedLabel: { fontSize: 11, fontStyle: "italic" },
     summaryRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     summaryActions: { flexDirection: "row", alignItems: "center", gap: 14 },
     totalBadge: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: c.warningBg, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },

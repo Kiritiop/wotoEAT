@@ -32,6 +32,7 @@ interface AppState {
 
   // ── Daily meal plan ───────────────────────────────────────────────────────
   dailyPlan: DailyMealPlan | null;
+  planDate: string | null;
   setDailyPlan: (plan: DailyMealPlan) => void;
   patchDailyPlan: (plan: DailyMealPlan) => void;
   clearDailyPlan: () => void;
@@ -107,9 +108,10 @@ export const useAppStore = create<AppState>()(
 
       // ── Daily plan ───────────────────────────────────────────────────────
       dailyPlan: null,
-      setDailyPlan: (plan) => set({ dailyPlan: plan, confirmedSlots: [], selectedRecipes: [] }),
-      patchDailyPlan: (plan) => set({ dailyPlan: plan }),
-      clearDailyPlan: () => set({ dailyPlan: null, confirmedSlots: [], selectedRecipes: [] }),
+      planDate: null,
+      setDailyPlan: (plan) => set({ dailyPlan: plan, planDate: new Date().toISOString().slice(0, 10), confirmedSlots: [], selectedRecipes: [] }),
+      patchDailyPlan: (plan) => set({ dailyPlan: plan, planDate: new Date().toISOString().slice(0, 10) }),
+      clearDailyPlan: () => set({ dailyPlan: null, planDate: null, confirmedSlots: [], selectedRecipes: [] }),
 
       // ── Ratings ──────────────────────────────────────────────────────────
       ratings: {},
@@ -212,6 +214,7 @@ export const useAppStore = create<AppState>()(
           profile: DEFAULT_PROFILE,
           hasOnboarded: false,
           dailyPlan: null,
+          planDate: null,
           ratings: {},
           selectedRecipes: [],
           pantry: [],
@@ -230,6 +233,7 @@ export const useAppStore = create<AppState>()(
         language: state.language,
         hasOnboarded: state.hasOnboarded,
         dailyPlan: state.dailyPlan,
+        planDate: state.planDate,
         pantry: state.pantry,
         ratings: state.ratings,
         selectedRecipes: state.selectedRecipes,
