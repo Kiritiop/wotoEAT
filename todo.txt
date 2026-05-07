@@ -1,3 +1,4 @@
+Add a tag in preferences when generating: Full meal or just a Main Dish.
+Currently it will generate only full on dishes with carbs and everything like a Beef and Carrot Fried Rice
 
-
-Make the clickable thing scrollable on main screen 
+Allow the AI to track what time it is locally and determine what meal the user is likely trying to look for when selecting Any

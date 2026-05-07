@@ -51,6 +51,7 @@ def daily_plan_prompt(
     slots: list[str] | None = None,
     flavour_preference: str | None = None,
     ingredient_keyword: str | None = None,
+    meal_style: str | None = None,
 ) -> str:
     pantry_str = "\n".join(f"- {n}" for n in pantry) if pantry else "(empty)"
     profile_str = json.dumps(profile, indent=2)
@@ -73,6 +74,8 @@ def daily_plan_prompt(
         constraints.append(f"- Preferred flavour profile: {flavour_preference}")
     if ingredient_keyword:
         constraints.append(f"- MUST include ingredient: {ingredient_keyword} — every meal should use or complement this ingredient")
+    if meal_style == "main_dish":
+        constraints.append("- MEAL STYLE: Main Dish only — focus on protein and vegetables. Avoid heavy staples (no rice, noodles, or bread as the meal centre). Set the staple component to a light side (e.g. a small salad, roasted veg, or 'none').")
     constraints_str = "\n".join(constraints) if constraints else "None"
 
     slots_note = ""
@@ -106,7 +109,7 @@ CONSTRAINTS:
 {ratings_section}
 
 RULES:
-1. Each meal MUST contain three components: a vegetable, a protein, and a staple (carbohydrate)
+1. {"Each meal focuses on a protein and vegetable. The staple field should be a light side or 'none' — no rice, noodles, or bread as the main component." if meal_style == "main_dish" else "Each meal MUST contain three components: a vegetable, a protein, and a staple (carbohydrate)"}
 2. Breakfast can have lighter staples (oats, toast, congee, etc.)
 3. Use pantry items where possible — list which ones in uses_pantry_items
 4. shopping_reminders lists key ingredients NOT in the pantry that the user needs to buy

@@ -146,7 +146,7 @@ export default function UploadRecipeScreen() {
           )}
 
           <Text style={[styles.sectionLabel, { color: c.textPlaceholder }]}>
-            Ingredients ({recipe.ingredients.length})
+            {t("ingredients_label")} ({recipe.ingredients.length})
           </Text>
           {recipe.ingredients.map((ing, i) => (
             <View key={i} style={[styles.ingredientRow, { borderBottomColor: c.borderLight }]}>
@@ -158,7 +158,7 @@ export default function UploadRecipeScreen() {
           ))}
 
           <Text style={[styles.sectionLabel, { color: c.textPlaceholder }]}>
-            Steps ({recipe.steps.length})
+            {t("steps_label")} ({recipe.steps.length})
           </Text>
           {recipe.steps.map((step, i) => (
             <View key={i} style={[styles.stepRow, { borderBottomColor: c.borderLight }]}>

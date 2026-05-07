@@ -18,7 +18,7 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const c = useTheme();
-  const { setHasOnboarded, language, profile } = useAppStore();
+  const { setHasOnboarded, profile } = useAppStore();
 
   function handleStart() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -49,16 +49,15 @@ export default function OnboardingScreen() {
 
         {/* Feature bullets */}
         <View style={styles.bullets}>
-          {(["sparkles", "nutrition", "cart"] as const).map((icon, i) => {
-            const labels = ["AI meal plans tailored to you", "Track pantry & reduce waste", "Smart shopping lists"];
-            const labelsZh = ["根据您的需求智能生成餐饮计划", "管理食材库存，减少浪费", "智能购物清单"];
+          {(["sparkles", "nutrition", "cart"] as const).map((icon, bulletKey) => {
+            const keys = ["onboarding_bullet_1", "onboarding_bullet_2", "onboarding_bullet_3"] as const;
             return (
               <View key={icon} style={styles.bullet}>
                 <View style={[styles.bulletIcon, { backgroundColor: c.primaryLight }]}>
                   <Ionicons name={icon} size={18} color={c.primary} />
                 </View>
                 <Text style={[styles.bulletText, { color: c.textSecondary }]}>
-                  {language === "zh" ? labelsZh[i] : labels[i]}
+                  {t(keys[bulletKey])}
                 </Text>
               </View>
             );

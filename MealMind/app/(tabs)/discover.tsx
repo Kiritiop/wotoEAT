@@ -11,7 +11,6 @@ import {
   Modal,
   Pressable,
 } from "react-native";
-import { SafeAreaView as SafeAreaViewRN } from "react-native-safe-area-context";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -505,7 +504,7 @@ function MealSlotCard({
         <Modal visible={showDetail} transparent animationType="slide" onRequestClose={() => setShowDetail(false)}>
           <Pressable style={cardStyles.modalOverlay} onPress={() => setShowDetail(false)}>
             <Pressable style={[cardStyles.modalSheet, { backgroundColor: c.surface }]} onPress={(e) => e.stopPropagation()}>
-              <SafeAreaViewRN edges={["bottom"]} style={{ flex: 1 }}>
+              <SafeAreaView edges={["bottom"]} style={{ flex: 1 }}>
                 <ScrollView
                   showsVerticalScrollIndicator={false}
                   style={{ flex: 1 }}
@@ -646,7 +645,7 @@ function MealSlotCard({
                     <Text style={[cardStyles.modalActionText, { color: isConfirmed ? c.success : c.textMuted }]}>{isConfirmed ? t("unconfirm") : t("confirm")}</Text>
                   </TouchableOpacity>
                 </View>
-              </SafeAreaViewRN>
+              </SafeAreaView>
             </Pressable>
           </Pressable>
         </Modal>
@@ -683,12 +682,13 @@ export default function TodayScreen() {
   const [maxTime, setMaxTime] = useState<number | null>(() => profile.preferred_max_prep_mins ?? null);
   const [showSettings, setShowSettings] = useState(false);
   const [selectedSlots, setSelectedSlots] = useState<MealTypeTag[]>(["any"]);
+  const [mealStyle, setMealStyle] = useState<"full" | "main_dish">("full");
   const [ingredientKeyword, setIngredientKeyword] = useState("");
   const [selectedPantryItems, setSelectedPantryItems] = useState<string[]>([]);
   const [showFindRecipe, setShowFindRecipe] = useState(false);
 
   const MEAL_TYPE_TAGS: { key: MealTypeTag; labelEn: string; labelZh: string }[] = [
-    { key: "any", labelEn: "Any", labelZh: "随机" },
+    { key: "any", labelEn: "Auto", labelZh: "自动" },
     { key: "breakfast", labelEn: "Breakfast", labelZh: "早餐" },
     { key: "lunch", labelEn: "Lunch", labelZh: "午餐" },
     { key: "dinner", labelEn: "Dinner", labelZh: "晚餐" },
@@ -710,7 +710,7 @@ export default function TodayScreen() {
     .sort((a, b) => (SLOT_ORDER[a.slot] ?? 0) - (SLOT_ORDER[b.slot] ?? 0))
     .filter((m) => selectedSlots.includes("any") || selectedSlots.includes(m.slot as MealTypeTag));
 
-  const displayCalories = sortedMeals.reduce((s, m) => s + (m.calories_per_serving ?? 0), 0);
+  const displayCalories = dailyPlan?.total_calories ?? 0;
 
   const totalProteinG = dailyPlan?.meals.reduce((s, m) => s + (m.protein_g ?? 0), 0) ?? 0;
   const proteinGoal = profile.protein_goal_g;
@@ -719,10 +719,15 @@ export default function TodayScreen() {
   async function handleGenerate() {
     setLoading(true);
     setError(null);
-    // "any" → pass ["any"] so backend generates 1 random meal
-    // specific selection → pass those slots
     const isAny = selectedSlots.includes("any");
-    const targetSlots: string[] = isAny ? ["any"] : selectedSlots;
+    let targetSlots: string[];
+    if (isAny) {
+      const hour = new Date().getHours();
+      const inferred = hour >= 5 && hour < 11 ? "breakfast" : hour >= 11 && hour < 15 ? "lunch" : "dinner";
+      targetSlots = [inferred];
+    } else {
+      targetSlots = selectedSlots;
+    }
     try {
       const { plan } = await getDailyPlan(
         profile, pantry,
@@ -734,9 +739,10 @@ export default function TodayScreen() {
         targetSlots as ("breakfast" | "lunch" | "dinner")[],
         flavour.trim() || undefined,
         [...selectedPantryItems, ...(ingredientKeyword.trim() ? [ingredientKeyword.trim()] : [])].join(", ") || undefined,
+        mealStyle,
       );
 
-      if (isAny || !dailyPlan) {
+      if (!dailyPlan) {
         setDailyPlan(plan);
         setPlanServings(servings);
       } else {
@@ -842,6 +848,25 @@ export default function TodayScreen() {
                   >
                     <Text style={[styles.filterChipText, { color: active ? "#FFF" : c.chipText }]}>
                       {language === "zh" ? tag.labelZh : tag.labelEn}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Meal style */}
+            <Text style={[styles.filterLabel, { color: c.textMuted, marginTop: 10 }]}>{t("meal_style_label")}</Text>
+            <View style={styles.filterChipRow}>
+              {([{ key: "full", en: "Full Meal", zh: "完整餐" }, { key: "main_dish", en: "Main Dish", zh: "主菜" }] as const).map((opt) => {
+                const active = mealStyle === opt.key;
+                return (
+                  <TouchableOpacity
+                    key={opt.key}
+                    style={[styles.filterChip, { backgroundColor: active ? c.primary : c.chipBg, borderColor: active ? c.primary : c.border }]}
+                    onPress={() => { setMealStyle(opt.key); Haptics.selectionAsync(); }}
+                  >
+                    <Text style={[styles.filterChipText, { color: active ? "#FFF" : c.chipText }]}>
+                      {language === "zh" ? opt.zh : opt.en}
                     </Text>
                   </TouchableOpacity>
                 );

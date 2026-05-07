@@ -286,6 +286,14 @@ const en = {
   about_support: "Support this project",
   about_copyright: "© 2026 Jerry Wang · wotoEAT",
 
+  // ── Meal style filter ─────────────────────────────────────────────────────
+  meal_style_label: "Meal Style",
+
+  // ── Onboarding bullets ───────────────────────────────────────────────────
+  onboarding_bullet_1: "AI meal plans tailored to you",
+  onboarding_bullet_2: "Track pantry & reduce waste",
+  onboarding_bullet_3: "Smart shopping lists",
+
   // ── Landing page ──────────────────────────────────────────────────────────
   landing_hero_title: "Eat smarter, every day",
   landing_hero_sub: "AI-powered meal planning tailored to your health goals, pantry, and taste.",

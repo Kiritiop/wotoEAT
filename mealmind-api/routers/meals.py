@@ -1,5 +1,8 @@
 from datetime import date as _date
-from fastapi import APIRouter, HTTPException, Depends
+import logging
+from fastapi import APIRouter, HTTPException, Depends, Request
+
+logger = logging.getLogger(__name__)
 from db.models import (
     MealFilter, MealSuggestResponse, MealSuggestion,
     DailyPlanRequest, DailyPlanResponse, DailyMealPlan,
@@ -32,10 +35,11 @@ async def suggest(filters: MealFilter):
 @router.post("/daily-plan", response_model=DailyPlanResponse)
 async def daily_plan(
     req: DailyPlanRequest,
+    request: Request,
     user_id: str = Depends(get_optional_user_id),
 ):
-    # Rate limit authenticated users; allow unauthenticated dev calls
-    if user_id and not rate_limit_check(user_id, "daily-plan", _PLAN_MAX, _PLAN_WINDOW):
+    rate_key = user_id or f"ip:{(request.client.host if request.client else 'unknown')}"
+    if not rate_limit_check(rate_key, "daily-plan", _PLAN_MAX, _PLAN_WINDOW):
         raise HTTPException(
             status_code=429,
             detail=f"Rate limit: max {_PLAN_MAX} plan generations per hour.",
@@ -53,6 +57,7 @@ async def daily_plan(
             slots=req.slots,
             flavour_preference=req.flavour_preference,
             ingredient_keyword=req.ingredient_keyword,
+            meal_style=req.meal_style,
         )
         meals = [
             DailyPlanMeal(
@@ -95,8 +100,8 @@ async def daily_plan(
                     plan_raw,
                     plan.total_calories,
                 )
-            except Exception:
-                pass  # Never block the response due to a history write failure
+            except Exception as exc:
+                logger.error("[meals] history write failed for user %s: %s", user_id, exc)
 
         return DailyPlanResponse(plan=plan, cached=cached)
     except ValueError as exc:

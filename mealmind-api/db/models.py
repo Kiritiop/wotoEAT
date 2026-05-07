@@ -112,6 +112,7 @@ class DailyPlanRequest(BaseModel):
     slots: Optional[list[str]] = None      # e.g. ["lunch"] — generate only these slots
     flavour_preference: Optional[str] = None   # e.g. "spicy", "savory"
     ingredient_keyword: Optional[str] = None   # must-include ingredient
+    meal_style: Optional[str] = None           # "full" | "main_dish"
 
 
 class PlanShoppingRequest(BaseModel):

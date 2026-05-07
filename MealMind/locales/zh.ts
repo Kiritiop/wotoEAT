@@ -286,6 +286,14 @@ const zh = {
   about_support: "支持项目",
   about_copyright: "© 2026 Jerry Wang · wotoEAT",
 
+  // ── Meal style filter ─────────────────────────────────────────────────────
+  meal_style_label: "餐点类型",
+
+  // ── Onboarding bullets ───────────────────────────────────────────────────
+  onboarding_bullet_1: "根据您的需求智能生成餐饮计划",
+  onboarding_bullet_2: "管理食材库存，减少浪费",
+  onboarding_bullet_3: "智能购物清单",
+
   // ── Landing page ──────────────────────────────────────────────────────────
   landing_hero_title: "每天吃得更聪明",
   landing_hero_sub: "AI驱动的饮食规划，根据您的健康目标、食材和口味量身定制。",

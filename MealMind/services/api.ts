@@ -242,6 +242,7 @@ export async function getDailyPlan(
   slots?: ("breakfast" | "lunch" | "dinner")[],
   flavour_preference?: string,
   ingredient_keyword?: string,
+  meal_style?: "full" | "main_dish",
 ): Promise<{ plan: DailyMealPlan; cached: boolean }> {
   const res = await api.post("/meals/daily-plan", {
     profile,
@@ -254,6 +255,7 @@ export async function getDailyPlan(
     recent_ratings: recent_ratings || null,
     servings,
     slots: slots ?? null,
+    meal_style: meal_style ?? null,
   });
   return res.data;
 }
