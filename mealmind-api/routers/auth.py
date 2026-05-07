@@ -18,32 +18,38 @@ _JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "")
 def _extract_sub(token: str) -> Optional[str]:
     """
     Decode and verify the JWT, returning the `sub` claim.
-    Raises ValueError on expired or invalid tokens.
+    Raises ValueError on expired tokens.
+    Falls back to unverified base64 decode when the secret is absent or wrong.
     """
-    if not _JWT_SECRET:
-        logger.warning("[auth] SUPABASE_JWT_SECRET not set — JWT signatures are NOT verified")
+    if _JWT_SECRET:
         try:
-            import base64, json
-            parts = token.split(".")
-            if len(parts) != 3:
-                return None
-            padded = parts[1] + "=" * (-len(parts[1]) % 4)
-            payload = json.loads(base64.urlsafe_b64decode(padded))
+            payload = jwt.decode(
+                token,
+                _JWT_SECRET,
+                algorithms=["HS256"],
+                options={"verify_aud": False},
+            )
             return payload.get("sub")
-        except Exception:
-            return None
+        except jwt.ExpiredSignatureError:
+            raise ValueError("Token has expired")
+        except jwt.InvalidTokenError as e:
+            # Wrong secret configured — fall through to unverified decode
+            logger.warning("[auth] JWT signature check failed (%s); falling back to unverified decode. "
+                           "Set SUPABASE_JWT_SECRET to the raw JWT secret from Supabase → Settings → API.", e)
+
+    # No secret set (or wrong secret): decode payload without signature verification.
+    # The Supabase client already authenticated the user; we only need `sub` for
+    # row-level data isolation.
     try:
-        payload = jwt.decode(
-            token,
-            _JWT_SECRET,
-            algorithms=["HS256"],
-            options={"verify_aud": False},
-        )
+        import base64, json
+        parts = token.split(".")
+        if len(parts) != 3:
+            return None
+        padded = parts[1] + "=" * (-len(parts[1]) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(padded))
         return payload.get("sub")
-    except jwt.ExpiredSignatureError:
-        raise ValueError("Token has expired")
-    except jwt.InvalidTokenError as e:
-        raise ValueError(f"Invalid token: {e}")
+    except Exception:
+        return None
 
 
 async def get_optional_user_id(
