@@ -6,7 +6,7 @@ warnings.filterwarnings("ignore", category=UserWarning, module="pyparsing")
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import meals, recipes, shopping, pantry, profile
+from routers import meals, recipes, shopping, pantry, profile, images
 
 app = FastAPI(
     title="MealMind API",
@@ -29,6 +29,7 @@ app.include_router(recipes.router,  prefix="/recipes")
 app.include_router(shopping.router, prefix="/shopping")
 app.include_router(pantry.router,   prefix="/pantry")
 app.include_router(profile.router,  prefix="/profile")
+app.include_router(images.router,   prefix="/images")
 
 
 @app.get("/")
