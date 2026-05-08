@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
-import { Head } from "expo-router/head";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StatusBar } from "expo-status-bar";
 import { supabase } from "@/lib/supabase";
@@ -73,15 +72,7 @@ export default function RootLayout() {
   }, [session, ready, segments, hasOnboarded]);
 
   return (
-    <>
-      <Head>
-        <title>wotoEAT — What to Eat</title>
-        <meta name="description" content="AI-powered meal planning tailored to your health goals, pantry, and taste." />
-        <link rel="icon" type="image/png" href="/assets/favicon.png" />
-        <link rel="apple-touch-icon" href="/assets/favicon.png" />
-        <meta name="theme-color" content="#2E7D32" />
-      </Head>
-      <ErrorBoundary>
+    <ErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <StatusBar style={theme.statusBar} />
         <NetworkBanner />
@@ -118,6 +109,5 @@ export default function RootLayout() {
         </Stack>
       </GestureHandlerRootView>
     </ErrorBoundary>
-    </>
   );
 }
