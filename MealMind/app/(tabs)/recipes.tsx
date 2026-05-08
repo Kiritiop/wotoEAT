@@ -116,14 +116,15 @@ export default function RecipesScreen() {
   async function handleSaveEdit() {
     if (!selectedRecipe) return;
     if (!editTitle.trim()) { setEditError("Title is required."); return; }
-    const badIng = editIngredients.find((i) => i.name.trim() && isNaN(parseFloat(i.amount)));
-    if (badIng) { setEditError(`Amount for "${badIng.name}" must be a number.`); return; }
     setEditSaving(true);
     setEditError(null);
     try {
       const ingredients: Ingredient[] = editIngredients
         .filter((i) => i.name.trim())
-        .map((i) => ({ name: i.name.trim(), amount: parseFloat(i.amount) || 1, unit: i.unit.trim() }));
+        .map((i) => {
+          const parsed = parseFloat(i.amount);
+          return { name: i.name.trim(), amount: isNaN(parsed) ? (i.amount.trim() || 1) : parsed, unit: i.unit.trim() };
+        });
       const recipePayload = {
         title: editTitle.trim(),
         servings: parseInt(editServings) || 2,
@@ -593,12 +594,6 @@ export default function RecipesScreen() {
                   {/* Ingredients */}
                   <View style={styles.editSectionHeader}>
                     <Text style={[styles.editFieldLabel, { color: c.textMuted, marginBottom: 0 }]}>{t("edit_field_ingredients").toUpperCase()}</Text>
-                    <TouchableOpacity
-                      onPress={() => setEditIngredients((prev) => [...prev, { name: "", amount: "1", unit: "" }])}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Ionicons name="add-circle" size={22} color={c.primary} />
-                    </TouchableOpacity>
                   </View>
                   {editIngredients.map((ing, i) => (
                     <View key={i} style={styles.editIngRow}>
@@ -613,7 +608,7 @@ export default function RecipesScreen() {
                         style={[styles.editIngAmt, { color: c.text, borderColor: c.border, backgroundColor: c.inputBg }]}
                         value={ing.amount}
                         onChangeText={(v) => setEditIngredients((prev) => prev.map((x, j) => j === i ? { ...x, amount: v } : x))}
-                        keyboardType="decimal-pad"
+                        keyboardType="default"
                         placeholder="Amt"
                         placeholderTextColor={c.textPlaceholder}
                       />
@@ -632,16 +627,19 @@ export default function RecipesScreen() {
                       </TouchableOpacity>
                     </View>
                   ))}
+                  <TouchableOpacity
+                    style={[styles.addRowBox, { borderColor: c.border, backgroundColor: c.surfaceAlt }]}
+                    onPress={() => { setEditIngredients((prev) => [...prev, { name: "", amount: "", unit: "" }]); Haptics.selectionAsync(); }}
+                  >
+                    <Ionicons name="add" size={15} color={c.textMuted} />
+                    <Text style={[styles.addRowBoxText, { color: c.textPlaceholder }]}>
+                      {language === "zh" ? "添加食材…" : "Add ingredient…"}
+                    </Text>
+                  </TouchableOpacity>
 
                   {/* Steps */}
                   <View style={styles.editSectionHeader}>
                     <Text style={[styles.editFieldLabel, { color: c.textMuted, marginBottom: 0 }]}>{t("edit_field_steps").toUpperCase()}</Text>
-                    <TouchableOpacity
-                      onPress={() => setEditSteps((prev) => [...prev, ""])}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Ionicons name="add-circle" size={22} color={c.primary} />
-                    </TouchableOpacity>
                   </View>
                   {editSteps.map((step, i) => (
                     <View key={i} style={styles.editStepRow}>
@@ -664,6 +662,15 @@ export default function RecipesScreen() {
                       </TouchableOpacity>
                     </View>
                   ))}
+                  <TouchableOpacity
+                    style={[styles.addRowBox, { borderColor: c.border, backgroundColor: c.surfaceAlt }]}
+                    onPress={() => { setEditSteps((prev) => [...prev, ""]); Haptics.selectionAsync(); }}
+                  >
+                    <Ionicons name="add" size={15} color={c.textMuted} />
+                    <Text style={[styles.addRowBoxText, { color: c.textPlaceholder }]}>
+                      {language === "zh" ? "添加步骤…" : "Add step…"}
+                    </Text>
+                  </TouchableOpacity>
 
                   <ErrorBanner message={editError} style={{ marginTop: 8 }} />
 
@@ -887,6 +894,12 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
       paddingHorizontal: 8, paddingVertical: 8, fontSize: 13, textAlign: "center",
     },
     editStepRow: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginBottom: 8 },
+    addRowBox: {
+      flexDirection: "row", alignItems: "center", gap: 8,
+      borderWidth: 1, borderStyle: "dashed", borderRadius: 10,
+      paddingHorizontal: 14, paddingVertical: 12, marginBottom: 6,
+    },
+    addRowBoxText: { fontSize: 13 },
     editStepInput: {
       flex: 1, borderWidth: 1, borderRadius: 8,
       paddingHorizontal: 10, paddingVertical: 8, fontSize: 13, lineHeight: 18,

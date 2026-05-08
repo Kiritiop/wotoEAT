@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Share,
   Modal,
   Pressable,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -23,6 +24,7 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { useTheme } from "@/hooks/useTheme";
 import { useBatchTranslated, useTranslated } from "@/hooks/useDynamicTranslation";
 import FindRecipeModal from "@/components/FindRecipeModal";
+import { searchMealImage } from "@/services/imageSearch";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import type { Rating } from "@/store/useAppStore";
@@ -53,13 +55,14 @@ function MacroCell({ label, value, color }: { label: string; value: string; colo
 }
 
 function MealSlotCard({
-  meal, onRate, onSwap, swapping, onFindRecipe,
+  meal, onRate, onSwap, swapping, onFindRecipe, onTagPress,
 }: {
   meal: DailyPlanMeal;
   onRate: (r: Rating) => void;
   onSwap: () => void;
   swapping: boolean;
   onFindRecipe: () => void;
+  onTagPress: (tag: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
@@ -167,6 +170,9 @@ function MealSlotCard({
   // ── Save meal to My Recipes ───────────────────────────────────────────────
   const [savedState, setSavedState] = useState<"idle" | "saving" | "saved" | "unsaving">("idle");
   const [savedId, setSavedId] = useState<string | null>(null);
+
+  const [mealImageUrl, setMealImageUrl] = useState<string | null>(null);
+  useEffect(() => { searchMealImage(meal.name).then(setMealImageUrl); }, [meal.name]);
 
   function parseIngredient(s: string): Ingredient {
     // Parses "100g chicken breast" or "2 eggs" → structured ingredient
@@ -482,9 +488,14 @@ function MealSlotCard({
             {(meal.tags ?? []).length > 0 && (
               <View style={cardStyles.tags}>
                 {(meal.tags ?? []).map((tag) => (
-                  <View key={tag} style={[cardStyles.tag, { backgroundColor: c.chipBg }]}>
+                  <TouchableOpacity
+                    key={tag}
+                    style={[cardStyles.tag, { backgroundColor: c.chipBg }]}
+                    onPress={() => { onTagPress(tag); Haptics.selectionAsync(); }}
+                    activeOpacity={0.7}
+                  >
                     <Text style={[cardStyles.tagText, { color: c.textMuted }]}>{translateTag(tag, language)}</Text>
-                  </View>
+                  </TouchableOpacity>
                 ))}
               </View>
             )}
@@ -516,6 +527,15 @@ function MealSlotCard({
                 >
                   {/* Handle bar */}
                   <View style={[cardStyles.modalHandle, { backgroundColor: c.border }]} />
+
+                  {/* Hero image — shown only when a result is found */}
+                  {mealImageUrl && (
+                    <Image
+                      source={{ uri: mealImageUrl }}
+                      style={cardStyles.modalHeroImage}
+                      resizeMode="cover"
+                    />
+                  )}
 
                   {/* Slot badge */}
                   <View style={[cardStyles.modalSlotBadge, { backgroundColor: accent + "18" }]}>
@@ -558,22 +578,40 @@ function MealSlotCard({
                   {(meal.tags ?? []).length > 0 && (
                     <View style={[cardStyles.tags, { paddingHorizontal: 20, marginBottom: 16 }]}>
                       {(meal.tags ?? []).map((tag) => (
-                        <View key={tag} style={[cardStyles.tag, { backgroundColor: c.chipBg }]}>
+                        <TouchableOpacity
+                          key={tag}
+                          style={[cardStyles.tag, { backgroundColor: c.chipBg }]}
+                          onPress={() => { onTagPress(tag); setShowDetail(false); Haptics.selectionAsync(); }}
+                          activeOpacity={0.7}
+                        >
                           <Text style={[cardStyles.tagText, { color: c.textMuted }]}>{translateTag(tag, language)}</Text>
-                        </View>
+                        </TouchableOpacity>
                       ))}
                     </View>
                   )}
 
-                  {/* Serving stepper */}
-                  <View style={[cardStyles.servingsStepper, { paddingHorizontal: 20, marginBottom: 8 }]}>
-                    <TouchableOpacity onPress={() => { setDisplayServings((n) => Math.max(1, n - 1)); Haptics.selectionAsync(); }} disabled={displayServings <= 1} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                      <Ionicons name="remove-circle-outline" size={22} color={displayServings <= 1 ? c.disabled : c.textMuted} />
-                    </TouchableOpacity>
-                    <Text style={[cardStyles.servingsStepperText, { color: c.textSecondary }]}>{strings.servings_people(displayServings)}</Text>
-                    <TouchableOpacity onPress={() => { setDisplayServings((n) => Math.min(12, n + 1)); Haptics.selectionAsync(); }} disabled={displayServings >= 12} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                      <Ionicons name="add-circle-outline" size={22} color={displayServings >= 12 ? c.disabled : c.textMuted} />
-                    </TouchableOpacity>
+                  {/* Serving stepper + add all */}
+                  <View style={[cardStyles.servingsStepper, { paddingHorizontal: 20, marginBottom: 8, justifyContent: "space-between" }]}>
+                    <View style={cardStyles.servingsStepper}>
+                      <TouchableOpacity onPress={() => { setDisplayServings((n) => Math.max(1, n - 1)); Haptics.selectionAsync(); }} disabled={displayServings <= 1} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <Ionicons name="remove-circle-outline" size={22} color={displayServings <= 1 ? c.disabled : c.textMuted} />
+                      </TouchableOpacity>
+                      <Text style={[cardStyles.servingsStepperText, { color: c.textSecondary }]}>{strings.servings_people(displayServings)}</Text>
+                      <TouchableOpacity onPress={() => { setDisplayServings((n) => Math.min(12, n + 1)); Haptics.selectionAsync(); }} disabled={displayServings >= 12} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <Ionicons name="add-circle-outline" size={22} color={displayServings >= 12 ? c.disabled : c.textMuted} />
+                      </TouchableOpacity>
+                    </View>
+                    {(meal.ingredients ?? []).length > 0 && (
+                      <TouchableOpacity
+                        style={[cardStyles.addAllBtn, { borderColor: allInCart ? c.primary : c.border, backgroundColor: allInCart ? c.primaryLight : "transparent" }]}
+                        onPress={addAll}
+                      >
+                        <Ionicons name={allInCart ? "checkmark" : "cart-outline"} size={12} color={allInCart ? c.primary : c.textMuted} />
+                        <Text style={[cardStyles.addAllText, { color: allInCart ? c.primary : c.textMuted }]}>
+                          {allInCart ? t("added_to_cart") : t("add_all_to_cart")}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
 
                   {/* Ingredients */}
@@ -686,7 +724,8 @@ export default function TodayScreen() {
   const [showSettings, setShowSettings] = useState(false);
   const [selectedSlots, setSelectedSlots] = useState<MealTypeTag[]>(["any"]);
   const [mealStyle, setMealStyle] = useState<"full" | "main_dish">("full");
-  const [ingredientKeyword, setIngredientKeyword] = useState("");
+  const [requiredIngredients, setRequiredIngredients] = useState<string[]>([]);
+  const [ingredientDraft, setIngredientDraft] = useState("");
   const [selectedPantryItems, setSelectedPantryItems] = useState<string[]>([]);
   const [showFindRecipe, setShowFindRecipe] = useState(false);
 
@@ -720,6 +759,7 @@ export default function TodayScreen() {
   const showProtein = totalProteinG > 0 && !!proteinGoal;
 
   async function handleGenerate() {
+    setShowSettings(false);
     setLoading(true);
     setError(null);
     const isAny = selectedSlots.includes("any");
@@ -741,7 +781,7 @@ export default function TodayScreen() {
         servings,
         targetSlots as ("breakfast" | "lunch" | "dinner")[],
         flavour.trim() || undefined,
-        [...selectedPantryItems, ...(ingredientKeyword.trim() ? [ingredientKeyword.trim()] : [])].join(", ") || undefined,
+        [...selectedPantryItems, ...requiredIngredients].join(", ") || undefined,
         mealStyle,
       );
 
@@ -885,23 +925,45 @@ export default function TodayScreen() {
               })}
             </View>
 
-            {/* Ingredient keyword */}
+            {/* Required ingredients — chip accumulator */}
             <Text style={[styles.filterLabel, { color: c.textMuted, marginTop: 10 }]}>
               {language === "zh" ? "必须包含食材" : "Must include ingredient"}
             </Text>
-            <View style={[styles.ingSearchRow, { backgroundColor: c.inputBg, borderColor: ingredientKeyword.trim() ? c.primary : c.border }]}>
-              <Ionicons name="leaf-outline" size={15} color={ingredientKeyword.trim() ? c.primary : c.textPlaceholder} />
+            {requiredIngredients.length > 0 && (
+              <View style={[styles.filterChipRow, { marginBottom: 6 }]}>
+                {requiredIngredients.map((ing) => (
+                  <TouchableOpacity
+                    key={ing}
+                    style={[styles.filterChip, { backgroundColor: c.primary, borderColor: c.primary, flexDirection: "row", gap: 4 }]}
+                    onPress={() => { setRequiredIngredients((prev) => prev.filter((x) => x !== ing)); Haptics.selectionAsync(); }}
+                  >
+                    <Text style={[styles.filterChipText, { color: "#FFF" }]}>{ing}</Text>
+                    <Ionicons name="close" size={12} color="#FFF" />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            <View style={[styles.ingSearchRow, { backgroundColor: c.inputBg, borderColor: ingredientDraft.trim() ? c.primary : c.border }]}>
+              <Ionicons name="leaf-outline" size={15} color={ingredientDraft.trim() ? c.primary : c.textPlaceholder} />
               <TextInput
                 style={[styles.ingSearchInput, { color: c.text }]}
-                placeholder={language === "zh" ? "例如 tomato, 鸡蛋…" : "e.g. tomato, eggs…"}
+                placeholder={language === "zh" ? "输入后按回车添加…" : "Type then press return to add…"}
                 placeholderTextColor={c.textPlaceholder}
-                value={ingredientKeyword}
-                onChangeText={setIngredientKeyword}
+                value={ingredientDraft}
+                onChangeText={setIngredientDraft}
                 returnKeyType="done"
                 autoCapitalize="none"
+                onSubmitEditing={() => {
+                  const v = ingredientDraft.trim();
+                  if (v && !requiredIngredients.includes(v)) {
+                    setRequiredIngredients((prev) => [...prev, v]);
+                    Haptics.selectionAsync();
+                  }
+                  setIngredientDraft("");
+                }}
               />
-              {ingredientKeyword.length > 0 && (
-                <TouchableOpacity onPress={() => setIngredientKeyword("")} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+              {ingredientDraft.length > 0 && (
+                <TouchableOpacity onPress={() => setIngredientDraft("")} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                   <Ionicons name="close-circle" size={15} color={c.textPlaceholder} />
                 </TouchableOpacity>
               )}
@@ -1086,6 +1148,11 @@ export default function TodayScreen() {
                   });
                   router.push({ pathname: "/meal/[id]", params: { id: meal.slot, meal: mealParam } });
                 }}
+                onTagPress={(tag) => {
+                  setShowSettings(true);
+                  setRequiredIngredients((prev) => prev.includes(tag) ? prev : [...prev, tag]);
+                  Haptics.selectionAsync();
+                }}
               />
             ))}
 
@@ -1186,6 +1253,7 @@ const cardStyles = StyleSheet.create({
   modalFooter: { flexDirection: "row", borderTopWidth: 1, paddingHorizontal: 12, paddingTop: 12, paddingBottom: 4, gap: 8 },
   modalActionBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, borderWidth: 1, borderRadius: 12, paddingVertical: 10 },
   modalActionText: { fontSize: 13, fontWeight: "600" },
+  modalHeroImage: { width: "100%", height: 200 },
 });
 
 function makeStyles(c: ReturnType<typeof useTheme>) {

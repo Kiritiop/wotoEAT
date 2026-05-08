@@ -93,6 +93,7 @@ export function PantryTagPicker({ visible, currentPantry, onClose, onSave, langu
   const [customInputs, setCustomInputs] = useState<Record<string, string>>({});
   const [showCustomInput, setShowCustomInput] = useState<Record<string, boolean>>({});
   const [customItemsByCategory, setCustomItemsByCategory] = useState<Record<string, string[]>>({});
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   // Reset selection to current pantry when modal opens
   const handleOpen = () => {
@@ -100,6 +101,7 @@ export function PantryTagPicker({ visible, currentPantry, onClose, onSave, langu
     setCustomInputs({});
     setShowCustomInput({});
     setCustomItemsByCategory({});
+    setCollapsed({});
   };
 
   function toggle(name: string) {
@@ -119,6 +121,11 @@ export function PantryTagPicker({ visible, currentPantry, onClose, onSave, langu
     setCustomItemsByCategory((prev) => ({ ...prev, [catKey]: [val, ...(prev[catKey] ?? [])] }));
     setCustomInputs((prev) => ({ ...prev, [catKey]: "" }));
     setShowCustomInput((prev) => ({ ...prev, [catKey]: false }));
+    Haptics.selectionAsync();
+  }
+
+  function toggleCollapsed(key: string) {
+    setCollapsed((p) => ({ ...p, [key]: !p[key] }));
     Haptics.selectionAsync();
   }
 
@@ -144,72 +151,84 @@ export function PantryTagPicker({ visible, currentPantry, onClose, onSave, langu
         </View>
 
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          {CATEGORIES.map((cat) => (
-            <View key={cat.key} style={styles.category}>
-              <Text style={[styles.catLabel, { color: c.text }]}>
-                {language === "zh" ? cat.labelZh : cat.label}
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tagRow}>
-                {/* Custom item input toggle — first */}
-                {showCustomInput[cat.key] ? (
-                  <View style={[styles.customInputRow, { backgroundColor: c.inputBg, borderColor: c.border }]}>
-                    <TextInput
-                      style={[styles.customInput, { color: c.text }]}
-                      placeholder={language === "zh" ? "自定义…" : "Custom…"}
-                      placeholderTextColor={c.textPlaceholder}
-                      value={customInputs[cat.key] ?? ""}
-                      onChangeText={(v) => setCustomInputs((p) => ({ ...p, [cat.key]: v }))}
-                      onSubmitEditing={() => addCustom(cat.key)}
-                      autoFocus
-                      returnKeyType="done"
-                    />
-                    <TouchableOpacity onPress={() => addCustom(cat.key)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                      <Ionicons name="checkmark-circle" size={20} color={c.primary} />
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    style={[styles.tag, { backgroundColor: c.surfaceAlt, borderColor: c.border, borderStyle: "dashed" }]}
-                    onPress={() => { setShowCustomInput((p) => ({ ...p, [cat.key]: true })); Haptics.selectionAsync(); }}
-                  >
-                    <Ionicons name="add" size={13} color={c.textMuted} />
-                    <Text style={[styles.tagText, { color: c.textMuted }]}>
-                      {language === "zh" ? "自定义" : "Custom"}
-                    </Text>
-                  </TouchableOpacity>
-                )}
+          {CATEGORIES.map((cat) => {
+            const isCollapsed = !!collapsed[cat.key];
+            const totalItems = (customItemsByCategory[cat.key] ?? []).length + cat.items.length;
+            return (
+              <View key={cat.key} style={styles.category}>
+                <TouchableOpacity style={styles.catHeader} onPress={() => toggleCollapsed(cat.key)} activeOpacity={0.7}>
+                  <Text style={[styles.catLabel, { color: c.text }]}>
+                    {language === "zh" ? cat.labelZh : cat.label}
+                    <Text style={[styles.catCount, { color: c.textMuted }]}>{` (${totalItems})`}</Text>
+                  </Text>
+                  <Ionicons name={isCollapsed ? "chevron-forward" : "chevron-down"} size={16} color={c.textMuted} />
+                </TouchableOpacity>
 
-                {(customItemsByCategory[cat.key] ?? []).map((item) => {
-                  const active = selected.has(item);
-                  return (
-                    <TouchableOpacity
-                      key={`custom-${item}`}
-                      style={[styles.tag, { backgroundColor: active ? c.primary : c.chipBg, borderColor: active ? c.primary : c.border }]}
-                      onPress={() => toggle(item)}
-                      activeOpacity={0.7}
-                    >
-                      {active && <Ionicons name="checkmark" size={12} color="#FFF" />}
-                      <Text style={[styles.tagText, { color: active ? "#FFF" : c.chipText }]}>{item}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-                {cat.items.map((item) => {
-                  const active = selected.has(item);
-                  return (
-                    <TouchableOpacity
-                      key={item}
-                      style={[styles.tag, { backgroundColor: active ? c.primary : c.chipBg, borderColor: active ? c.primary : c.border }]}
-                      onPress={() => toggle(item)}
-                      activeOpacity={0.7}
-                    >
-                      {active && <Ionicons name="checkmark" size={12} color="#FFF" />}
-                      <Text style={[styles.tagText, { color: active ? "#FFF" : c.chipText }]}>{item}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </View>
-          ))}
+                {!isCollapsed && (
+                  <View style={styles.tagRowWrap}>
+                    {/* Custom item input toggle */}
+                    {showCustomInput[cat.key] ? (
+                      <View style={[styles.customInputRow, { backgroundColor: c.inputBg, borderColor: c.border }]}>
+                        <TextInput
+                          style={[styles.customInput, { color: c.text }]}
+                          placeholder={language === "zh" ? "自定义…" : "Custom…"}
+                          placeholderTextColor={c.textPlaceholder}
+                          value={customInputs[cat.key] ?? ""}
+                          onChangeText={(v) => setCustomInputs((p) => ({ ...p, [cat.key]: v }))}
+                          onSubmitEditing={() => addCustom(cat.key)}
+                          autoFocus
+                          returnKeyType="done"
+                        />
+                        <TouchableOpacity onPress={() => addCustom(cat.key)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                          <Ionicons name="checkmark-circle" size={20} color={c.primary} />
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        style={[styles.tag, { backgroundColor: c.surfaceAlt, borderColor: c.border, borderStyle: "dashed" }]}
+                        onPress={() => { setShowCustomInput((p) => ({ ...p, [cat.key]: true })); Haptics.selectionAsync(); }}
+                      >
+                        <Ionicons name="add" size={13} color={c.textMuted} />
+                        <Text style={[styles.tagText, { color: c.textMuted }]}>
+                          {language === "zh" ? "自定义" : "Custom"}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {(customItemsByCategory[cat.key] ?? []).map((item) => {
+                      const active = selected.has(item);
+                      return (
+                        <TouchableOpacity
+                          key={`custom-${item}`}
+                          style={[styles.tag, { backgroundColor: active ? c.primary : c.chipBg, borderColor: active ? c.primary : c.border }]}
+                          onPress={() => toggle(item)}
+                          activeOpacity={0.7}
+                        >
+                          {active && <Ionicons name="checkmark" size={12} color="#FFF" />}
+                          <Text style={[styles.tagText, { color: active ? "#FFF" : c.chipText }]}>{item}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+
+                    {cat.items.map((item) => {
+                      const active = selected.has(item);
+                      return (
+                        <TouchableOpacity
+                          key={item}
+                          style={[styles.tag, { backgroundColor: active ? c.primary : c.chipBg, borderColor: active ? c.primary : c.border }]}
+                          onPress={() => toggle(item)}
+                          activeOpacity={0.7}
+                        >
+                          {active && <Ionicons name="checkmark" size={12} color="#FFF" />}
+                          <Text style={[styles.tagText, { color: active ? "#FFF" : c.chipText }]}>{item}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+            );
+          })}
 
           {/* Custom-added items not in any category */}
           {(() => {
@@ -217,23 +236,30 @@ export function PantryTagPicker({ visible, currentPantry, onClose, onSave, langu
             const sessionCustom = new Set(Object.values(customItemsByCategory).flat());
             const extras = [...selected].filter((s) => !allDefault.has(s) && !sessionCustom.has(s));
             if (extras.length === 0) return null;
+            const isCollapsed = !!collapsed["__custom__"];
             return (
               <View style={styles.category}>
-                <Text style={[styles.catLabel, { color: c.text }]}>
-                  {language === "zh" ? "我的自定义" : "My Custom Items"}
-                </Text>
-                <View style={styles.tagRowWrap}>
-                  {extras.map((item) => (
-                    <TouchableOpacity
-                      key={item}
-                      style={[styles.tag, { backgroundColor: c.primary, borderColor: c.primary }]}
-                      onPress={() => toggle(item)}
-                    >
-                      <Ionicons name="checkmark" size={12} color="#FFF" />
-                      <Text style={[styles.tagText, { color: "#FFF" }]}>{item}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                <TouchableOpacity style={styles.catHeader} onPress={() => toggleCollapsed("__custom__")} activeOpacity={0.7}>
+                  <Text style={[styles.catLabel, { color: c.text }]}>
+                    {language === "zh" ? "我的自定义" : "My Custom Items"}
+                    <Text style={[styles.catCount, { color: c.textMuted }]}>{` (${extras.length})`}</Text>
+                  </Text>
+                  <Ionicons name={isCollapsed ? "chevron-forward" : "chevron-down"} size={16} color={c.textMuted} />
+                </TouchableOpacity>
+                {!isCollapsed && (
+                  <View style={styles.tagRowWrap}>
+                    {extras.map((item) => (
+                      <TouchableOpacity
+                        key={item}
+                        style={[styles.tag, { backgroundColor: c.primary, borderColor: c.primary }]}
+                        onPress={() => toggle(item)}
+                      >
+                        <Ionicons name="checkmark" size={12} color="#FFF" />
+                        <Text style={[styles.tagText, { color: "#FFF" }]}>{item}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
               </View>
             );
           })()}
@@ -270,8 +296,12 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     saveBtn: { fontSize: 16, fontWeight: "700" },
     content: { padding: 16, paddingBottom: 100 },
     category: { marginBottom: 20 },
-    catLabel: { fontSize: 14, fontWeight: "700", marginBottom: 10 },
-    tagRow: { flexDirection: "row", gap: 8, paddingRight: 16 },
+    catHeader: {
+      flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+      paddingVertical: 4, marginBottom: 10,
+    },
+    catLabel: { fontSize: 14, fontWeight: "700", flex: 1 },
+    catCount: { fontSize: 13, fontWeight: "400" },
     tagRowWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     tag: {
       flexDirection: "row", alignItems: "center", gap: 4,

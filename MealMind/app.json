@@ -33,7 +33,12 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "name": "wotoEAT — What to Eat",
+      "shortName": "wotoEAT",
+      "description": "AI-powered meal planning tailored to your health goals, pantry, and taste.",
+      "themeColor": "#2E7D32",
+      "backgroundColor": "#FAFAFA"
     },
     "plugins": [
       "expo-router",

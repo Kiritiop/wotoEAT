@@ -165,7 +165,7 @@ export interface PlanHistoryEntry {
 
 export interface Ingredient {
   name: string;
-  amount: number;
+  amount: number | string;
   unit: string;
   calories?: number;
 }
