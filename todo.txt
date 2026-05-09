@@ -1,157 +1,131 @@
-1	Add recipe 加号改成方块式 so make the add row to be below the previous row as a box so its more intuitive then clicking the top every time
-2	Inside add recipe, for the amount make it a typable box intead of only number so user can customize based on preferences
-3	Add a button for add all ingredients to shopping cart next to serving size for meals
-4	Add item to pantry make it a spread out list instead of scrollable to the right, make categories collapsible just like in the profile section
-5	Get more tags for each dish. And the tags generated should be clickable and on click they should go to the required ingredients in preferences. Make the user able to type in ingredients not part of their pantry and use that as part of the required ingredients, make all of them tags as well. The ai should find key words for the dish such as the flavour, all ingredients,
-6	When you click the generate button, the preferences should auto retract
-7	For every meal generated, search for an image and put it on the pop up once the user clicks on the meal card put the image in the pop up, if no image is found make it just not appear
+right now, if the user does not have the selected ingredient/tag it will return an error
+Failed to load resource: the server responded with a status of 500 ()Understand this error
+discover:1  Failed to load resource: the server responded with a status of 404 ()
 
-────────────────────────────────────────────────────────────────────
-DETAILED BREAKDOWN
-────────────────────────────────────────────────────────────────────
+Another issue is that not all tags are ingredients so they shouldnt go to Must Include Ingredient. Rename this section to Include tags
 
-── 1: Add recipe — inline "add" box appears below last row ───────────
-Context: recipes.tsx has a manual recipe builder. The current "+" button sits at
-the top/header. After adding several ingredients the user must scroll back up to
-add the next one, which is unintuitive.
+Also, remove entirely the More Details section because we can see it when we click on the card. remove the nutritional details and keep it hidden behind an info icon
 
-[ ] Find where the ingredient list is rendered in recipes.tsx and where the
-    "add ingredient" button currently lives.
-[ ] Remove the top-positioned "+" button.
-[ ] After the last ingredient row, render a tappable dashed-border box (full
-    width, ~44 px tall) with a small "+" icon and dim placeholder text
-    ("Add ingredient…" / "添加食材…").
-[ ] Tapping the box appends a blank ingredient entry and auto-focuses the name
-    field of that new row — the new row is already in view, no scrolling needed.
-[ ] Apply the same pattern to the steps list if it also uses a top "+" button.
-[ ] Style: use theme `border` color at ~50% opacity for the dashed border,
-    `surfaceAlt` background, rounded corners matching other rows.
+The add all to shopping list button should also be reclickable to remove the items from shopping cart, similar to the confirm button
 
-── 2: Amount field — free-text instead of numeric-only ───────────────
-Context: The add-ingredient form in recipes.tsx uses keyboardType="numeric" (or a
-stepper) for amount, blocking inputs like "1/2", "a handful", "to taste".
-discover.tsx already handles non-numeric amounts gracefully (scaleIngredientStr
-prepends "~" for unscalable values).
+additionally for add ingredient to pantry, the sections should be collapsed by default, the user has to open the category to see the tags
 
-[ ] In the ingredient input form in recipes.tsx, change the amount TextInput's
-    keyboardType from "numeric" to "default". Remove any validation that rejects
-    non-number strings.
-[ ] Update the Ingredient type in services/api.ts: change `amount: number` to
-    `amount: number | string`.
-[ ] Update parseIngredient() in discover.tsx (~line 172): if amount is already a
-    string that doesn't parse as a float, store it as-is with unit "".
-[ ] Verify scaleIngredientStr() in discover.tsx (~line 37) still works — it
-    already prepends "~" for non-numeric quantities so no change needed there.
-[ ] In ingredient display rows, render the amount as a string directly (no
-    Number() coercion) so "1/2 cup" shows correctly instead of "NaN cup".
+────────────────────────────────────────
+DETAILED IMPLEMENTATION BREAKDOWN
+────────────────────────────────────────
 
-── 3: "Add all to cart" button next to serving size in the meal popup ──
-Context: addAll() already exists in discover.tsx (line 160) and the button
-appears in the inline expanded card view (line 409–417). But the detail modal
-(bottom sheet, line 504–651) has the serving stepper (line 569–578) with NO
-"add all" button. The user wants it there, next to the serving stepper.
+[BUG-1] API 500/404 when selected ingredient/tag not recognised
+  Context: getDailyPlan (discover.tsx ~L784) passes
+    [...selectedPantryItems, ...requiredIngredients].join(", ")
+    as a "must include" constraint to the AI. If the value is
+    an unknown ingredient or a non-food tag the backend crashes
+    (500) or returns nothing (404).
+  Tasks:
+    □ In the catch block of generatePlan (~L815), detect HTTP
+      status 500 and 404 separately from generic errors.
+    □ When 500 or 404 is caught and the user has active
+      requiredIngredients/selectedPantryItems, show a specific
+      error banner: "Some selected tags or ingredients couldn't
+      be found. Try clearing your filters and regenerating."
+    □ Add a "Clear filters & retry" action button inside
+      ErrorBanner (or below it) that resets requiredIngredients
+      and selectedPantryItems then calls generatePlan again.
+    □ On the API/backend side (mealmind-api): wrap the
+      must-include parsing in a try/except so an unrecognised
+      item degrades gracefully (ignore it) instead of crashing.
+      Return a 200 with a plan rather than a 500.
+    □ Verify the fix covers both the discover tab (plan
+      generation) and the swap-meal flow which also calls the
+      API with the same filters.
 
-[ ] In the detail modal's serving stepper row (~line 569 in discover.tsx), add
-    an "Add All" / "Added" button to the right of the stepper row.
-[ ] Reuse the existing addAll() function and allInCart boolean — both are already
-    in scope inside MealSlotCard, no new state needed.
-[ ] Button appearance: cart icon + "Add All" label; switches to checkmark +
-    "Added" when allInCart is true. Match the inline version's styling.
-[ ] Add Haptics.notificationAsync(Success) on press.
+[UI-1] Rename "Must Include Ingredient" → "Include Tags"
+  Context: discover.tsx ~L929-930 hardcodes the label
+    "必须包含食材" / "Must include ingredient". Tags clicked on
+    meal cards (e.g. "vegan", "gluten-free") are appended to
+    the same requiredIngredients array, so the label is wrong.
+  Tasks:
+    □ In discover.tsx, change the section label text to
+      "Include tags" (en) and "包含标签" (zh).
+    □ Update the locale key in both
+      constants/locale/en.ts and constants/locale/zh.ts
+      (or wherever the "must_include_ingredient" key lives)
+      to a new key "include_tags" with the new strings.
+    □ Update the TextInput placeholder text from something
+      ingredient-specific to "Add ingredient or tag…".
+    □ Update the leaf icon next to the input (Ionicons
+      "leaf-outline") to a more neutral icon like
+      "pricetag-outline" to reflect that tags are also valid.
+    □ No logic changes needed — requiredIngredients already
+      accumulates both free-typed values and tag presses.
 
-── 4: Pantry tag picker — vertical wrap layout + collapsible categories ──
-Context: PantryTagPicker.tsx renders each category's items in a
-`ScrollView horizontal` (line 152), meaning items disappear off-screen to the
-right. The profile.tsx section already has collapsible categories that the user
-likes as a reference pattern.
+[UI-2] Remove "More Details" expand section from meal cards
+  Context: Each MealCard has an expandBtn that toggles
+    `expanded` state, showing a collapsible body with the
+    meal description and ingredients list. The detail modal
+    (tap the card) already shows all this content, making
+    the expand button redundant.
+  Tasks:
+    □ Remove the expandBtn TouchableOpacity and its label/
+      chevron (~L338-347 in the card footer row).
+    □ Remove the `{expanded && <View style={cardStyles.expandBody}>…</View>}`
+      block that renders description + ingredients list (~L409-480).
+    □ Delete the `expanded` state variable and `setExpanded`
+      call in MealCard (~L64 area).
+    □ Delete `translatedDescription` (useBatchTranslated call)
+      if it is only consumed inside expandBody; otherwise keep.
+    □ Clean up now-unused cardStyles keys: expandBtn,
+      expandText, expandBody, description (if unused elsewhere).
+    □ Confirm the info icon (showInfo panel) stays fully intact
+      — macros, components, prep time, difficulty remain
+      accessible via the ⓘ button.
+    □ Test: tapping the card still opens the detail modal with
+      full description + ingredient list; info icon still works.
 
-[ ] In PantryTagPicker.tsx, replace each category's `ScrollView horizontal` with
-    a `View` using flexDirection="row" and flexWrap="wrap" so chips wrap to new
-    lines and are all visible without scrolling.
-[ ] Add per-category collapsed/expanded state:
-    `const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})`.
-    Default all categories to expanded.
-[ ] Add a chevron toggle button (chevron-down / chevron-up) to each category
-    header row. Tapping it toggles that category's collapsed key.
-[ ] When collapsed, hide the item chips and show the item count in the header
-    (e.g. "Vegetables (12)") so the user knows what's inside.
-[ ] Apply the same wrap + collapsible treatment to the "Custom items" section at
-    the bottom of the picker (~line 214 in PantryTagPicker.tsx).
-[ ] Match the visual style of the collapsible sections in profile.tsx.
+[UI-3] "Add All to Cart" button toggles add ↔ remove
+  Context: The "Add all" button in MealCard calls addAll()
+    which only ever adds missing items (discover.tsx ~L163).
+    The allInCart boolean (~L155) already tracks whether
+    everything is in the cart, but clicking again does nothing
+    useful. The confirm button behaves as a proper toggle;
+    "Add all" should too.
+  Tasks:
+    □ Rewrite addAll() to branch on allInCart:
+        if allInCart → call removeFromShoppingList for every
+          ingredient in meal.ingredients
+        else → current behaviour: add only the missing ones
+    □ Update the button label to reflect state:
+        not all in cart → current label (e.g. "Add all")
+        all in cart     → "Remove all" (or use a cart-x icon)
+    □ Update button colour/border logic to show a destructive
+      or neutral visual when in "remove all" state (already
+      has primaryLight/primary for "added" state — add a
+      matching "remove" palette).
+    □ Apply the same change to both instances of the button:
+        • Card compact view (~L411-420)
+        • Detail modal view (~L604-617)
+    □ Test: add all → all items appear in shopping list;
+      click again → all items removed from shopping list;
+      partial state (some in cart) → clicking adds remainder.
 
-── 5: Richer tags — clickable, add to required ingredients, typed custom tags ──
-Context: Meal card tags in discover.tsx (inline line 482–490, modal line 558–566)
-are static `<View>` chips — they render but do nothing. The preferences panel has
-a single TextInput for "must include ingredient" (line 889–908). Three changes
-needed: richer AI tags, tappable tags that inject into the filter, and a
-chip-accumulating custom ingredient input.
-
-[ ] PREFERENCES INPUT — chip accumulator instead of single text field:
-    [ ] Replace `ingredientKeyword: string` state with two states:
-        `requiredIngredients: string[]` and `ingredientDraft: string`.
-    [ ] Render existing chips from `requiredIngredients` as removable tags above
-        the text input, each with an × button that removes it from the array.
-    [ ] When the user presses Return or types a comma, push `ingredientDraft.trim()`
-        into `requiredIngredients` and clear the draft.
-    [ ] Update handleGenerate() to spread `[...selectedPantryItems,
-        ...requiredIngredients]` instead of the old single keyword string.
-
-[ ] CLICKABLE TAGS ON MEAL CARDS:
-    [ ] In the inline expanded view (line 482–490), change each tag `<View>` to
-        `<TouchableOpacity>`.
-    [ ] In the detail modal (line 558–566), do the same.
-    [ ] On tag press: call setShowSettings(true) to open the preferences panel,
-        then push the tag's raw value into `requiredIngredients` if not already
-        present. Add Haptics.selectionAsync().
-    [ ] Visually distinguish ingredient tags from descriptor tags: ingredient
-        tags (any tag that matches a known ingredient keyword or comes from the
-        ingredients list) get a green tint; flavor/occasion descriptor tags keep
-        the default chip style.
-
-[ ] AI TAGS — update the backend prompt in mealmind-api to return richer tags:
-    [ ] Include all key ingredients as individual tags (e.g. "chicken", "garlic").
-    [ ] Include flavor descriptors (e.g. "spicy", "savory", "sweet-sour").
-    [ ] Include occasion/texture tags (e.g. "high-protein", "quick", "one-pan").
-    [ ] Cap total tags at ~10 to avoid UI overflow.
-
-── 6: Preferences panel auto-collapses when generate is pressed ──────
-Context: The `showSettings` state controls the filter panel visibility.
-handleGenerate() starts at line 722 in discover.tsx. The panel currently stays
-open during loading, covering screen space where the meal cards appear.
-
-[ ] Add `setShowSettings(false)` as the first line inside handleGenerate() in
-    discover.tsx, before `setLoading(true)`.
-[ ] No animation needed — the existing conditional render collapses it instantly,
-    which reads as intentional and snappy.
-
-── 7: Meal image — fetch and show at top of the detail popup ─────────
-Context: The detail modal (bottom sheet, discover.tsx line 504–651) currently
-shows no image. The user wants a hero photo fetched by meal name shown at the
-top of the sheet. If no image is found it should silently not appear (no
-placeholder, no broken image icon).
-
-[ ] CHOOSE IMAGE API — use Pexels (free tier, food photos, simple auth):
-    [ ] Create a free account at pexels.com/api and generate an API key.
-    [ ] Add PEXELS_API_KEY to MealMind/.env and to Railway environment variables.
-
-[ ] CREATE MealMind/services/imageSearch.ts:
-    [ ] Export `async function searchMealImage(mealName: string): Promise<string | null>`.
-    [ ] Fetch: GET https://api.pexels.com/v1/search?query={mealName}+food&per_page=1
-        with header `Authorization: <PEXELS_API_KEY>`.
-    [ ] Return photos[0]?.src?.medium ?? null.
-    [ ] Wrap in try/catch — always return null on any error, never throw.
-
-[ ] IN MealSlotCard (discover.tsx):
-    [ ] Add state: `const [mealImageUrl, setMealImageUrl] = useState<string | null>(null)`.
-    [ ] Fetch on mount: useEffect(() => { searchMealImage(meal.name).then(setMealImageUrl); }, [meal.name]).
-    [ ] Fetch once per card mount — not on every modal open.
-
-[ ] IN THE DETAIL MODAL (around line 517 in discover.tsx, inside the ScrollView):
-    [ ] Render the image immediately after the handle bar if mealImageUrl is not null:
-        <Image source={{ uri: mealImageUrl }} style={{ width: "100%", height: 200,
-        borderTopLeftRadius: 24, borderTopRightRadius: 24 }} resizeMode="cover" />
-    [ ] If mealImageUrl is null, render nothing at all (no View placeholder).
-    [ ] Import Image from react-native at the top of the file.
-    [ ] Position the drag handle bar absolutely on top of the image (with a small
-        semi-transparent white/dark backing pill) so it remains visible against any
-        image color.
+[UI-4] PantryTagPicker: categories collapsed by default
+  Context: PantryTagPicker.tsx uses a `collapsed` Record<string,
+    boolean> state (~L96). Empty object means all expanded.
+    handleOpen() resets it to {} so re-opening also expands
+    everything. CATEGORIES is the array of category objects
+    (~L33) each with a `.key` field.
+  Tasks:
+    □ Build an allCollapsed initialiser:
+        const allCollapsed = Object.fromEntries(
+          CATEGORIES.map(c => [c.key, true])
+        );
+      Add "__custom__": true for the custom-items bucket.
+    □ Change useState init from {} to allCollapsed:
+        useState<Record<string, boolean>>(allCollapsed)
+    □ In handleOpen(), reset collapsed to allCollapsed
+      (not {}) so re-opening the modal also starts collapsed.
+    □ Verify the toggle logic (isCollapsed = !!collapsed[key])
+      already works correctly with true as the default — it
+      does; no other changes needed.
+    □ Test: open PantryTagPicker → all category headers show
+      collapsed state with a down-chevron; tapping a header
+      expands just that category.

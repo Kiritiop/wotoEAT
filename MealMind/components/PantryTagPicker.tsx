@@ -93,7 +93,10 @@ export function PantryTagPicker({ visible, currentPantry, onClose, onSave, langu
   const [customInputs, setCustomInputs] = useState<Record<string, string>>({});
   const [showCustomInput, setShowCustomInput] = useState<Record<string, boolean>>({});
   const [customItemsByCategory, setCustomItemsByCategory] = useState<Record<string, string[]>>({});
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const allCollapsed: Record<string, boolean> = Object.fromEntries(
+    [...CATEGORIES.map((c) => [c.key, true]), ["__custom__", true]]
+  );
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(allCollapsed);
 
   // Reset selection to current pantry when modal opens
   const handleOpen = () => {
@@ -101,7 +104,7 @@ export function PantryTagPicker({ visible, currentPantry, onClose, onSave, langu
     setCustomInputs({});
     setShowCustomInput({});
     setCustomItemsByCategory({});
-    setCollapsed({});
+    setCollapsed(allCollapsed);
   };
 
   function toggle(name: string) {

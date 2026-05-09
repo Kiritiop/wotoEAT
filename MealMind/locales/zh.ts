@@ -80,6 +80,7 @@ const zh = {
   ingredients_breakdown: "食材详情",
   add_all_to_cart: "全部加入购物清单",
   added_to_cart: "已添加",
+  remove_all_from_cart: "移出购物车",
   swapping: "正在查找替代方案…",
   more_details: "更多详情",
   less: "收起",

@@ -119,7 +119,18 @@ async def generate_daily_plan(
             ),
         }],
     )
-    plan = json.loads(_clean_json(_extract_text(response)))
+    try:
+        plan = json.loads(_clean_json(_extract_text(response)))
+    except json.JSONDecodeError:
+        if not ingredient_keyword:
+            raise
+        # The keyword constraint confused the model — retry without it so the
+        # user at least gets a valid plan, then raise a descriptive error so
+        # the client can tell them the filter was ignored.
+        raise ValueError(
+            f"Could not generate a plan with the filter \"{ingredient_keyword}\". "
+            "Try a different ingredient or tag."
+        )
     cache_set(key, plan, _CACHE_TTL)
     return plan, False
 

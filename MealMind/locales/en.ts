@@ -80,6 +80,7 @@ const en = {
   ingredients_breakdown: "Ingredients",
   add_all_to_cart: "Add all to shopping list",
   added_to_cart: "Added",
+  remove_all_from_cart: "Remove all from cart",
   swapping: "Finding alternative…",
   more_details: "More details",
   less: "Less",

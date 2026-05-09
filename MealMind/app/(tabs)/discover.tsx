@@ -13,7 +13,7 @@ import {
   Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAppStore } from "@/store/useAppStore";
@@ -55,16 +55,15 @@ function MacroCell({ label, value, color }: { label: string; value: string; colo
 }
 
 function MealSlotCard({
-  meal, onRate, onSwap, swapping, onFindRecipe, onTagPress,
+  meal, onRate, onSwap, swapping, onTagPress,
 }: {
   meal: DailyPlanMeal;
   onRate: (r: Rating) => void;
   onSwap: () => void;
   swapping: boolean;
-  onFindRecipe: () => void;
   onTagPress: (tag: string) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
+
   const [showInfo, setShowInfo] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
   const scrollStartY = useRef(0);
@@ -161,9 +160,13 @@ function MealSlotCard({
   }
 
   function addAll() {
-    (meal.ingredients ?? []).forEach((ing) => {
-      if (!inCart(ing)) addToShoppingList(cartCategory, ingredientNameFrom(ing));
-    });
+    if (allInCart) {
+      (meal.ingredients ?? []).forEach((ing) => removeFromShoppingList(cartCategory, ingredientNameFrom(ing)));
+    } else {
+      (meal.ingredients ?? []).forEach((ing) => {
+        if (!inCart(ing)) addToShoppingList(cartCategory, ingredientNameFrom(ing));
+      });
+    }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }
 
@@ -330,15 +333,6 @@ function MealSlotCard({
             />
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={cardStyles.expandBtn}
-            onPress={() => { setExpanded((e) => !e); Haptics.selectionAsync(); }}
-          >
-            <Text style={[cardStyles.expandText, { color: c.textMuted }]}>
-              {expanded ? t("less") : t("more_details")}
-            </Text>
-            <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={14} color={c.textMuted} />
-          </TouchableOpacity>
         </View>
 
         {cartBanner && (
@@ -403,113 +397,6 @@ function MealSlotCard({
           </View>
         )}
 
-
-        {expanded && (
-          <View style={cardStyles.expandBody}>
-            <Text style={[cardStyles.description, { color: c.textSecondary }]}>{translatedDescription}</Text>
-
-            {(meal.ingredients ?? []).length > 0 && (
-              <View style={{ gap: 4 }}>
-                <View style={cardStyles.ingHeader}>
-                  <Text style={[cardStyles.recipeLabel, { color: c.text }]}>{t("ingredients_label")}</Text>
-                  <TouchableOpacity
-                    style={[cardStyles.addAllBtn, { borderColor: allInCart ? c.primary : c.border, backgroundColor: allInCart ? c.primaryLight : "transparent" }]}
-                    onPress={addAll}
-                  >
-                    <Ionicons name={allInCart ? "checkmark" : "cart-outline"} size={12} color={allInCart ? c.primary : c.textMuted} />
-                    <Text style={[cardStyles.addAllText, { color: allInCart ? c.primary : c.textMuted }]}>
-                      {allInCart ? t("added_to_cart") : t("add_all_to_cart")}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Serving size stepper */}
-                <View style={cardStyles.servingsStepper}>
-                  <TouchableOpacity
-                    onPress={() => {
-                      setDisplayServings((n) => Math.max(1, n - 1));
-                      Haptics.selectionAsync();
-                    }}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    disabled={displayServings <= 1}
-                  >
-                    <Ionicons name="remove-circle-outline" size={20} color={displayServings <= 1 ? c.disabled : c.textMuted} />
-                  </TouchableOpacity>
-                  <Text style={[cardStyles.servingsStepperText, { color: c.textSecondary }]}>
-                    {strings.servings_people(displayServings)}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => {
-                      setDisplayServings((n) => Math.min(12, n + 1));
-                      Haptics.selectionAsync();
-                    }}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    disabled={displayServings >= 12}
-                  >
-                    <Ionicons name="add-circle-outline" size={20} color={displayServings >= 12 ? c.disabled : c.textMuted} />
-                  </TouchableOpacity>
-                </View>
-
-                {translatedIngredients.map((ing, i) => {
-                  const origIng = (meal.ingredients ?? [])[i] ?? ing;
-                  const scaledIng = scaleIngredientStr(ing, scaleFactor);
-                  const added = inCart(origIng);
-                  return (
-                    <View key={i} style={cardStyles.ingRow}>
-                      <View style={[cardStyles.ingDot, { backgroundColor: c.primary }]} />
-                      <Text style={[cardStyles.ingText, { color: c.textSecondary }]}>{scaledIng}</Text>
-                      <TouchableOpacity
-                        style={[cardStyles.ingCartBtn, { borderColor: added ? c.primary : c.border, backgroundColor: added ? c.primaryLight : "transparent" }]}
-                        onPress={() => toggleIngredient(origIng)}
-                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                      >
-                        <Ionicons name={added ? "remove" : "add"} size={14} color={added ? c.primary : c.textMuted} />
-                      </TouchableOpacity>
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-
-            {(meal.steps ?? []).length > 0 && (
-              <View>
-                <Text style={[cardStyles.recipeLabel, { color: c.text }]}>{t("steps_label")}</Text>
-                {translatedSteps.map((step, i) => (
-                  <View key={i} style={cardStyles.stepRow}>
-                    <View style={[cardStyles.stepNum, { backgroundColor: c.primary }]}>
-                      <Text style={cardStyles.stepNumText}>{i + 1}</Text>
-                    </View>
-                    <Text style={[cardStyles.stepText, { color: c.textSecondary }]}>{step}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-
-            {(meal.tags ?? []).length > 0 && (
-              <View style={cardStyles.tags}>
-                {(meal.tags ?? []).map((tag) => (
-                  <TouchableOpacity
-                    key={tag}
-                    style={[cardStyles.tag, { backgroundColor: c.chipBg }]}
-                    onPress={() => { onTagPress(tag); Haptics.selectionAsync(); }}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[cardStyles.tagText, { color: c.textMuted }]}>{translateTag(tag, language)}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-
-            <TouchableOpacity
-              style={[cardStyles.findBtn, { backgroundColor: c.successBg, borderColor: c.primaryLight }]}
-              onPress={onFindRecipe}
-            >
-              <Ionicons name="search-outline" size={14} color={c.primary} />
-              <Text style={[cardStyles.findBtnText, { color: c.primary }]}>{t("find_recipes_online")}</Text>
-              <Ionicons name="chevron-forward" size={14} color={c.primary} />
-            </TouchableOpacity>
-          </View>
-        )}
 
         {/* Detail modal */}
         <Modal visible={showDetail} transparent animationType="slide" onRequestClose={() => setShowDetail(false)}>
@@ -603,12 +490,12 @@ function MealSlotCard({
                     </View>
                     {(meal.ingredients ?? []).length > 0 && (
                       <TouchableOpacity
-                        style={[cardStyles.addAllBtn, { borderColor: allInCart ? c.primary : c.border, backgroundColor: allInCart ? c.primaryLight : "transparent" }]}
+                        style={[cardStyles.addAllBtn, { borderColor: allInCart ? c.error : c.border, backgroundColor: allInCart ? c.errorBg : "transparent" }]}
                         onPress={addAll}
                       >
-                        <Ionicons name={allInCart ? "checkmark" : "cart-outline"} size={12} color={allInCart ? c.primary : c.textMuted} />
-                        <Text style={[cardStyles.addAllText, { color: allInCart ? c.primary : c.textMuted }]}>
-                          {allInCart ? t("added_to_cart") : t("add_all_to_cart")}
+                        <Ionicons name={allInCart ? "cart" : "cart-outline"} size={12} color={allInCart ? c.error : c.textMuted} />
+                        <Text style={[cardStyles.addAllText, { color: allInCart ? c.error : c.textMuted }]}>
+                          {allInCart ? t("remove_all_from_cart") : t("add_all_to_cart")}
                         </Text>
                       </TouchableOpacity>
                     )}
@@ -709,13 +596,13 @@ export default function TodayScreen() {
   const { profile, pantry, dailyPlan, planDate, setDailyPlan, patchDailyPlan, clearDailyPlan, language, ratings, setRating, servings, setPlanServings, removeRecipe, confirmedSlots, toggleConfirmedSlot } = useAppStore();
   const today = new Date().toISOString().slice(0, 10);
   const planIsStale = !!dailyPlan && !!planDate && planDate !== today;
-  const router = useRouter();
   const { t } = useTranslation();
   const c = useTheme();
 
   const [loading, setLoading] = useState(false);
   const [swappingSlot, setSwappingSlot] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [filterError, setFilterError] = useState(false);
   const [planCached, setPlanCached] = useState(false);
   // Initialize from profile preferences so the user's saved cuisines are pre-selected
   const [cuisines, setCuisines] = useState<string[]>(() => profile.cuisine_preferences ?? []);
@@ -762,6 +649,7 @@ export default function TodayScreen() {
     setShowSettings(false);
     setLoading(true);
     setError(null);
+    setFilterError(false);
     const isAny = selectedSlots.includes("any");
     let targetSlots: string[];
     if (isAny) {
@@ -811,7 +699,19 @@ export default function TodayScreen() {
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not generate plan.");
+      const status = (e as any)?.response?.status;
+      const hasFilters = requiredIngredients.length > 0 || selectedPantryItems.length > 0;
+      if ((status === 422 || status === 500) && hasFilters) {
+        setError(
+          language === "zh"
+            ? "部分筛选标签或食材无法识别，请清除筛选条件后重试。"
+            : "Some selected tags or ingredients couldn't be processed. Clear filters and try again.",
+        );
+        setFilterError(true);
+      } else {
+        setError(e instanceof Error ? e.message : "Could not generate plan.");
+        setFilterError(false);
+      }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setLoading(false);
@@ -925,9 +825,9 @@ export default function TodayScreen() {
               })}
             </View>
 
-            {/* Required ingredients — chip accumulator */}
+            {/* Required tags / ingredients — chip accumulator */}
             <Text style={[styles.filterLabel, { color: c.textMuted, marginTop: 10 }]}>
-              {language === "zh" ? "必须包含食材" : "Must include ingredient"}
+              {language === "zh" ? "包含标签" : "Include tags"}
             </Text>
             {requiredIngredients.length > 0 && (
               <View style={[styles.filterChipRow, { marginBottom: 6 }]}>
@@ -944,10 +844,10 @@ export default function TodayScreen() {
               </View>
             )}
             <View style={[styles.ingSearchRow, { backgroundColor: c.inputBg, borderColor: ingredientDraft.trim() ? c.primary : c.border }]}>
-              <Ionicons name="leaf-outline" size={15} color={ingredientDraft.trim() ? c.primary : c.textPlaceholder} />
+              <Ionicons name="pricetag-outline" size={15} color={ingredientDraft.trim() ? c.primary : c.textPlaceholder} />
               <TextInput
                 style={[styles.ingSearchInput, { color: c.text }]}
-                placeholder={language === "zh" ? "输入后按回车添加…" : "Type then press return to add…"}
+                placeholder={language === "zh" ? "添加食材或标签…" : "Add ingredient or tag…"}
                 placeholderTextColor={c.textPlaceholder}
                 value={ingredientDraft}
                 onChangeText={setIngredientDraft}
@@ -1076,6 +976,22 @@ export default function TodayScreen() {
         </TouchableOpacity>
 
         <ErrorBanner message={error} />
+        {filterError && (
+          <TouchableOpacity
+            style={[styles.clearFilterBtn, { backgroundColor: c.errorBg, borderColor: c.error }]}
+            onPress={() => {
+              setRequiredIngredients([]);
+              setSelectedPantryItems([]);
+              setFilterError(false);
+              setError(null);
+            }}
+          >
+            <Ionicons name="close-circle-outline" size={14} color={c.error} />
+            <Text style={[styles.clearFilterText, { color: c.error }]}>
+              {language === "zh" ? "清除筛选条件" : "Clear filters"}
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* ── Plan section ── */}
         {dailyPlan && (
@@ -1140,14 +1056,6 @@ export default function TodayScreen() {
                 onRate={(r) => setRating(meal.name, r)}
                 onSwap={() => handleSwap(meal.slot as "breakfast" | "lunch" | "dinner")}
                 swapping={swappingSlot === meal.slot}
-                onFindRecipe={() => {
-                  const mealParam = JSON.stringify({
-                    name: meal.name, cuisine: meal.cuisine, description: meal.description,
-                    prep_time_mins: meal.prep_time_mins, calories_per_serving: meal.calories_per_serving,
-                    difficulty: meal.difficulty, tags: meal.tags ?? [],
-                  });
-                  router.push({ pathname: "/meal/[id]", params: { id: meal.slot, meal: mealParam } });
-                }}
                 onTagPress={(tag) => {
                   setShowSettings(true);
                   setRequiredIngredients((prev) => prev.includes(tag) ? prev : [...prev, tag]);
@@ -1219,10 +1127,6 @@ const cardStyles = StyleSheet.create({
   infoFooterItem: { flexDirection: "row", alignItems: "center", gap: 4 },
   infoFooterText: { fontSize: 12, fontWeight: "500" },
   infoEstimated: { fontSize: 10, fontStyle: "italic" },
-  expandBtn: { flexDirection: "row", alignItems: "center", gap: 3, marginLeft: "auto" },
-  expandText: { fontSize: 13, fontWeight: "600" },
-  expandBody: { gap: 10 },
-  description: { fontSize: 13, lineHeight: 19 },
   recipeLabel: { fontSize: 12, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 },
   ingHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 },
   addAllBtn: { flexDirection: "row", alignItems: "center", gap: 4, borderRadius: 12, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 4 },
@@ -1287,6 +1191,8 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     filterChipRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
     filterChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
     filterChipText: { fontSize: 13, fontWeight: "600" },
+    clearFilterBtn: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, marginTop: 6, alignSelf: "flex-start" },
+    clearFilterText: { fontSize: 13, fontWeight: "600" },
     // Plan
     planSection: { gap: 10 },
     staleBanner: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1 },
