@@ -217,23 +217,3 @@ class GenerateShoppingListRequest(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Eat Out
-# ---------------------------------------------------------------------------
-
-class EatOutRequest(BaseModel):
-    lat: float
-    lng: float
-    filters: MealFilter
-    radius_m: int = 1500
-
-
-class RestaurantResult(BaseModel):
-    name: str
-    address: str
-    rating: Optional[float] = None
-    reason: str
-    maps_url: str
-
-
-class EatOutResponse(BaseModel):
-    restaurants: list[RestaurantResult]

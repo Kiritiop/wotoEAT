@@ -15,7 +15,6 @@ from ai.prompts import (
     daily_plan_prompt,
     recipe_parse_prompt,
     shopping_list_prompt,
-    eat_out_ranking_prompt,
     plan_shopping_prompt,
     swap_meal_prompt,
     generate_recipe_prompt,
@@ -244,15 +243,3 @@ async def translate_texts(texts: list[str]) -> list[str]:
         translations.append(texts[len(translations)])
     return translations[:len(texts)]
 
-
-# ---------------------------------------------------------------------------
-# Eat Out — restaurant ranking
-# ---------------------------------------------------------------------------
-
-async def rank_restaurants(restaurants: list, filters: dict) -> list:
-    response = await _client.chat.completions.create(
-        model=MODEL,
-        max_tokens=1500,
-        messages=[{"role": "user", "content": eat_out_ranking_prompt(restaurants, filters)}],
-    )
-    return json.loads(_clean_json(_extract_text(response)))

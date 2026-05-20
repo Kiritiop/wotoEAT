@@ -464,31 +464,3 @@ Keep translations concise — this is a mobile UI.
 {numbered}
 
 Respond with ONLY the numbered translations in the same format. No explanation."""
-
-
-def eat_out_ranking_prompt(restaurants: list, filters: dict) -> str:
-    return f"""You are a restaurant recommendation expert.
-Rank the top 5 most suitable restaurants from the list below based on the user's preferences.
-
-USER PREFERENCES:
-{json.dumps(filters, indent=2)}
-
-NEARBY RESTAURANTS (from Google Maps):
-{json.dumps(restaurants, indent=2)}
-
-RULES:
-- Only include restaurants that are a reasonable match
-- If fewer than 5 are suitable, return fewer
-- reason must be 1 concise sentence explaining the match
-- maps_url must follow the format: https://maps.google.com/?q=NAME+ADDRESS
-
-Respond with ONLY a valid JSON array, no markdown:
-[
-  {{
-    "name": "string",
-    "address": "string",
-    "rating": number or null,
-    "reason": "string",
-    "maps_url": "string"
-  }}
-]"""
