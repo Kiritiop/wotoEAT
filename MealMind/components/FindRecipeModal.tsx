@@ -17,6 +17,7 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { useTheme } from "@/hooks/useTheme";
 import { generateRecipeByName, saveRecipe } from "@/services/api";
 import type { Recipe, SavedRecipe } from "@/services/api";
+import { translateTag } from "@/constants/filters";
 
 const SUGGESTIONS_EN = [
   "Pasta Carbonara", "Kung Pao Chicken", "Beef Tacos",
@@ -86,8 +87,17 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
   async function handleSave() {
     if (!recipe) return;
     setPhase("saving");
+    const factor = previewServings / (recipe.servings || 1);
+    const recipeToSave = factor === 1 ? recipe : {
+      ...recipe,
+      servings: previewServings,
+      ingredients: recipe.ingredients.map((ing) => ({
+        ...ing,
+        amount: typeof ing.amount === "number" ? ing.amount * factor : ing.amount,
+      })),
+    };
     try {
-      const saved = await saveRecipe(recipe);
+      const saved = await saveRecipe(recipeToSave);
       onSaved?.(saved);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       handleClose();
@@ -294,7 +304,7 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
                   <View style={styles.tags}>
                     {recipe.tags.slice(0, 5).map((tag) => (
                       <View key={tag} style={[styles.tag, { backgroundColor: c.chipBg }]}>
-                        <Text style={[styles.tagText, { color: c.chipText }]}>{tag}</Text>
+                        <Text style={[styles.tagText, { color: c.chipText }]}>{translateTag(tag, language)}</Text>
                       </View>
                     ))}
                   </View>

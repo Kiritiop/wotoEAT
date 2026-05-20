@@ -115,7 +115,15 @@ export interface MealSuggestion {
   tags: string[];
 }
 
-// ─── Daily Plan ──────────────────────────────────────────────────────────────
+// ─── Meal History ────────────────────────────────────────────────────────────
+
+export interface MealHistoryEntry {
+  date: string;
+  meals: MealSuggestion[];
+  created_at?: string;
+}
+
+// ─── Legacy daily-plan types (kept for type-compatibility during discover.tsx rewrite) ─
 
 export interface MealComponent {
   vegetable: string;
@@ -136,7 +144,6 @@ export interface DailyPlanMeal {
   tags: string[];
   ingredients: string[];
   steps: string[];
-  // Optional macros — included when the backend provides a breakdown
   protein_g?: number;
   carbs_g?: number;
   fat_g?: number;
@@ -231,36 +238,7 @@ export async function suggestMeals(
   return res.data;
 }
 
-export async function getDailyPlan(
-  profile: HealthProfile,
-  pantry: PantryItem[],
-  cuisine_preference?: string,
-  max_prep_time_mins?: number,
-  language = "en",
-  recent_ratings?: Record<string, "up" | "down">,
-  servings = 2,
-  slots?: ("breakfast" | "lunch" | "dinner")[],
-  flavour_preference?: string,
-  ingredient_keyword?: string,
-  meal_style?: "full" | "main_dish",
-): Promise<{ plan: DailyMealPlan; cached: boolean }> {
-  const res = await api.post("/meals/daily-plan", {
-    profile,
-    pantry: pantry.map((p) => p.name),
-    cuisine_preference: cuisine_preference || null,
-    max_prep_time_mins: max_prep_time_mins || null,
-    flavour_preference: flavour_preference || null,
-    ingredient_keyword: ingredient_keyword || null,
-    language,
-    recent_ratings: recent_ratings || null,
-    servings,
-    slots: slots ?? null,
-    meal_style: meal_style ?? null,
-  });
-  return res.data;
-}
-
-export async function getPlanHistory(limit = 7): Promise<PlanHistoryEntry[]> {
+export async function getMealHistory(limit = 50): Promise<MealHistoryEntry[]> {
   const res = await api.get(`/meals/history?limit=${limit}`);
   return res.data;
 }
@@ -317,14 +295,6 @@ export async function generateShoppingList(
   return res.data;
 }
 
-export async function generatePlanShoppingList(
-  plan: DailyMealPlan,
-  pantry: PantryItem[],
-  language = "en"
-): Promise<ShoppingList> {
-  const res = await api.post("/shopping/from-plan", { plan, pantry: pantry.map((p) => p.name), language });
-  return res.data;
-}
 
 export async function getPantry(): Promise<PantryItem[]> {
   const res = await api.get("/pantry/");
@@ -367,20 +337,4 @@ export async function translateBatch(texts: string[]): Promise<string[]> {
   }
 }
 
-export async function swapMeal(
-  slot: "breakfast" | "lunch" | "dinner",
-  currentPlan: DailyMealPlan,
-  profile: HealthProfile,
-  pantry: PantryItem[],
-  language = "en"
-): Promise<DailyPlanMeal> {
-  const res = await api.post("/meals/swap", {
-    slot,
-    current_plan: currentPlan,
-    profile,
-    pantry: pantry.map((p) => p.name),
-    language,
-  });
-  return res.data as DailyPlanMeal;
-}
 

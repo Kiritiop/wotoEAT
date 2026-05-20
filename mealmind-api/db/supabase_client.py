@@ -231,32 +231,24 @@ def upsert_profile(user_id: str, profile: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Meal plan history
+# Meal suggestion history
 # ---------------------------------------------------------------------------
 
-def save_daily_plan(user_id: str, date: str, plan: dict, total_calories: int) -> dict:
-    row = {
+def save_meal_history(user_id: str, date: str, meals: list) -> None:
+    get_client().table("meal_history").insert({
         "user_id": user_id,
         "date": date,
-        "plan": plan,
-        "total_calories": total_calories,
-    }
-    result = (
-        get_client()
-        .table("daily_plans")
-        .upsert(row, on_conflict="user_id,date")
-        .execute()
-    )
-    return result.data[0] if result.data else {}
+        "meals": meals,
+    }).execute()
 
 
-def get_plan_history(user_id: str, limit: int = 7) -> list:
+def get_meal_history(user_id: str, limit: int = 50) -> list:
     result = (
         get_client()
-        .table("daily_plans")
-        .select("date, plan, total_calories")
+        .table("meal_history")
+        .select("date, meals, created_at")
         .eq("user_id", user_id)
-        .order("date", desc=True)
+        .order("created_at", desc=True)
         .limit(limit)
         .execute()
     )

@@ -12,11 +12,8 @@ from dotenv import load_dotenv
 from ai.sqlite_cache import cache_get, cache_set
 from ai.prompts import (
     meal_suggestion_prompt,
-    daily_plan_prompt,
     recipe_parse_prompt,
     shopping_list_prompt,
-    plan_shopping_prompt,
-    swap_meal_prompt,
     generate_recipe_prompt,
     translate_prompt,
 )
@@ -49,7 +46,7 @@ def _cache_key(data: object) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Meal suggestions (legacy 6-meal mode)
+# Meal suggestions
 # ---------------------------------------------------------------------------
 
 async def suggest_meals(filters: dict) -> tuple[list, bool]:
@@ -58,10 +55,11 @@ async def suggest_meals(filters: dict) -> tuple[list, bool]:
     if cached is not None:
         return cached, True
 
+    language = filters.get("language", "en")
     response = await _client.chat.completions.create(
         model=MODEL,
         max_tokens=2000,
-        messages=[{"role": "user", "content": meal_suggestion_prompt(filters)}],
+        messages=[{"role": "user", "content": meal_suggestion_prompt(filters, language)}],
     )
     meals = json.loads(_clean_json(_extract_text(response)))
     cache_set(key, meals, _CACHE_TTL)
@@ -69,76 +67,10 @@ async def suggest_meals(filters: dict) -> tuple[list, bool]:
 
 
 # ---------------------------------------------------------------------------
-# Daily meal plan
-# ---------------------------------------------------------------------------
-
-async def generate_daily_plan(
-    profile: dict,
-    pantry: list,
-    cuisine_preference: str | None,
-    max_prep_time_mins: int | None,
-    language: str = "en",
-    recent_ratings: dict | None = None,
-    servings: int = 2,
-    slots: list[str] | None = None,
-    flavour_preference: str | None = None,
-    ingredient_keyword: str | None = None,
-    meal_style: str | None = None,
-) -> tuple[dict, bool]:
-    cache_data = {
-        "profile": profile,
-        "pantry": pantry,
-        "cuisine": cuisine_preference,
-        "max_time": max_prep_time_mins,
-        "lang": language,
-        "ratings": recent_ratings,
-        "servings": servings,
-        "slots": slots,
-        "flavour": flavour_preference,
-        "ingredient": ingredient_keyword,
-        "meal_style": meal_style,
-    }
-    key = _cache_key(cache_data)
-    cached = cache_get(key)
-    if cached is not None:
-        return cached, True
-
-    response = await _client.chat.completions.create(
-        model=MODEL,
-        max_tokens=5000,
-        messages=[{
-            "role": "user",
-            "content": daily_plan_prompt(
-                profile, pantry, cuisine_preference,
-                max_prep_time_mins, language, recent_ratings,
-                servings=servings, slots=slots,
-                flavour_preference=flavour_preference,
-                ingredient_keyword=ingredient_keyword,
-                meal_style=meal_style,
-            ),
-        }],
-    )
-    try:
-        plan = json.loads(_clean_json(_extract_text(response)))
-    except json.JSONDecodeError:
-        if not ingredient_keyword:
-            raise
-        # The keyword constraint confused the model — retry without it so the
-        # user at least gets a valid plan, then raise a descriptive error so
-        # the client can tell them the filter was ignored.
-        raise ValueError(
-            f"Could not generate a plan with the filter \"{ingredient_keyword}\". "
-            "Try a different ingredient or tag."
-        )
-    cache_set(key, plan, _CACHE_TTL)
-    return plan, False
-
-
-# ---------------------------------------------------------------------------
 # Recipe parsing
 # ---------------------------------------------------------------------------
 
-async def parse_recipe(html: str) -> dict:
+async def parse_recipe(html: str, language: str = "en") -> dict:
     response = await _client.chat.completions.create(
         model=MODEL,
         max_tokens=2500,
@@ -159,39 +91,6 @@ async def generate_shopping_list(recipes: list, pantry: list, language: str = "e
         model=MODEL,
         max_tokens=2500,
         messages=[{"role": "user", "content": shopping_list_prompt(recipes, pantry, language)}],
-    )
-    return json.loads(_clean_json(_extract_text(response)))
-
-
-async def generate_plan_shopping_list(plan: dict, pantry: list, language: str = "en") -> dict:
-    """Generate a shopping list directly from a daily meal plan."""
-    response = await _client.chat.completions.create(
-        model=MODEL,
-        max_tokens=2000,
-        messages=[{"role": "user", "content": plan_shopping_prompt(plan, pantry, language)}],
-    )
-    return json.loads(_clean_json(_extract_text(response)))
-
-
-# ---------------------------------------------------------------------------
-# Single meal swap
-# ---------------------------------------------------------------------------
-
-async def swap_single_meal(
-    slot: str,
-    current_plan: dict,
-    profile: dict,
-    pantry: list,
-    language: str = "en",
-) -> dict:
-    """Generate a replacement meal for one slot, keeping the rest of the plan in context."""
-    response = await _client.chat.completions.create(
-        model=MODEL,
-        max_tokens=2000,
-        messages=[{
-            "role": "user",
-            "content": swap_meal_prompt(slot, current_plan, profile, pantry, language),
-        }],
     )
     return json.loads(_clean_json(_extract_text(response)))
 
@@ -242,4 +141,3 @@ async def translate_texts(texts: list[str]) -> list[str]:
     while len(translations) < len(texts):
         translations.append(texts[len(translations)])
     return translations[:len(texts)]
-

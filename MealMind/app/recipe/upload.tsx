@@ -31,8 +31,17 @@ export default function UploadRecipeScreen() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const router = useRouter();
 
+  function isValidUrl(val: string): boolean {
+    try {
+      const u = new URL(val);
+      return u.protocol === "http:" || u.protocol === "https:";
+    } catch {
+      return false;
+    }
+  }
+
   async function handleParse() {
-    if (!url.trim() || !url.startsWith("http")) {
+    if (!isValidUrl(url.trim())) {
       setParseError(t("parse_invalid_url"));
       return;
     }

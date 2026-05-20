@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
-from db.models import GenerateShoppingListRequest, ShoppingList, PlanShoppingRequest
-from ai.claude import generate_shopping_list, generate_plan_shopping_list
+from db.models import GenerateShoppingListRequest, ShoppingList
+from ai.claude import generate_shopping_list
 from db import supabase_client as db
 from .auth import get_optional_user_id
 
@@ -12,17 +12,10 @@ async def generate(
     req: GenerateShoppingListRequest,
     user_id: str | None = Depends(get_optional_user_id),
 ):
-    """
-    POST /shopping/generate
-    Body: { recipes: [...], pantry: [...] }
-    Returns a grouped shopping list with pantry items subtracted.
-    Optionally saves the list to Supabase when user is authenticated.
-    """
     recipes_dicts = [r.model_dump() for r in req.recipes]
-    pantry_dicts = req.pantry
 
     try:
-        result = await generate_shopping_list(recipes_dicts, pantry_dicts, req.language)
+        result = await generate_shopping_list(recipes_dicts, req.pantry, req.language)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"AI error: {exc}")
 
@@ -37,30 +30,9 @@ async def generate(
                 recipe_ids=[],
             )
         except Exception:
-            pass  # Don't fail the request if save fails
+            pass
 
     return shopping_list
-
-
-@router.post("/from-plan", response_model=ShoppingList)
-async def from_plan(
-    req: PlanShoppingRequest,
-    user_id: str | None = Depends(get_optional_user_id),
-):
-    """
-    POST /shopping/from-plan
-    Body: { plan: DailyMealPlan, pantry: [...], language: "en"|"zh" }
-    Generates a shopping list directly from a daily meal plan.
-    """
-    plan_dict = req.plan.model_dump()
-    pantry_dicts = req.pantry
-
-    try:
-        result = await generate_plan_shopping_list(plan_dict, pantry_dicts, req.language)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"AI error: {exc}")
-
-    return ShoppingList(**result)
 
 
 @router.get("/history", response_model=list[dict])

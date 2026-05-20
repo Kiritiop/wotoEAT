@@ -16,12 +16,12 @@ HEADERS = {
 }
 
 
-async def fetch_page_html(url: str, max_chars: int = 8000) -> str:
+async def fetch_page_html(url: str, max_chars: int = 50_000) -> str:
     """
     Fetch the HTML of a webpage and return a truncated slice.
 
-    max_chars keeps the Claude prompt within a sensible token budget.
-    8000 chars is enough to capture a full recipe page without overflow.
+    50,000 chars captures JSON-LD structured data and recipe content that
+    typically appear after several KB of <head> boilerplate on recipe sites.
     """
     async with httpx.AsyncClient(
         headers=HEADERS,

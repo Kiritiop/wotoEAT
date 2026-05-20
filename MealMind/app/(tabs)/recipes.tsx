@@ -15,15 +15,15 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { getSavedRecipes, deleteRecipe, updateRecipe, saveRecipe, getPlanHistory } from "@/services/api";
+import { getSavedRecipes, deleteRecipe, updateRecipe, saveRecipe } from "@/services/api";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useAppStore } from "@/store/useAppStore";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
-import type { SavedRecipe, Ingredient, PlanHistoryEntry } from "@/services/api";
+import type { SavedRecipe, Ingredient } from "@/services/api";
 
-type RecipeTab = "saved" | "liked" | "history" | "mine";
+type RecipeTab = "saved" | "liked" | "mine";
 
 export default function RecipesScreen() {
   const { authReady, recipeLabels, addRecipeLabel, removeRecipeLabel, language, servings: storeServings } = useAppStore();
@@ -229,33 +229,7 @@ export default function RecipesScreen() {
     } catch { /* best-effort */ }
   }
 
-  // ── History tab state ─────────────────────────────────────────────────────
-  const [historyData, setHistoryData] = useState<PlanHistoryEntry[]>([]);
-  const [historyLimit] = useState(7);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [historySearch, setHistorySearch] = useState("");
-
-  async function loadHistory(limit = historyLimit) {
-    setHistoryLoading(true);
-    try { setHistoryData(await getPlanHistory(limit)); } catch { /* ignore */ }
-    finally { setHistoryLoading(false); }
-  }
-
-  const filteredHistory = historySearch.trim()
-    ? historyData.filter((entry) => {
-        const q = historySearch.trim().toLowerCase();
-        return entry.plan.meals.some((m) => m.name.toLowerCase().includes(q));
-      })
-    : historyData;
-
-  // Load history whenever History tab is selected
   const prevTabRef = useRef<RecipeTab>("saved");
-  if (activeTab === "history" && prevTabRef.current !== "history") {
-    prevTabRef.current = "history";
-    void loadHistory();
-  } else if (activeTab !== "history") {
-    prevTabRef.current = activeTab;
-  }
 
   // Filter recipes by active tab, tag filter, then search text
   const filteredRecipes = recipes.filter((r) => {
@@ -274,7 +248,6 @@ export default function RecipesScreen() {
   const TABS: { key: RecipeTab; label: string; icon: React.ComponentProps<typeof Ionicons>["name"] }[] = [
     { key: "saved", label: t("saved_tab"), icon: "bookmark" },
     { key: "liked", label: t("liked_tab"), icon: "heart" },
-    { key: "history", label: t("tab_history"), icon: "time" },
     { key: "mine", label: t("mine_tab"), icon: "person" },
   ];
 
@@ -298,16 +271,14 @@ export default function RecipesScreen() {
             </TouchableOpacity>
           ))}
         </View>
-        {activeTab !== "history" && (
-          <TouchableOpacity
-            style={styles.searchIconBtn}
-            onPress={() => { setShowSearch((v) => !v); if (showSearch) setSearchText(""); Haptics.selectionAsync(); }}
-          >
-            <Ionicons name={showSearch ? "close" : "search"} size={20} color={c.textMuted} />
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={styles.searchIconBtn}
+          onPress={() => { setShowSearch((v) => !v); if (showSearch) setSearchText(""); Haptics.selectionAsync(); }}
+        >
+          <Ionicons name={showSearch ? "close" : "search"} size={20} color={c.textMuted} />
+        </TouchableOpacity>
       </View>
-      {showSearch && activeTab !== "history" && (
+      {showSearch && (
         <View style={[styles.searchBar, { backgroundColor: c.inputBg, borderColor: c.border }]}>
           <Ionicons name="search" size={15} color={c.textPlaceholder} />
           <TextInput
@@ -327,65 +298,7 @@ export default function RecipesScreen() {
         </View>
       )}
 
-      {activeTab === "history" ? (
-        <FlatList
-          data={filteredHistory}
-          keyExtractor={(item) => item.date}
-          contentContainerStyle={styles.content}
-          ListHeaderComponent={
-            <View>
-              <View style={[styles.searchBar, { backgroundColor: c.inputBg, borderColor: c.border, marginBottom: 8 }]}>
-                <Ionicons name="search" size={15} color={c.textPlaceholder} />
-                <TextInput
-                  style={[styles.searchInput, { color: c.text }]}
-                  placeholder={t("search_history")}
-                  placeholderTextColor={c.textPlaceholder}
-                  value={historySearch}
-                  onChangeText={setHistorySearch}
-                  returnKeyType="search"
-                />
-                {historySearch.length > 0 && (
-                  <TouchableOpacity onPress={() => setHistorySearch("")}>
-                    <Ionicons name="close-circle" size={15} color={c.textPlaceholder} />
-                  </TouchableOpacity>
-                )}
-              </View>
-              {historyLoading && <ActivityIndicator style={{ marginTop: 12 }} color={c.primary} />}
-            </View>
-          }
-          ListEmptyComponent={
-            !historyLoading ? (
-              <EmptyState
-                icon="time-outline"
-                title={t("history_empty_title")}
-                body={t("history_empty_body")}
-              />
-            ) : null
-          }
-          renderItem={({ item: entry }) => (
-            <View style={[styles.card, { backgroundColor: c.surface }]}>
-              <View style={{ flex: 1, paddingVertical: 4 }}>
-                <Text style={[styles.cardTitle, { color: c.text }]}>
-                  {new Date(entry.date).toLocaleDateString(language === "zh" ? "zh-CN" : "en-US", { weekday: "short", month: "short", day: "numeric" })}
-                </Text>
-                <Text style={[styles.metaText, { color: c.textMuted, marginTop: 2 }]}>
-                  {entry.total_calories} {t("calories_label")}
-                </Text>
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
-                  {entry.plan.meals.map((meal) => (
-                    <View key={meal.slot} style={[styles.tag, { backgroundColor: c.chipBg }]}>
-                      <Text style={[styles.tagText, { color: c.chipText }]}>
-                        {t(meal.slot as "breakfast" | "lunch" | "dinner")} · {meal.name}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            </View>
-          )}
-          showsVerticalScrollIndicator={false}
-        />
-      ) : (
+      {(
       <FlatList
         data={filteredRecipes}
         keyExtractor={(item) => item.id}
@@ -527,7 +440,6 @@ export default function RecipesScreen() {
         }}
         showsVerticalScrollIndicator={false}
       />
-      )}
 
       {/* Recipe detail / edit modal */}
       <Modal visible={!!selectedRecipe} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeModal}>

@@ -10,6 +10,7 @@ router = APIRouter(tags=["recipes"])
 
 
 _PARSE_MAX = 20
+_GENERATE_MAX = 30
 _PARSE_WINDOW = 3600
 
 
@@ -29,7 +30,7 @@ async def parse(req: ParseRecipeRequest, request: Request):
         raise HTTPException(status_code=422, detail=f"Could not fetch URL: {exc}")
 
     try:
-        recipe_dict = await parse_recipe(html)
+        recipe_dict = await parse_recipe(html, req.language)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     except Exception as exc:
@@ -42,12 +43,15 @@ async def parse(req: ParseRecipeRequest, request: Request):
 @router.post("/generate", response_model=Recipe)
 async def generate(
     req: GenerateRecipeRequest,
+    request: Request,
     user_id: str = Depends(require_user_id),
 ):
     """
     POST /recipes/generate  { "dish_name": "Kung Pao Chicken", "language": "en" }
     Asks the AI to generate a full recipe for any named dish.
     """
+    if not rate_limit_check(f"gen:{user_id}", "recipe-generate", _GENERATE_MAX, _PARSE_WINDOW):
+        raise HTTPException(status_code=429, detail=f"Rate limit: max {_GENERATE_MAX} recipe generations per hour.")
     try:
         recipe_dict = await generate_recipe_by_name(req.dish_name, req.language, req.servings)
     except ValueError as exc:

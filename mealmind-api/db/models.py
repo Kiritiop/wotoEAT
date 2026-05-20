@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import Optional
+from pydantic import BaseModel, Field, field_validator
+from typing import Optional, Union
 
 
 # ---------------------------------------------------------------------------
@@ -11,6 +11,20 @@ class Ingredient(BaseModel):
     amount: float
     unit: str
     calories: Optional[float] = None
+
+    @field_validator("amount", mode="before")
+    @classmethod
+    def coerce_amount(cls, v: Union[str, float, int]) -> float:
+        if isinstance(v, str):
+            v = v.strip()
+            try:
+                if "/" in v:
+                    num, den = v.split("/", 1)
+                    return float(num) / float(den)
+                return float(v)
+            except (ValueError, ZeroDivisionError):
+                return 0.0
+        return float(v)
 
 
 # ---------------------------------------------------------------------------
@@ -43,6 +57,7 @@ class MealFilter(BaseModel):
     dietary_restrictions: list[str] = Field(default_factory=list)
     flavour_profile: Optional[str] = None
     serving_size: int = 2
+    language: str = "en"
 
 
 class MealSuggestion(BaseModel):
@@ -57,80 +72,6 @@ class MealSuggestion(BaseModel):
 
 class MealSuggestResponse(BaseModel):
     meals: list[MealSuggestion]
-    cached: bool = False
-
-
-# ---------------------------------------------------------------------------
-# Daily meal plan
-# ---------------------------------------------------------------------------
-
-class MealComponent(BaseModel):
-    vegetable: str       # e.g. "Steamed broccoli"
-    protein: str         # e.g. "Grilled chicken breast"
-    staple: str          # e.g. "Brown rice"
-
-
-class DailyPlanMeal(BaseModel):
-    slot: str            # "breakfast" | "lunch" | "dinner"
-    name: str
-    cuisine: str
-    description: str
-    prep_time_mins: int
-    calories_per_serving: int
-    difficulty: str
-    components: MealComponent
-    uses_pantry_items: list[str] = Field(default_factory=list)  # pantry items used
-    tags: list[str] = Field(default_factory=list)
-    ingredients: list[str] = Field(default_factory=list)  # e.g. ["2 eggs", "100g chicken"]
-    steps: list[str] = Field(default_factory=list)        # cooking steps
-    protein_g: Optional[int] = None
-    carbs_g: Optional[int] = None
-    fat_g: Optional[int] = None
-    fiber_g: Optional[int] = None
-
-
-class ShoppingReminder(BaseModel):
-    item: str
-    reason: str          # which meal needs it
-
-
-class DailyMealPlan(BaseModel):
-    meals: list[DailyPlanMeal]           # always 3: breakfast, lunch, dinner
-    shopping_reminders: list[ShoppingReminder] = Field(default_factory=list)
-    total_calories: int
-    nutrition_note: str  # brief note e.g. "Meets your high-protein goal"
-
-
-class DailyPlanRequest(BaseModel):
-    profile: HealthProfile = Field(default_factory=HealthProfile)
-    pantry: list[str] = Field(default_factory=list)
-    cuisine_preference: Optional[str] = None
-    max_prep_time_mins: Optional[int] = None
-    language: str = "en"
-    recent_ratings: Optional[dict] = None  # {"meal name": "up"|"down"}
-    servings: int = 2
-    slots: Optional[list[str]] = None      # e.g. ["lunch"] — generate only these slots
-    flavour_preference: Optional[str] = None   # e.g. "spicy", "savory"
-    ingredient_keyword: Optional[str] = None   # must-include ingredient
-    meal_style: Optional[str] = None           # "full" | "main_dish"
-
-
-class PlanShoppingRequest(BaseModel):
-    plan: DailyMealPlan
-    pantry: list[str] = Field(default_factory=list)
-    language: str = "en"
-
-
-class SwapMealRequest(BaseModel):
-    slot: str  # "breakfast" | "lunch" | "dinner"
-    current_plan: DailyMealPlan
-    profile: HealthProfile = Field(default_factory=HealthProfile)
-    pantry: list[str] = Field(default_factory=list)
-    language: str = "en"
-
-
-class DailyPlanResponse(BaseModel):
-    plan: DailyMealPlan
     cached: bool = False
 
 
@@ -157,6 +98,7 @@ class UpdateRecipeRequest(BaseModel):
 
 class ParseRecipeRequest(BaseModel):
     url: str
+    language: str = "en"
 
 
 class SaveRecipeRequest(BaseModel):
