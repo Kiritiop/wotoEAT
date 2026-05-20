@@ -172,6 +172,7 @@ export function PantryTagPicker({ visible, currentPantry, onClose, onSave, langu
                 <TouchableOpacity style={styles.catHeader} onPress={() => toggleCollapsed(cat.key)} activeOpacity={0.7}>
                   <Text style={[styles.catLabel, { color: c.text }]}>
                     {language === "zh" ? cat.labelZh : cat.label}
+                    <Text style={[styles.catCount, { color: c.textMuted }]}>{` (${totalItems})`}</Text>
                   </Text>
                   <Ionicons name={isCollapsed ? "chevron-forward" : "chevron-down"} size={16} color={c.textMuted} />
                 </TouchableOpacity>
