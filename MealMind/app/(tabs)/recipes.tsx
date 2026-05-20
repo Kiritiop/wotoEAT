@@ -263,7 +263,7 @@ export default function RecipesScreen() {
             <TouchableOpacity
               key={key}
               style={[styles.tab, activeTab === key && { borderBottomColor: c.primary, borderBottomWidth: 2 }]}
-              onPress={() => { setActiveTab(key); setSearchText(""); setShowSearch(false); setActiveTagFilter(null); setHistorySearch(""); Haptics.selectionAsync(); }}
+              onPress={() => { setActiveTab(key); setSearchText(""); setShowSearch(false); setActiveTagFilter(null); Haptics.selectionAsync(); }}
             >
               <Ionicons name={icon} size={14} color={activeTab === key ? c.primary : c.textMuted} />
               <Text style={[styles.tabLabel, { color: activeTab === key ? c.primary : c.textMuted }, activeTab === key && { fontWeight: "700" }]}>

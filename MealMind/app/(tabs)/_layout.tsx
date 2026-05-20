@@ -70,8 +70,10 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="history"
         options={{
-          href: null,
           title: t("tab_history"),
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon name="time" focused={focused} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
