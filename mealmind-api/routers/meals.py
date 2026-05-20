@@ -47,6 +47,11 @@ async def generate_meals(
             filters["profile"] = body.profile.model_dump(exclude_none=True)
         result, cached = await generate_meal_plan(filters)
         plan = GeneratedPlan(**result)
+        if user_id and not cached:
+            try:
+                db.save_meal_history(user_id, str(_date.today()), result.get("meals", []))
+            except Exception as exc:
+                logger.error("[meals] generate history write failed for user %s: %s", user_id, exc)
         return MealGenerateResponse(plan=plan, cached=cached)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
@@ -64,6 +69,11 @@ async def swap_meal(
         if body.profile:
             filters["profile"] = body.profile.model_dump(exclude_none=True)
         meal = await ai_swap_meal(body.slot, body.current_plan.model_dump(), filters)
+        if user_id:
+            try:
+                db.save_meal_history(user_id, str(_date.today()), [meal])
+            except Exception as exc:
+                logger.error("[meals] swap history write failed for user %s: %s", user_id, exc)
         return meal
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))

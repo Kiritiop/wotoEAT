@@ -639,8 +639,6 @@ export default function TodayScreen() {
     .sort((a, b) => (SLOT_ORDER[a.slot] ?? 0) - (SLOT_ORDER[b.slot] ?? 0))
     .filter((m) => selectedSlots.includes("any") || selectedSlots.includes(m.slot as MealTypeTag));
 
-  const displayCalories = dailyPlan?.total_calories ?? 0;
-
   const totalProteinG = dailyPlan?.meals.reduce((s, m) => s + (m.protein_g ?? 0), 0) ?? 0;
   const proteinGoal = profile.protein_goal_g;
   const showProtein = totalProteinG > 0 && !!proteinGoal;
@@ -747,7 +745,7 @@ export default function TodayScreen() {
     const lines = dailyPlan.meals.map(
       (m) => `${m.slot.charAt(0).toUpperCase() + m.slot.slice(1)}: ${m.name} (${m.calories_per_serving} kcal, ${m.prep_time_mins} min)`
     );
-    const text = ["My wotoEAT Plan", "", ...lines, "", `Total: ${dailyPlan.total_calories} kcal`].join("\n");
+    const text = ["My wotoEAT Meals", "", ...lines].join("\n");
     try { await Share.share({ message: text }); } catch { /* dismissed */ }
   }
 
@@ -1013,10 +1011,6 @@ export default function TodayScreen() {
 
             {/* Summary row */}
             <View style={styles.summaryRow}>
-              <View style={styles.totalBadge}>
-                <Ionicons name="flame" size={14} color="#F59E0B" />
-                <Text style={styles.totalText}>{displayCalories} {t("total_calories")}</Text>
-              </View>
               <View style={styles.summaryActions}>
                 {planCached && (
                   <Text style={[styles.cachedLabel, { color: c.textMuted }]}>
@@ -1198,10 +1192,8 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     staleBanner: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1 },
     staleBannerText: { flex: 1, fontSize: 12 },
     cachedLabel: { fontSize: 11, fontStyle: "italic" },
-    summaryRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    summaryRow: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end" },
     summaryActions: { flexDirection: "row", alignItems: "center", gap: 14 },
-    totalBadge: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: c.warningBg, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
-    totalText: { fontSize: 13, fontWeight: "700", color: c.warning },
     // Nutrition note
     noteCard: { flexDirection: "row", alignItems: "flex-start", gap: 8, borderRadius: 12, padding: 12, borderWidth: 1 },
     noteText: { fontSize: 13, color: c.textSecondary, lineHeight: 18, flex: 1 },
