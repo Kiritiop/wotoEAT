@@ -159,3 +159,71 @@ class GenerateShoppingListRequest(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Meal generation (generateMeals endpoint)
+# ---------------------------------------------------------------------------
+
+class MealComponent(BaseModel):
+    vegetable: str = ""
+    protein: str = ""
+    staple: str = ""
+
+
+class GeneratedMeal(BaseModel):
+    slot: str
+    name: str
+    cuisine: str
+    description: str
+    prep_time_mins: int
+    calories_per_serving: int
+    difficulty: str
+    components: MealComponent = Field(default_factory=MealComponent)
+    uses_pantry_items: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+    ingredients: list[str] = Field(default_factory=list)
+    steps: list[str] = Field(default_factory=list)
+    protein_g: Optional[float] = None
+    carbs_g: Optional[float] = None
+    fat_g: Optional[float] = None
+    fiber_g: Optional[float] = None
+
+
+class ShoppingReminder(BaseModel):
+    item: str
+    reason: str
+
+
+class GeneratedPlan(BaseModel):
+    meals: list[GeneratedMeal]
+    shopping_reminders: list[ShoppingReminder] = Field(default_factory=list)
+    total_calories: int
+    nutrition_note: str
+
+
+class MealGenerateResponse(BaseModel):
+    plan: GeneratedPlan
+    cached: bool = False
+
+
+class MealGenerateRequest(BaseModel):
+    profile: Optional[HealthProfile] = None
+    pantry: list[str] = Field(default_factory=list)
+    cuisine_preference: Optional[str] = None
+    max_prep_time_mins: Optional[int] = None
+    language: str = "en"
+    recent_ratings: Optional[dict] = None
+    servings: int = 2
+    slots: list[str] = Field(default_factory=lambda: ["breakfast", "lunch", "dinner"])
+    flavour_preference: Optional[str] = None
+    required_ingredients: Optional[str] = None
+    meal_style: str = "full"
+
+
+class SwapMealRequest(BaseModel):
+    slot: str
+    current_plan: GeneratedPlan
+    profile: Optional[HealthProfile] = None
+    pantry: list[str] = Field(default_factory=list)
+    language: str = "en"
+
+
+# ---------------------------------------------------------------------------

@@ -231,6 +231,52 @@ export interface ShoppingList {
 
 // ─── API functions ────────────────────────────────────────────────────────────
 
+export async function generateMeals(
+  profile: HealthProfile,
+  pantry: PantryItem[],
+  cuisine_preference?: string,
+  max_prep_time_mins?: number,
+  language = "en",
+  recent_ratings?: Record<string, "up" | "down">,
+  servings = 2,
+  slots?: ("breakfast" | "lunch" | "dinner")[],
+  flavour_preference?: string,
+  required_ingredients?: string,
+  meal_style?: string,
+): Promise<{ plan: DailyMealPlan; cached: boolean }> {
+  const res = await api.post("/meals/generate", {
+    profile,
+    pantry: pantry.map((p) => p.name),
+    cuisine_preference,
+    max_prep_time_mins,
+    language,
+    recent_ratings,
+    servings,
+    slots,
+    flavour_preference,
+    required_ingredients,
+    meal_style,
+  });
+  return res.data;
+}
+
+export async function swapMeal(
+  slot: "breakfast" | "lunch" | "dinner",
+  current_plan: DailyMealPlan,
+  profile: HealthProfile,
+  pantry: PantryItem[],
+  language = "en",
+): Promise<DailyPlanMeal> {
+  const res = await api.post("/meals/swap", {
+    slot,
+    current_plan,
+    profile,
+    pantry: pantry.map((p) => p.name),
+    language,
+  });
+  return res.data;
+}
+
 export async function suggestMeals(
   filters: MealFilter
 ): Promise<{ meals: MealSuggestion[]; cached: boolean }> {

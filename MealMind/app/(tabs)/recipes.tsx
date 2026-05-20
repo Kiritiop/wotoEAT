@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,21 +10,23 @@ import {
   RefreshControl,
   Modal,
   ScrollView,
+  Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { getSavedRecipes, deleteRecipe, updateRecipe, saveRecipe } from "@/services/api";
+import { getSavedRecipes, deleteRecipe, updateRecipe, saveRecipe, getMealHistory, generateRecipeByName } from "@/services/api";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useAppStore } from "@/store/useAppStore";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
-import { translateTag } from "@/constants/filters";
-import type { SavedRecipe, Ingredient } from "@/services/api";
+import { translateTag, DIFFICULTY_COLORS, translateDifficulty } from "@/constants/filters";
+import type { SavedRecipe, Ingredient, MealHistoryEntry, MealSuggestion } from "@/services/api";
+import { MealCard } from "@/components/MealCard";
 
-type RecipeTab = "saved" | "liked" | "mine";
+type RecipeTab = "saved" | "liked" | "mine" | "history";
 
 export default function RecipesScreen() {
   const { authReady, recipeLabels, addRecipeLabel, removeRecipeLabel, language, servings: storeServings } = useAppStore();
@@ -62,6 +64,15 @@ export default function RecipesScreen() {
 
   // ── Tag filter (G-3) ──────────────────────────────────────────────────────
   const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
+
+  // ── History tab ───────────────────────────────────────────────────────────
+  const [historyEntries, setHistoryEntries] = useState<MealHistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyRefreshing, setHistoryRefreshing] = useState(false);
+  const [historySearch, setHistorySearch] = useState("");
+  const [historySelected, setHistorySelected] = useState<MealSuggestion | null>(null);
+  const [historyGenerating, setHistoryGenerating] = useState(false);
+  const [historyBanner, setHistoryBanner] = useState<string | null>(null);
 
   // ── New recipe creation (H-2) ─────────────────────────────────────────────
   const [isNewRecipe, setIsNewRecipe] = useState(false);
@@ -230,6 +241,45 @@ export default function RecipesScreen() {
     } catch { /* best-effort */ }
   }
 
+  const loadHistory = useCallback(async (isRefresh = false) => {
+    if (!authReady) return;
+    if (isRefresh) setHistoryRefreshing(true); else setHistoryLoading(true);
+    try {
+      const data = await getMealHistory(50);
+      setHistoryEntries(data);
+    } catch { /* silent */ } finally {
+      setHistoryRefreshing(false);
+      setHistoryLoading(false);
+    }
+  }, [authReady]);
+
+  const historyLoadedRef = useRef(false);
+  useEffect(() => {
+    if (activeTab === "history" && !historyLoadedRef.current) {
+      historyLoadedRef.current = true;
+      void loadHistory();
+    }
+  }, [activeTab, loadHistory]);
+
+  async function handleHistoryGenerateRecipe() {
+    if (!historySelected || historyGenerating) return;
+    setHistoryGenerating(true);
+    setHistoryBanner(null);
+    try {
+      const recipe = await generateRecipeByName(historySelected.name, language);
+      await saveRecipe(recipe);
+      setHistoryBanner(language === "zh" ? "已保存到食谱" : "Saved to Recipes");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setTimeout(() => setHistoryBanner(null), 3000);
+    } catch {
+      setHistoryBanner(language === "zh" ? "生成失败，请重试" : "Failed — please try again");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setTimeout(() => setHistoryBanner(null), 3000);
+    } finally {
+      setHistoryGenerating(false);
+    }
+  }
+
   const prevTabRef = useRef<RecipeTab>("saved");
 
   // Filter recipes by active tab, tag filter, then search text
@@ -250,6 +300,7 @@ export default function RecipesScreen() {
     { key: "saved", label: t("saved_tab"), icon: "bookmark" },
     { key: "liked", label: t("liked_tab"), icon: "heart" },
     { key: "mine", label: t("mine_tab"), icon: "person" },
+    { key: "history", label: t("tab_history"), icon: "time" },
   ];
 
   const styles = makeStyles(c);
@@ -272,12 +323,14 @@ export default function RecipesScreen() {
             </TouchableOpacity>
           ))}
         </View>
-        <TouchableOpacity
-          style={styles.searchIconBtn}
-          onPress={() => { setShowSearch((v) => !v); if (showSearch) setSearchText(""); Haptics.selectionAsync(); }}
-        >
-          <Ionicons name={showSearch ? "close" : "search"} size={20} color={c.textMuted} />
-        </TouchableOpacity>
+        {activeTab !== "history" && (
+          <TouchableOpacity
+            style={styles.searchIconBtn}
+            onPress={() => { setShowSearch((v) => !v); if (showSearch) setSearchText(""); Haptics.selectionAsync(); }}
+          >
+            <Ionicons name={showSearch ? "close" : "search"} size={20} color={c.textMuted} />
+          </TouchableOpacity>
+        )}
       </View>
       {showSearch && (
         <View style={[styles.searchBar, { backgroundColor: c.inputBg, borderColor: c.border }]}>
@@ -299,6 +352,20 @@ export default function RecipesScreen() {
         </View>
       )}
 
+      {activeTab === "history" ? (
+        <HistoryTabContent
+          entries={historyEntries}
+          loading={historyLoading}
+          refreshing={historyRefreshing}
+          search={historySearch}
+          onSearchChange={setHistorySearch}
+          onRefresh={() => loadHistory(true)}
+          onSelectMeal={(meal) => { setHistorySelected(meal); Haptics.selectionAsync(); }}
+          language={language}
+          c={c}
+          t={t}
+        />
+      ) : (
       <FlatList
         data={filteredRecipes}
         keyExtractor={(item) => item.id}
@@ -440,6 +507,70 @@ export default function RecipesScreen() {
         }}
         showsVerticalScrollIndicator={false}
       />
+      )}
+
+      {/* History meal detail sheet */}
+      <Modal visible={!!historySelected} transparent animationType="slide" onRequestClose={() => { setHistorySelected(null); setHistoryBanner(null); setHistoryGenerating(false); }}>
+        <Pressable style={styles.histOverlay} onPress={() => { setHistorySelected(null); setHistoryBanner(null); setHistoryGenerating(false); }}>
+          <Pressable style={[styles.histSheet, { backgroundColor: c.surface }]} onPress={(e) => e.stopPropagation()}>
+            <View style={[styles.histHandle, { backgroundColor: c.border }]} />
+            {historySelected && (
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
+                <Text style={[styles.histName, { color: c.text }]}>{historySelected.name}</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                  <Text style={[styles.histCuisine, { color: c.primary }]}>{historySelected.cuisine}</Text>
+                  <View style={[styles.histDiffBadge, { backgroundColor: (DIFFICULTY_COLORS[historySelected.difficulty] ?? "#999") + "20" }]}>
+                    <Text style={[styles.histDiffText, { color: DIFFICULTY_COLORS[historySelected.difficulty] ?? "#999" }]}>
+                      {translateDifficulty(historySelected.difficulty, language)}
+                    </Text>
+                  </View>
+                </View>
+                <View style={[styles.histStatsRow, { backgroundColor: c.surfaceAlt, borderColor: c.border }]}>
+                  <View style={styles.histStatItem}>
+                    <Ionicons name="flame-outline" size={16} color="#F59E0B" />
+                    <Text style={[styles.histStatValue, { color: c.text }]}>{historySelected.calories_per_serving}</Text>
+                    <Text style={[styles.histStatLabel, { color: c.textMuted }]}>kcal</Text>
+                  </View>
+                  <View style={[styles.histStatDivider, { backgroundColor: c.border }]} />
+                  <View style={styles.histStatItem}>
+                    <Ionicons name="time-outline" size={16} color={c.textMuted} />
+                    <Text style={[styles.histStatValue, { color: c.text }]}>{historySelected.prep_time_mins}</Text>
+                    <Text style={[styles.histStatLabel, { color: c.textMuted }]}>{t("min_label")}</Text>
+                  </View>
+                </View>
+                <Text style={[styles.histDesc, { color: c.textSecondary }]}>{historySelected.description}</Text>
+                {historySelected.tags.length > 0 && (
+                  <View style={styles.histTagRow}>
+                    {historySelected.tags.map((tag) => (
+                      <View key={tag} style={[styles.tag, { backgroundColor: c.chipBg }]}>
+                        <Text style={[styles.tagText, { color: c.chipText }]}>{translateTag(tag, language)}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+                <TouchableOpacity
+                  style={[styles.histGenBtn, { backgroundColor: historyGenerating ? c.disabled : c.primary }]}
+                  onPress={handleHistoryGenerateRecipe}
+                  disabled={historyGenerating}
+                  activeOpacity={0.85}
+                >
+                  {historyGenerating
+                    ? <ActivityIndicator color="#FFF" size="small" />
+                    : <><Ionicons name="document-text-outline" size={18} color="#FFF" /><Text style={styles.histGenBtnText}>{language === "zh" ? "生成并保存食谱" : "Generate & Save Recipe"}</Text></>
+                  }
+                </TouchableOpacity>
+                {historyBanner && (
+                  <View style={[styles.histBanner, { backgroundColor: historyBanner.includes("Fail") || historyBanner.includes("失败") ? c.errorBg : c.successBg }]}>
+                    <Ionicons name={historyBanner.includes("Fail") || historyBanner.includes("失败") ? "alert-circle-outline" : "checkmark-circle-outline"} size={14}
+                      color={historyBanner.includes("Fail") || historyBanner.includes("失败") ? c.error : c.success} />
+                    <Text style={[styles.histBannerText, { color: historyBanner.includes("Fail") || historyBanner.includes("失败") ? c.error : c.success }]}>{historyBanner}</Text>
+                  </View>
+                )}
+              </ScrollView>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Recipe detail / edit modal */}
       <Modal visible={!!selectedRecipe} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeModal}>
@@ -697,6 +828,86 @@ export default function RecipesScreen() {
   );
 }
 
+function HistoryTabContent({
+  entries, loading, refreshing, search, onSearchChange, onRefresh, onSelectMeal, language, c, t,
+}: {
+  entries: MealHistoryEntry[];
+  loading: boolean;
+  refreshing: boolean;
+  search: string;
+  onSearchChange: (v: string) => void;
+  onRefresh: () => void;
+  onSelectMeal: (meal: MealSuggestion) => void;
+  language: string;
+  c: ReturnType<typeof useTheme>;
+  t: ReturnType<typeof useTranslation>["t"];
+}) {
+  const locale = language === "zh" ? "zh-CN" : "en-US";
+  const map = new Map<string, Map<string, MealSuggestion>>();
+  for (const entry of entries) {
+    if (!map.has(entry.date)) map.set(entry.date, new Map());
+    const dayMap = map.get(entry.date)!;
+    for (const meal of entry.meals ?? []) {
+      if (!dayMap.has(meal.name)) dayMap.set(meal.name, meal);
+    }
+  }
+  const grouped = Array.from(map.entries())
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([date, mealMap]) => ({ date, meals: Array.from(mealMap.values()) }));
+
+  const filtered = search.trim()
+    ? grouped.map((day) => ({
+        ...day,
+        meals: day.meals.filter((m) =>
+          m.name.toLowerCase().includes(search.toLowerCase()) ||
+          m.cuisine.toLowerCase().includes(search.toLowerCase()) ||
+          m.tags.some((tag) => tag.toLowerCase().includes(search.toLowerCase()))
+        ),
+      })).filter((day) => day.meals.length > 0)
+    : grouped;
+
+  return (
+    <>
+      <View style={[{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border, backgroundColor: c.surface }]}>
+        <Ionicons name="search-outline" size={16} color={c.textPlaceholder} />
+        <TextInput
+          style={[{ flex: 1, fontSize: 14, color: c.text, paddingVertical: 2 }]}
+          placeholder={t("search_history")}
+          placeholderTextColor={c.textPlaceholder}
+          value={search}
+          onChangeText={onSearchChange}
+          returnKeyType="search"
+        />
+        {search.length > 0 && (
+          <TouchableOpacity onPress={() => onSearchChange("")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="close-circle" size={16} color={c.textPlaceholder} />
+          </TouchableOpacity>
+        )}
+      </View>
+      <ScrollView
+        contentContainerStyle={{ padding: 16, paddingBottom: 48 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.primary} />}
+      >
+        {loading && <ActivityIndicator color={c.primary} style={{ marginTop: 32 }} />}
+        {!loading && filtered.length === 0 && (
+          <EmptyState icon="time-outline" title={t("history_empty_title")} body={t("history_empty_body")} />
+        )}
+        {filtered.map((day) => (
+          <View key={day.date} style={{ marginBottom: 20 }}>
+            <Text style={{ fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 10, color: c.textMuted }}>
+              {new Date(day.date + "T00:00:00").toLocaleDateString(locale, { weekday: "long", month: "long", day: "numeric" })}
+            </Text>
+            {day.meals.map((meal) => (
+              <MealCard key={meal.name} meal={meal} onPress={() => onSelectMeal(meal)} />
+            ))}
+          </View>
+        ))}
+      </ScrollView>
+    </>
+  );
+}
+
 function LabelChip({ icon, label, color, bg }: { icon: React.ComponentProps<typeof Ionicons>["name"]; label: string; color: string; bg: string }) {
   return (
     <View style={[{ flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8, backgroundColor: bg }]}>
@@ -825,5 +1036,24 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     newRecipeBtnText: { fontSize: 15, fontWeight: "700" },
     tagFilterPill: { flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: c.primaryLight, marginBottom: 10 },
     tagFilterText: { fontSize: 13, fontWeight: "600" },
+    // History tab
+    histOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" },
+    histSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "80%", paddingHorizontal: 20, paddingBottom: 8 },
+    histHandle: { width: 36, height: 4, borderRadius: 2, alignSelf: "center", marginTop: 10, marginBottom: 16 },
+    histName: { fontSize: 22, fontWeight: "800", marginBottom: 6 },
+    histCuisine: { fontSize: 13, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
+    histDiffBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+    histDiffText: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.4 },
+    histStatsRow: { flexDirection: "row", borderRadius: 14, borderWidth: 1, padding: 14, marginBottom: 14, gap: 8 },
+    histStatItem: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+    histStatDivider: { width: StyleSheet.hairlineWidth },
+    histStatValue: { fontSize: 16, fontWeight: "800" },
+    histStatLabel: { fontSize: 12 },
+    histDesc: { fontSize: 14, lineHeight: 20, marginBottom: 14 },
+    histTagRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 20 },
+    histGenBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 14, paddingVertical: 14, marginBottom: 12 },
+    histGenBtnText: { color: "#FFF", fontSize: 15, fontWeight: "700" },
+    histBanner: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
+    histBannerText: { fontSize: 13, fontWeight: "600" },
   });
 }

@@ -1,8 +1,11 @@
 from datetime import date as _date
 import logging
 from fastapi import APIRouter, HTTPException, Depends
-from db.models import MealFilter, MealSuggestResponse, MealSuggestion
-from ai.claude import suggest_meals
+from db.models import (
+    MealFilter, MealSuggestResponse, MealSuggestion,
+    MealGenerateRequest, MealGenerateResponse, GeneratedPlan, SwapMealRequest,
+)
+from ai.claude import suggest_meals, generate_meal_plan, swap_meal as ai_swap_meal
 from db import supabase_client as db
 from .auth import get_optional_user_id, require_user_id
 
@@ -27,6 +30,41 @@ async def suggest(
             except Exception as exc:
                 logger.error("[meals] history write failed for user %s: %s", user_id, exc)
         return MealSuggestResponse(meals=meals, cached=cached)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"AI error: {exc}")
+
+
+@router.post("/generate", response_model=MealGenerateResponse)
+async def generate_meals(
+    body: MealGenerateRequest,
+    user_id: str | None = Depends(get_optional_user_id),
+):
+    try:
+        filters = body.model_dump(exclude_none=True)
+        if body.profile:
+            filters["profile"] = body.profile.model_dump(exclude_none=True)
+        result, cached = await generate_meal_plan(filters)
+        plan = GeneratedPlan(**result)
+        return MealGenerateResponse(plan=plan, cached=cached)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"AI error: {exc}")
+
+
+@router.post("/swap")
+async def swap_meal(
+    body: SwapMealRequest,
+    user_id: str | None = Depends(get_optional_user_id),
+):
+    try:
+        filters = body.model_dump(exclude_none=True)
+        if body.profile:
+            filters["profile"] = body.profile.model_dump(exclude_none=True)
+        meal = await ai_swap_meal(body.slot, body.current_plan.model_dump(), filters)
+        return meal
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     except Exception as exc:

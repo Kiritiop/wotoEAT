@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from ai.sqlite_cache import cache_get, cache_set
 from ai.prompts import (
     meal_suggestion_prompt,
+    meal_generate_prompt,
     recipe_parse_prompt,
     shopping_list_prompt,
     generate_recipe_prompt,
@@ -116,6 +117,44 @@ async def generate_recipe_by_name(dish_name: str, language: str = "en", servings
         raise ValueError(result["error"])
     cache_set(key, result, 604800)  # cache for 7 days
     return result
+
+
+# ---------------------------------------------------------------------------
+# Meal generation (slot-aware, rich format)
+# ---------------------------------------------------------------------------
+
+async def generate_meal_plan(filters: dict) -> tuple[dict, bool]:
+    key = _cache_key({k: v for k, v in filters.items() if k != "recent_ratings"})
+    cached = cache_get(key)
+    if cached is not None:
+        return cached, True
+
+    language = filters.get("language", "en")
+    response = await _client.chat.completions.create(
+        model=MODEL,
+        max_tokens=4000,
+        messages=[{"role": "user", "content": meal_generate_prompt(filters, language)}],
+    )
+    result = json.loads(_clean_json(_extract_text(response)))
+    cache_set(key, result, _CACHE_TTL)
+    return result, False
+
+
+async def swap_meal(slot: str, current_plan: dict, filters: dict) -> dict:
+    language = filters.get("language", "en")
+    avoid = [m["name"] for m in current_plan.get("meals", [])]
+    # Merge existing ratings with all current-plan meals marked "down" so the prompt avoids them
+    merged_ratings = {name: "down" for name in avoid}
+    merged_ratings.update(filters.get("recent_ratings") or {})
+    swap_filters = {**filters, "slots": [slot], "recent_ratings": merged_ratings}
+    response = await _client.chat.completions.create(
+        model=MODEL,
+        max_tokens=1500,
+        messages=[{"role": "user", "content": meal_generate_prompt(swap_filters, language)}],
+    )
+    result = json.loads(_clean_json(_extract_text(response)))
+    meals = result.get("meals", [result])
+    return meals[0] if meals else result
 
 
 # ---------------------------------------------------------------------------

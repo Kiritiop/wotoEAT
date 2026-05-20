@@ -178,6 +178,70 @@ Respond with ONLY valid JSON, no markdown:
 }}"""
 
 
+def meal_generate_prompt(filters: dict, language: str = "en") -> str:
+    """One rich meal per requested slot (ingredients, steps, macros)."""
+    lang_note = _LANG_INSTRUCTION.get(language, _LANG_INSTRUCTION["en"])
+    tag_note = _tag_note()
+    servings = filters.get("servings", filters.get("serving_size", 2))
+    serving_word = "person" if servings == 1 else "people"
+    slots = filters.get("slots", ["breakfast", "lunch", "dinner"])
+
+    # Extract disliked meals explicitly so the AI knows to avoid them
+    recent_ratings = filters.get("recent_ratings") or {}
+    disliked = [name for name, rating in recent_ratings.items() if rating == "down"]
+
+    _exclude = {"serving_size", "servings", "language", "slots", "recent_ratings",
+                "avoid_meals", "slot", "current_plan"}
+    display_filters = {k: v for k, v in filters.items() if k not in _exclude}
+
+    return f"""You are a world-class culinary expert.
+{lang_note}
+Suggest exactly one real, well-known dish for EACH of these slots: {', '.join(slots)}.
+For {servings} {serving_word}. Match ALL active (non-null) filters below.
+{f"DO NOT suggest any of these (disliked): {', '.join(disliked)}" if disliked else ""}
+FILTERS:
+{json.dumps(display_filters, indent=2)}
+
+RULES:
+- Only suggest dishes that genuinely exist in culinary traditions. Do NOT invent dishes.
+- Every dish must satisfy ALL active (non-null) filters
+- difficulty must be one of: "easy", "medium", "hard"
+- prep_time_mins is realistic total time including cooking
+- ingredients: flat list scaled for {servings} serving(s), e.g. ["300g chicken breast", "2 tbsp soy sauce"]
+- steps: 3-6 clear, actionable cooking steps
+- components.vegetable / .protein / .staple: short component names (e.g. "broccoli", "chicken", "rice")
+- uses_pantry_items: ingredient names that match items in the pantry filter
+- {tag_note}
+- protein_g / carbs_g / fat_g / fiber_g: realistic per-serving estimates
+- shopping_reminders: 1-3 key items NOT in pantry that are needed
+- nutrition_note: 1-2 sentence nutritional summary of the full set
+- total_calories: sum of calories_per_serving across all meals
+
+Respond with ONLY valid JSON, no markdown:
+{{
+  "meals": [
+    {{
+      "slot": "breakfast|lunch|dinner",
+      "name": "string",
+      "cuisine": "string",
+      "description": "1-2 sentence description",
+      "prep_time_mins": integer,
+      "calories_per_serving": integer,
+      "difficulty": "easy|medium|hard",
+      "components": {{"vegetable": "string", "protein": "string", "staple": "string"}},
+      "uses_pantry_items": ["string"],
+      "tags": ["string"],
+      "ingredients": ["string"],
+      "steps": ["string"],
+      "protein_g": number, "carbs_g": number, "fat_g": number, "fiber_g": number
+    }}
+  ],
+  "shopping_reminders": [{{"item": "string", "reason": "string"}}],
+  "total_calories": integer,
+  "nutrition_note": "string"
+}}"""
+
+
 def translate_prompt(texts: list[str]) -> str:
     numbered = "\n".join(f"{i+1}. {t}" for i, t in enumerate(texts))
     return f"""You are a Chinese food and cooking translation specialist for a meal planning app.

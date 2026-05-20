@@ -18,7 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAppStore } from "@/store/useAppStore";
 import { CUISINES, FLAVOUR_OPTIONS, PREP_TIME_PRESETS, SLOT_COLOUR, SLOT_ICON, DIFFICULTY_COLORS, translateTag, translateCuisine, translateDifficulty } from "@/constants/filters";
-import { getDailyPlan, swapMeal, saveRecipe, deleteRecipe } from "@/services/api";
+import { generateMeals, swapMeal, saveRecipe, deleteRecipe } from "@/services/api";
 import type { Recipe, Ingredient } from "@/services/api";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useTheme } from "@/hooks/useTheme";
@@ -660,7 +660,7 @@ export default function TodayScreen() {
       targetSlots = selectedSlots;
     }
     try {
-      const { plan, cached } = await getDailyPlan(
+      const { plan, cached } = await generateMeals(
         profile, pantry,
         cuisines.length > 0 ? cuisines.join(", ") : undefined,
         maxTime ?? undefined,
