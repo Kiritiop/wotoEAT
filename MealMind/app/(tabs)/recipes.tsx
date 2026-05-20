@@ -21,6 +21,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { useAppStore } from "@/store/useAppStore";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
+import { translateTag } from "@/constants/filters";
 import type { SavedRecipe, Ingredient } from "@/services/api";
 
 type RecipeTab = "saved" | "liked" | "mine";
@@ -298,7 +299,6 @@ export default function RecipesScreen() {
         </View>
       )}
 
-      {(
       <FlatList
         data={filteredRecipes}
         keyExtractor={(item) => item.id}
@@ -317,7 +317,7 @@ export default function RecipesScreen() {
             {activeTagFilter && (
               <View style={styles.tagFilterPill}>
                 <Ionicons name="pricetag" size={12} color={c.primary} />
-                <Text style={[styles.tagFilterText, { color: c.primary }]}>{activeTagFilter}</Text>
+                <Text style={[styles.tagFilterText, { color: c.primary }]}>{translateTag(activeTagFilter, language)}</Text>
                 <TouchableOpacity onPress={() => setActiveTagFilter(null)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                   <Ionicons name="close-circle" size={14} color={c.primary} />
                 </TouchableOpacity>
@@ -382,7 +382,7 @@ export default function RecipesScreen() {
                           style={[styles.tag, { backgroundColor: isActive ? c.primary : c.chipBg }]}
                           onPress={() => { setActiveTagFilter(isActive ? null : tag); Haptics.selectionAsync(); }}
                         >
-                          <Text style={[styles.tagText, { color: isActive ? "#FFF" : c.chipText }]}>{tag}</Text>
+                          <Text style={[styles.tagText, { color: isActive ? "#FFF" : c.chipText }]}>{translateTag(tag, language)}</Text>
                         </TouchableOpacity>
                       );
                     })}
