@@ -15,7 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAppStore } from "@/store/useAppStore";
-import { getPantry, upsertPantry, deletePantryItem, generateShoppingList } from "@/services/api";
+import { getPantry, replacePantry, deletePantryItem, generateShoppingList } from "@/services/api";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PantryTagPicker } from "@/components/PantryTagPicker";
@@ -72,12 +72,11 @@ export default function PantryScreen() {
   }
 
   async function handleTagPickerSave(names: string[]) {
-    // Sync: add new items, keep existing
     const newItems = names.map((name) => ({ name }));
     setPantry(newItems);
     setShowTagPicker(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    try { await upsertPantry(newItems); } catch { /* best-effort */ }
+    try { await replacePantry(newItems); } catch { /* best-effort */ }
   }
 
   // ── Shopping helpers ──────────────────────────────────────────────────────

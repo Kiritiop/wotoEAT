@@ -75,12 +75,6 @@ export const SLOT_ICON: Record<string, string> = {
   dinner: "moon",
 };
 
-export const DIFFICULTY_LABELS: Record<string, string> = {
-  easy: "Easy",
-  medium: "Medium",
-  hard: "Hard",
-};
-
 export const DIFFICULTY_COLORS: Record<string, string> = {
   easy: "#16A34A",
   medium: "#D97706",

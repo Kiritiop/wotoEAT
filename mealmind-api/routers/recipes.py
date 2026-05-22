@@ -53,7 +53,7 @@ async def generate(
     if not rate_limit_check(f"gen:{user_id}", "recipe-generate", _GENERATE_MAX, _PARSE_WINDOW):
         raise HTTPException(status_code=429, detail=f"Rate limit: max {_GENERATE_MAX} recipe generations per hour.")
     try:
-        recipe_dict = await generate_recipe_by_name(req.dish_name, req.language, req.servings)
+        recipe_dict = await generate_recipe_by_name(req.dish_name, req.language, req.servings, req.force_refresh)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     except Exception as exc:

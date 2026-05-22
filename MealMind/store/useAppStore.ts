@@ -98,9 +98,9 @@ export const useAppStore = create<AppState>()(
 
       // ── Language ────────────────────────────────────────────────────────
       language: "en",
-      // Clear the daily plan when language changes — it was generated in the old language
-      // N-02: also clear confirmedSlots so stale checkmarks don't survive
-      setLanguage: (lang) => set({ language: lang, dailyPlan: null, confirmedSlots: [] }),
+      // Clear plan, confirmed state, and shopping selections when language changes —
+      // everything was generated in the old language so none of it is reusable.
+      setLanguage: (lang) => set({ language: lang, dailyPlan: null, confirmedSlots: [], selectedRecipes: [], shoppingList: null }),
 
       // ── Onboarding ──────────────────────────────────────────────────────
       hasOnboarded: false,
@@ -227,6 +227,15 @@ export const useAppStore = create<AppState>()(
     {
       name: "wotoeat-store",
       storage: createJSONStorage(() => AsyncStorage),
+      // Clear any stale daily plan from a previous session as soon as the store rehydrates.
+      // This runs before React renders, so it works correctly on both web and native.
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        const today = new Date().toISOString().slice(0, 10);
+        if (state.dailyPlan && state.planDate !== today) {
+          state.clearDailyPlan();
+        }
+      },
       // Only persist user-generated data; authReady is ephemeral (never persisted)
       partialize: (state) => ({
         profile: state.profile,

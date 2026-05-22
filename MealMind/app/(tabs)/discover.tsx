@@ -117,7 +117,7 @@ function MealSlotCard({
       if (toAdd.length > 0) {
         setCartBanner(language === "zh"
           ? `${toAdd.length} 个食材已加入购物车`
-          : `${toAdd.length} item${toAdd.length > 1 ? "s" : ""} added to cart`);
+          : `${toAdd.length} item${toAdd.length !== 1 ? "s" : ""} added to cart`);
         setTimeout(() => setCartBanner(null), 3000);
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -219,7 +219,7 @@ function MealSlotCard({
       setSavedId(result.id);
       setSavedState("saved");
       // C2/A7: brief toast pointing user to Recipes tab for editing
-      setSavedBanner(language === "zh" ? "已保存 — 前往食谱编辑" : "Saved — tap Recipes to edit");
+      setSavedBanner(t("meal_saved_toast"));
       setTimeout(() => setSavedBanner(null), 4000);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
@@ -238,9 +238,7 @@ function MealSlotCard({
           {meal.slot === "breakfast" ? t("breakfast") : meal.slot === "lunch" ? t("lunch") : t("dinner")}
         </Text>
         <View style={cardStyles.slotMeta}>
-          <Ionicons name="flame-outline" size={13} color={c.textMuted} />
-          <Text style={[cardStyles.metaText, { color: c.textMuted }]}>{meal.calories_per_serving} {language === "zh" ? "千卡/人份" : "kcal/serving"}</Text>
-          <Ionicons name="time-outline" size={13} color={c.textMuted} style={{ marginLeft: 8 }} />
+          <Ionicons name="time-outline" size={13} color={c.textMuted} />
           <Text style={[cardStyles.metaText, { color: c.textMuted }]}>{meal.prep_time_mins} {t("min_label")}</Text>
         </View>
       </View>
@@ -259,7 +257,7 @@ function MealSlotCard({
         <View style={cardStyles.compsRow}>
           <CompChip icon="leaf" label={meal.components.vegetable} color="#16A34A" />
           <CompChip icon="fish" label={meal.components.protein} color="#2563EB" />
-          <CompChip icon="ellipse" label={meal.components.staple} color="#D97706" />
+          {!!meal.components.staple && <CompChip icon="ellipse" label={meal.components.staple} color="#D97706" />}
         </View>
 
         {pantryMatches.length > 0 && (
@@ -271,7 +269,7 @@ function MealSlotCard({
           </View>
         )}
         <Text style={[cardStyles.tapHint, { color: c.textPlaceholder }]}>
-          {language === "zh" ? "点击查看详情" : "Tap for details"}
+          {t("tap_for_details")}
         </Text>
 
         <View style={cardStyles.ratingRow}>
@@ -352,7 +350,7 @@ function MealSlotCard({
           <View style={[cardStyles.infoPanel, { backgroundColor: c.surfaceAlt, borderColor: c.border }]}>
             {/* Calorie + macros row */}
             <View style={cardStyles.macroRow}>
-              <MacroCell label="kcal" value={String(meal.calories_per_serving)} color="#F59E0B" />
+              <MacroCell label={t("calories_label")} value={String(meal.calories_per_serving)} color="#F59E0B" />
               {meal.protein_g != null && <MacroCell label={t("macro_protein")} value={`${meal.protein_g}g`} color="#2563EB" />}
               {meal.carbs_g != null && <MacroCell label={t("macro_carbs")} value={`${meal.carbs_g}g`} color="#16A34A" />}
               {meal.fat_g != null && <MacroCell label={t("macro_fat")} value={`${meal.fat_g}g`} color="#D97706" />}
@@ -454,7 +452,7 @@ function MealSlotCard({
 
                   {/* Macros */}
                   <View style={[cardStyles.macroRow, { paddingHorizontal: 20, marginBottom: 16 }]}>
-                    <MacroCell label="kcal" value={String(meal.calories_per_serving)} color="#F59E0B" />
+                    <MacroCell label={t("calories_label")} value={String(meal.calories_per_serving)} color="#F59E0B" />
                     {meal.protein_g != null && <MacroCell label={t("macro_protein")} value={`${meal.protein_g}g`} color="#2563EB" />}
                     {meal.carbs_g != null && <MacroCell label={t("macro_carbs")} value={`${meal.carbs_g}g`} color="#16A34A" />}
                     {meal.fat_g != null && <MacroCell label={t("macro_fat")} value={`${meal.fat_g}g`} color="#D97706" />}
@@ -698,8 +696,17 @@ export default function TodayScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
       const status = (e as any)?.response?.status;
+      const detail: string = (e as any)?.response?.data?.detail ?? "";
       const hasFilters = requiredIngredients.length > 0 || selectedPantryItems.length > 0;
-      if ((status === 422 || status === 500) && hasFilters) {
+      const isNoMatch = detail.toLowerCase().includes("no dish") || detail.toLowerCase().includes("required tags");
+      if (status === 422 && hasFilters && isNoMatch) {
+        setError(
+          language === "zh"
+            ? "没有菜肴能同时满足所有所选标签，请减少筛选条件后重试。"
+            : "No dish can satisfy all selected tags. Try removing one or more filters.",
+        );
+        setFilterError(true);
+      } else if ((status === 422 || status === 500) && hasFilters) {
         setError(
           language === "zh"
             ? "部分筛选标签或食材无法识别，请清除筛选条件后重试。"
@@ -722,7 +729,18 @@ export default function TodayScreen() {
     setError(null);
     try {
       const oldMeal = dailyPlan.meals.find((m) => m.slot === slot);
-      const newMeal = await swapMeal(slot, dailyPlan as DailyMealPlan, profile, pantry, language);
+      const newMeal = await swapMeal(
+        slot,
+        dailyPlan as DailyMealPlan,
+        profile,
+        pantry,
+        language,
+        cuisines.length > 0 ? cuisines.join(", ") : undefined,
+        flavour.trim() || undefined,
+        maxTime ?? undefined,
+        [...selectedPantryItems, ...requiredIngredients].join(", ") || undefined,
+        mealStyle,
+      );
       const updatedMeals = dailyPlan.meals.map((m) => m.slot === slot ? newMeal : m);
       const newTotal = updatedMeals.reduce((sum, m) => sum + (m.calories_per_serving ?? 0), 0);
       patchDailyPlan({ ...dailyPlan, meals: updatedMeals, total_calories: newTotal });
@@ -733,7 +751,20 @@ export default function TodayScreen() {
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not swap meal.");
+      const status = (e as any)?.response?.status;
+      const detail: string = (e as any)?.response?.data?.detail ?? "";
+      const hasFilters = requiredIngredients.length > 0 || selectedPantryItems.length > 0;
+      const isNoMatch = detail.toLowerCase().includes("no dish") || detail.toLowerCase().includes("required tags");
+      if (status === 422 && hasFilters && isNoMatch) {
+        setError(
+          language === "zh"
+            ? "没有菜肴能同时满足所有所选标签，请减少筛选条件后重试。"
+            : "No dish can satisfy all selected tags. Try removing one or more filters.",
+        );
+        setFilterError(true);
+      } else {
+        setError(e instanceof Error ? e.message : "Could not swap meal.");
+      }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setSwappingSlot(null);
@@ -742,10 +773,12 @@ export default function TodayScreen() {
 
   async function handleShare() {
     if (!dailyPlan) return;
+    const slotLabel = (slot: string) =>
+      slot === "breakfast" ? t("breakfast") : slot === "lunch" ? t("lunch") : t("dinner");
     const lines = dailyPlan.meals.map(
-      (m) => `${m.slot.charAt(0).toUpperCase() + m.slot.slice(1)}: ${m.name} (${m.calories_per_serving} kcal, ${m.prep_time_mins} min)`
+      (m) => `${slotLabel(m.slot)}: ${m.name} (${m.calories_per_serving} ${t("calories_label")}, ${m.prep_time_mins} ${t("min_label")})`
     );
-    const text = ["My wotoEAT Meals", "", ...lines].join("\n");
+    const text = [t("todays_plan"), "", ...lines].join("\n");
     try { await Share.share({ message: text }); } catch { /* dismissed */ }
   }
 
@@ -825,7 +858,7 @@ export default function TodayScreen() {
 
             {/* Required tags / ingredients — chip accumulator */}
             <Text style={[styles.filterLabel, { color: c.textMuted, marginTop: 10 }]}>
-              {language === "zh" ? "包含标签" : "Include tags"}
+              {t("include_tags_label")}
             </Text>
             {requiredIngredients.length > 0 && (
               <View style={[styles.filterChipRow, { marginBottom: 6 }]}>
@@ -845,7 +878,7 @@ export default function TodayScreen() {
               <Ionicons name="pricetag-outline" size={15} color={ingredientDraft.trim() ? c.primary : c.textPlaceholder} />
               <TextInput
                 style={[styles.ingSearchInput, { color: c.text }]}
-                placeholder={language === "zh" ? "添加食材或标签…" : "Add ingredient or tag…"}
+                placeholder={t("add_tag_or_ingredient")}
                 placeholderTextColor={c.textPlaceholder}
                 value={ingredientDraft}
                 onChangeText={setIngredientDraft}
@@ -986,7 +1019,7 @@ export default function TodayScreen() {
           >
             <Ionicons name="close-circle-outline" size={14} color={c.error} />
             <Text style={[styles.clearFilterText, { color: c.error }]}>
-              {language === "zh" ? "清除筛选条件" : "Clear filters"}
+              {t("clear_filters")}
             </Text>
           </TouchableOpacity>
         )}
@@ -1014,7 +1047,7 @@ export default function TodayScreen() {
               <View style={styles.summaryActions}>
                 {planCached && (
                   <Text style={[styles.cachedLabel, { color: c.textMuted }]}>
-                    {language === "zh" ? "缓存" : "cached"}
+                    {t("cached_label")}
                   </Text>
                 )}
                 <TouchableOpacity onPress={handleShare} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>

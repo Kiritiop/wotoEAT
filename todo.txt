@@ -1,131 +1,16 @@
-right now, if the user does not have the selected ingredient/tag it will return an error
-Failed to load resource: the server responded with a status of 500 ()Understand this error
-discover:1  Failed to load resource: the server responded with a status of 404 ()
-
-Another issue is that not all tags are ingredients so they shouldnt go to Must Include Ingredient. Rename this section to Include tags
-
-Also, remove entirely the More Details section because we can see it when we click on the card. remove the nutritional details and keep it hidden behind an info icon
-
-The add all to shopping list button should also be reclickable to remove the items from shopping cart, similar to the confirm button
-
-additionally for add ingredient to pantry, the sections should be collapsed by default, the user has to open the category to see the tags
-
-────────────────────────────────────────
-DETAILED IMPLEMENTATION BREAKDOWN
-────────────────────────────────────────
-
-[BUG-1] API 500/404 when selected ingredient/tag not recognised
-  Context: getDailyPlan (discover.tsx ~L784) passes
-    [...selectedPantryItems, ...requiredIngredients].join(", ")
-    as a "must include" constraint to the AI. If the value is
-    an unknown ingredient or a non-food tag the backend crashes
-    (500) or returns nothing (404).
-  Tasks:
-    □ In the catch block of generatePlan (~L815), detect HTTP
-      status 500 and 404 separately from generic errors.
-    □ When 500 or 404 is caught and the user has active
-      requiredIngredients/selectedPantryItems, show a specific
-      error banner: "Some selected tags or ingredients couldn't
-      be found. Try clearing your filters and regenerating."
-    □ Add a "Clear filters & retry" action button inside
-      ErrorBanner (or below it) that resets requiredIngredients
-      and selectedPantryItems then calls generatePlan again.
-    □ On the API/backend side (mealmind-api): wrap the
-      must-include parsing in a try/except so an unrecognised
-      item degrades gracefully (ignore it) instead of crashing.
-      Return a 200 with a plan rather than a 500.
-    □ Verify the fix covers both the discover tab (plan
-      generation) and the swap-meal flow which also calls the
-      API with the same filters.
-
-[UI-1] Rename "Must Include Ingredient" → "Include Tags"
-  Context: discover.tsx ~L929-930 hardcodes the label
-    "必须包含食材" / "Must include ingredient". Tags clicked on
-    meal cards (e.g. "vegan", "gluten-free") are appended to
-    the same requiredIngredients array, so the label is wrong.
-  Tasks:
-    □ In discover.tsx, change the section label text to
-      "Include tags" (en) and "包含标签" (zh).
-    □ Update the locale key in both
-      constants/locale/en.ts and constants/locale/zh.ts
-      (or wherever the "must_include_ingredient" key lives)
-      to a new key "include_tags" with the new strings.
-    □ Update the TextInput placeholder text from something
-      ingredient-specific to "Add ingredient or tag…".
-    □ Update the leaf icon next to the input (Ionicons
-      "leaf-outline") to a more neutral icon like
-      "pricetag-outline" to reflect that tags are also valid.
-    □ No logic changes needed — requiredIngredients already
-      accumulates both free-typed values and tag presses.
-
-[UI-2] Remove "More Details" expand section from meal cards
-  Context: Each MealCard has an expandBtn that toggles
-    `expanded` state, showing a collapsible body with the
-    meal description and ingredients list. The detail modal
-    (tap the card) already shows all this content, making
-    the expand button redundant.
-  Tasks:
-    □ Remove the expandBtn TouchableOpacity and its label/
-      chevron (~L338-347 in the card footer row).
-    □ Remove the `{expanded && <View style={cardStyles.expandBody}>…</View>}`
-      block that renders description + ingredients list (~L409-480).
-    □ Delete the `expanded` state variable and `setExpanded`
-      call in MealCard (~L64 area).
-    □ Delete `translatedDescription` (useBatchTranslated call)
-      if it is only consumed inside expandBody; otherwise keep.
-    □ Clean up now-unused cardStyles keys: expandBtn,
-      expandText, expandBody, description (if unused elsewhere).
-    □ Confirm the info icon (showInfo panel) stays fully intact
-      — macros, components, prep time, difficulty remain
-      accessible via the ⓘ button.
-    □ Test: tapping the card still opens the detail modal with
-      full description + ingredient list; info icon still works.
-
-[UI-3] "Add All to Cart" button toggles add ↔ remove
-  Context: The "Add all" button in MealCard calls addAll()
-    which only ever adds missing items (discover.tsx ~L163).
-    The allInCart boolean (~L155) already tracks whether
-    everything is in the cart, but clicking again does nothing
-    useful. The confirm button behaves as a proper toggle;
-    "Add all" should too.
-  Tasks:
-    □ Rewrite addAll() to branch on allInCart:
-        if allInCart → call removeFromShoppingList for every
-          ingredient in meal.ingredients
-        else → current behaviour: add only the missing ones
-    □ Update the button label to reflect state:
-        not all in cart → current label (e.g. "Add all")
-        all in cart     → "Remove all" (or use a cart-x icon)
-    □ Update button colour/border logic to show a destructive
-      or neutral visual when in "remove all" state (already
-      has primaryLight/primary for "added" state — add a
-      matching "remove" palette).
-    □ Apply the same change to both instances of the button:
-        • Card compact view (~L411-420)
-        • Detail modal view (~L604-617)
-    □ Test: add all → all items appear in shopping list;
-      click again → all items removed from shopping list;
-      partial state (some in cart) → clicking adds remainder.
-
-[UI-4] PantryTagPicker: categories collapsed by default
-  Context: PantryTagPicker.tsx uses a `collapsed` Record<string,
-    boolean> state (~L96). Empty object means all expanded.
-    handleOpen() resets it to {} so re-opening also expands
-    everything. CATEGORIES is the array of category objects
-    (~L33) each with a `.key` field.
-  Tasks:
-    □ Build an allCollapsed initialiser:
-        const allCollapsed = Object.fromEntries(
-          CATEGORIES.map(c => [c.key, true])
-        );
-      Add "__custom__": true for the custom-items bucket.
-    □ Change useState init from {} to allCollapsed:
-        useState<Record<string, boolean>>(allCollapsed)
-    □ In handleOpen(), reset collapsed to allCollapsed
-      (not {}) so re-opening the modal also starts collapsed.
-    □ Verify the toggle logic (isCollapsed = !!collapsed[key])
-      already works correctly with true as the default — it
-      does; no other changes needed.
-    □ Test: open PantryTagPicker → all category headers show
-      collapsed state with a down-chevron; tapping a header
-      expands just that category.
+1. When the user enters the platform the meal from the previous session and whatnot should be refreshed and be gone 
+2. The _tag_note() require tag count should have no upper limit, there should have all the tags that is necessary to be part of the dish
+3. When you reload the page on the wotoeat.com/discover tab, it just straight up gives you an error. The platform should not always default to the starting menu, it should only be shown to new users and whatnot. Every page should be a standalone page and not all have to go back to the root wotoeat.com page
+4. When the user selects the Main Dish setting, the meal should not have carbohydrates and should just be a dish not a full meal. A dish is like something that goes with rice etc in asian cultures you make a dish and you can eat it with rice and stuff, but rice and other carbs shouldnt be a part of the actual dish.
+5. The swap button should also exist for searched recipes, or the Regenerate button has to generate a different dish, right now it keeps generating the same dish for no reason
+6. The swap button also completely ignores the tags selected in preferences. Upon clicking the swap button, it should keep in mind all the preferences and generate another recipe accordingly. This feature should also work if the user presses the Generate button again.
+7. The nutritional values: "520
+kcal
+55g
+Protein
+30g
+Carbs
+20g
+Fat
+5g
+" should only be available when the user presses on the information icon. 

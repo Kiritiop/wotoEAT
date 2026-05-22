@@ -14,9 +14,15 @@ def _tag_note() -> str:
     # The UI translates them at render time using a local lookup table.
     return (
         'tags must ALWAYS be in English, regardless of the response language. '
-        'Generate 4-7 tags covering: dietary labels, key ingredients, '
-        'flavour profile, cooking style, occasion. '
-        'Examples: "high-protein", "gluten-free", "chicken", "stir-fry", "spicy", "quick", "one-pot", "meal-prep"'
+        'Generate as many tags as the dish genuinely requires — include every one that applies. '
+        'Cover ALL of: '
+        '(1) every key ingredient as its own tag (e.g. "chicken", "garlic", "tomato", "rice"), '
+        '(2) dietary labels (e.g. "high-protein", "gluten-free", "dairy-free"), '
+        '(3) flavour profile (e.g. "spicy", "umami", "savory", "mild"), '
+        '(4) cooking style (e.g. "stir-fry", "baked", "steamed", "one-pot"), '
+        '(5) occasion/lifestyle (e.g. "quick", "meal-prep", "comfort food", "healthy"). '
+        'Be thorough — list every main ingredient separately. '
+        'Examples: "chicken", "broccoli", "soy sauce", "high-protein", "stir-fry", "spicy", "quick", "gluten-free"'
     )
 
 
@@ -190,9 +196,43 @@ def meal_generate_prompt(filters: dict, language: str = "en") -> str:
     recent_ratings = filters.get("recent_ratings") or {}
     disliked = [name for name, rating in recent_ratings.items() if rating == "down"]
 
+    # Extract required tags/ingredients for explicit enforcement
+    required = (filters.get("required_ingredients") or "").strip()
+
     _exclude = {"serving_size", "servings", "language", "slots", "recent_ratings",
                 "avoid_meals", "slot", "current_plan"}
     display_filters = {k: v for k, v in filters.items() if k not in _exclude}
+
+    # Build the required-tags enforcement block (pre-resolved so outer f-string sees literal braces)
+    if required:
+        required_block = (
+            f'\nCRITICAL — REQUIRED TAGS / INGREDIENTS: "{required}"\n'
+            'Every dish you suggest MUST:\n'
+            '1. Actually contain those ingredients and/or match those descriptors.\n'
+            '2. Include every one of those terms verbatim in the dish\'s "tags" list.\n'
+            'If there is NO real, well-known dish that can satisfy ALL of the required tags/ingredients, '
+            'you MUST respond with ONLY this JSON and nothing else '
+            '(no meals array, no extra keys):\n'
+            f'{{"error": "no_match", "message": "No dish can satisfy all required tags: {required}"}}\n'
+        )
+    else:
+        required_block = ""
+
+    # Build the main-dish style enforcement block
+    meal_style = filters.get("meal_style", "full")
+    if meal_style == "main_dish":
+        style_block = (
+            '\nCRITICAL — MAIN DISH MODE:\n'
+            'Generate a SIDE DISH / MAIN DISH COMPONENT only — NOT a full meal.\n'
+            'This is a dish meant to be eaten alongside a separately cooked starch (e.g. steamed rice, noodles).\n'
+            'The dish itself must NOT include rice, noodles, pasta, bread, dumplings, or any other '
+            'carbohydrate-heavy staple as an ingredient or component.\n'
+            'Focus on the protein and/or vegetable elements only.\n'
+            'Set components.staple to "" (empty string) — there is no staple in this dish.\n'
+            'Macros: carbs_g should be minimal (from sauces/aromatics only, typically under 15g).\n'
+        )
+    else:
+        style_block = ""
 
     return f"""You are a world-class culinary expert.
 {lang_note}
@@ -201,7 +241,7 @@ For {servings} {serving_word}. Match ALL active (non-null) filters below.
 {f"DO NOT suggest any of these (disliked): {', '.join(disliked)}" if disliked else ""}
 FILTERS:
 {json.dumps(display_filters, indent=2)}
-
+{required_block}{style_block}
 RULES:
 - Only suggest dishes that genuinely exist in culinary traditions. Do NOT invent dishes.
 - Every dish must satisfy ALL active (non-null) filters

@@ -41,7 +41,7 @@ function groupByDay(entries: MealHistoryEntry[]): { date: string; meals: MealSug
 }
 
 export default function HistoryScreen() {
-  const { authReady, language } = useAppStore();
+  const { authReady, language, servings: storeServings } = useAppStore();
   const locale = language === "zh" ? "zh-CN" : "en-US";
   const [entries, setEntries] = useState<MealHistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -51,6 +51,7 @@ export default function HistoryScreen() {
   const [selected, setSelected] = useState<MealSuggestion | null>(null);
   const [generating, setGenerating] = useState(false);
   const [genBanner, setGenBanner] = useState<string | null>(null);
+  const [genBannerIsError, setGenBannerIsError] = useState(false);
   const c = useTheme();
   const { t } = useTranslation();
 
@@ -89,13 +90,15 @@ export default function HistoryScreen() {
     setGenerating(true);
     setGenBanner(null);
     try {
-      const recipe = await generateRecipeByName(selected.name, language);
+      const recipe = await generateRecipeByName(selected.name, language, storeServings || 2, true);
       await saveRecipe(recipe);
-      setGenBanner(language === "zh" ? "已保存到食谱" : "Saved to Recipes");
+      setGenBannerIsError(false);
+      setGenBanner(t("history_saved_banner"));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setTimeout(() => setGenBanner(null), 3000);
     } catch {
-      setGenBanner(language === "zh" ? "生成失败，请重试" : "Failed — please try again");
+      setGenBannerIsError(true);
+      setGenBanner(t("history_failed_banner"));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setTimeout(() => setGenBanner(null), 3000);
     } finally {
@@ -189,7 +192,7 @@ export default function HistoryScreen() {
                   <View style={styles.statItem}>
                     <Ionicons name="flame-outline" size={16} color="#F59E0B" />
                     <Text style={[styles.statValue, { color: c.text }]}>{selected.calories_per_serving}</Text>
-                    <Text style={[styles.statLabel, { color: c.textMuted }]}>kcal</Text>
+                    <Text style={[styles.statLabel, { color: c.textMuted }]}>{t("calories_label")}</Text>
                   </View>
                   <View style={[styles.statDivider, { backgroundColor: c.border }]} />
                   <View style={styles.statItem}>
@@ -226,20 +229,20 @@ export default function HistoryScreen() {
                     <>
                       <Ionicons name="document-text-outline" size={18} color="#FFF" />
                       <Text style={styles.genBtnText}>
-                        {language === "zh" ? "生成并保存食谱" : "Generate & Save Recipe"}
+                        {t("history_generate_save")}
                       </Text>
                     </>
                   )}
                 </TouchableOpacity>
 
                 {genBanner && (
-                  <View style={[styles.banner, { backgroundColor: genBanner.includes("Fail") || genBanner.includes("失败") ? c.errorBg : c.successBg }]}>
+                  <View style={[styles.banner, { backgroundColor: genBannerIsError ? c.errorBg : c.successBg }]}>
                     <Ionicons
-                      name={genBanner.includes("Fail") || genBanner.includes("失败") ? "alert-circle-outline" : "checkmark-circle-outline"}
+                      name={genBannerIsError ? "alert-circle-outline" : "checkmark-circle-outline"}
                       size={14}
-                      color={genBanner.includes("Fail") || genBanner.includes("失败") ? c.error : c.success}
+                      color={genBannerIsError ? c.error : c.success}
                     />
-                    <Text style={[styles.bannerText, { color: genBanner.includes("Fail") || genBanner.includes("失败") ? c.error : c.success }]}>
+                    <Text style={[styles.bannerText, { color: genBannerIsError ? c.error : c.success }]}>
                       {genBanner}
                     </Text>
                   </View>

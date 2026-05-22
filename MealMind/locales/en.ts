@@ -290,6 +290,34 @@ const en = {
   // ── Meal style filter ─────────────────────────────────────────────────────
   meal_style_label: "Meal Style",
 
+  // ── Recipe edit mode ─────────────────────────────────────────────────────
+  edit_title_required: "Title is required.",
+  edit_placeholder_prep: "e.g. 30",
+  edit_placeholder_calories: "e.g. 450",
+  edit_placeholder_servings: "e.g. 2",
+  edit_placeholder_ingredient: "Ingredient",
+  edit_placeholder_amount: "Amt",
+  edit_placeholder_unit: "Unit",
+  edit_add_ingredient: "Add ingredient…",
+  edit_add_step: "Add step…",
+  step_placeholder: (n: number) => `Step ${n}`,
+  save_to_mine: "Save to Mine",
+
+  // ── Discover screen ───────────────────────────────────────────────────────
+  tap_for_details: "Tap for details",
+  include_tags_label: "Include tags",
+  add_tag_or_ingredient: "Add ingredient or tag…",
+  cached_label: "cached",
+  clear_filters: "Clear filters",
+
+  // ── History tab ───────────────────────────────────────────────────────────
+  history_generate_save: "Generate & Save Recipe",
+  history_saved_banner: "Saved to Recipes",
+  history_failed_banner: "Failed — please try again",
+
+  // ── Find recipe modal ─────────────────────────────────────────────────────
+  more_ingredients: (n: number) => `+${n} more ingredients`,
+
   // ── Onboarding bullets ───────────────────────────────────────────────────
   onboarding_bullet_1: "AI meal plans tailored to you",
   onboarding_bullet_2: "Track pantry & reduce waste",

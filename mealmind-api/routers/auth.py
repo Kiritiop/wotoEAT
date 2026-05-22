@@ -18,8 +18,9 @@ _JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "")
 def _extract_sub(token: str) -> Optional[str]:
     """
     Decode and verify the JWT, returning the `sub` claim.
-    Raises ValueError on expired tokens.
-    Falls back to unverified base64 decode when the secret is absent or wrong.
+    Raises ValueError on expired or invalid tokens.
+    Falls back to unverified base64 decode ONLY when no secret is configured (dev mode).
+    When a secret IS configured, a bad signature raises ValueError (never silently accepts).
     """
     if _JWT_SECRET:
         try:
@@ -33,20 +34,19 @@ def _extract_sub(token: str) -> Optional[str]:
         except jwt.ExpiredSignatureError:
             raise ValueError("Token has expired")
         except jwt.InvalidTokenError as e:
-            # Wrong secret configured — fall through to unverified decode
-            logger.warning("[auth] JWT signature check failed (%s); falling back to unverified decode. "
-                           "Set SUPABASE_JWT_SECRET to the raw JWT secret from Supabase → Settings → API.", e)
+            # Secret is set but signature is wrong — reject, do NOT fall back.
+            raise ValueError(f"Invalid token: {e}")
 
-    # No secret set (or wrong secret): decode payload without signature verification.
+    # No secret configured (dev/local): decode payload without signature verification.
     # The Supabase client already authenticated the user; we only need `sub` for
-    # row-level data isolation.
+    # row-level data isolation. Never do this when a secret is set.
     try:
-        import base64, json
+        import base64, json as _json
         parts = token.split(".")
         if len(parts) != 3:
             return None
         padded = parts[1] + "=" * (-len(parts[1]) % 4)
-        payload = json.loads(base64.urlsafe_b64decode(padded))
+        payload = _json.loads(base64.urlsafe_b64decode(padded))
         return payload.get("sub")
     except Exception:
         return None

@@ -6,7 +6,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { DIFFICULTY_COLORS, DIFFICULTY_LABELS, translateTag } from "@/constants/filters";
+import { DIFFICULTY_COLORS, translateDifficulty, translateTag } from "@/constants/filters";
 import { useTheme } from "@/hooks/useTheme";
 import { useAppStore } from "@/store/useAppStore";
 import type { MealSuggestion } from "@/services/api";
@@ -20,7 +20,7 @@ export function MealCard({ meal, onPress }: Props) {
   const c = useTheme();
   const { language } = useAppStore();
   const difficultyColor = DIFFICULTY_COLORS[meal.difficulty] ?? "#999";
-  const difficultyLabel = DIFFICULTY_LABELS[meal.difficulty] ?? meal.difficulty;
+  const difficultyLabel = translateDifficulty(meal.difficulty, language);
 
   return (
     <TouchableOpacity

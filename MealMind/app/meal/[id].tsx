@@ -19,7 +19,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { RecipeSource } from "@/components/RecipeSource";
-import { DIFFICULTY_COLORS, DIFFICULTY_LABELS } from "@/constants/filters";
+import { DIFFICULTY_COLORS, translateDifficulty } from "@/constants/filters";
 import { parseRecipe, saveRecipe } from "@/services/api";
 import { useAppStore } from "@/store/useAppStore";
 import { useTheme } from "@/hooks/useTheme";
@@ -39,7 +39,7 @@ export default function MealDetailScreen() {
   const router = useRouter();
   const c = useTheme();
   const { t } = useTranslation();
-  const { selectedRecipes } = useAppStore();
+  const { selectedRecipes, language } = useAppStore();
 
   const MEAL_FALLBACK: MealSuggestion = { name: "Unknown Meal", cuisine: "", description: "", prep_time_mins: 0, calories_per_serving: 0, difficulty: "easy", tags: [] };
   let meal: MealSuggestion;
@@ -57,7 +57,7 @@ export default function MealDetailScreen() {
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const difficultyColor = DIFFICULTY_COLORS[meal.difficulty] ?? "#999";
-  const difficultyLabel = DIFFICULTY_LABELS[meal.difficulty] ?? meal.difficulty;
+  const difficultyLabel = translateDifficulty(meal.difficulty, language);
 
   async function handleParse() {
     if (!url.trim()) return;
@@ -114,17 +114,17 @@ export default function MealDetailScreen() {
         <View style={styles.metaRow}>
           <View style={styles.metaItem}>
             <Ionicons name="time-outline" size={16} color={c.textMuted} />
-            <Text style={[styles.metaText, { color: c.textMuted }]}>{meal.prep_time_mins} min</Text>
+            <Text style={[styles.metaText, { color: c.textMuted }]}>{meal.prep_time_mins} {t("min_label")}</Text>
           </View>
           <View style={styles.metaItem}>
             <Ionicons name="flame-outline" size={16} color={c.textMuted} />
-            <Text style={[styles.metaText, { color: c.textMuted }]}>{meal.calories_per_serving} kcal/serving</Text>
+            <Text style={[styles.metaText, { color: c.textMuted }]}>{meal.calories_per_serving} {t("calories_label")} {t("per_serving")}</Text>
           </View>
         </View>
       </View>
 
       {/* Recipe sites quick links */}
-      <Text style={[styles.sectionTitle, { color: c.text }]}>Find recipes online</Text>
+      <Text style={[styles.sectionTitle, { color: c.text }]}>{t("find_recipes_online")}</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sitesRow}>
         {RECIPE_SITES.map((site) => (
           <TouchableOpacity

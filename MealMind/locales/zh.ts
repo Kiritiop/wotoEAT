@@ -290,6 +290,34 @@ const zh = {
   // ── Meal style filter ─────────────────────────────────────────────────────
   meal_style_label: "餐点类型",
 
+  // ── Recipe edit mode ─────────────────────────────────────────────────────
+  edit_title_required: "请输入标题。",
+  edit_placeholder_prep: "如：30",
+  edit_placeholder_calories: "如：450",
+  edit_placeholder_servings: "如：2",
+  edit_placeholder_ingredient: "食材名称",
+  edit_placeholder_amount: "用量",
+  edit_placeholder_unit: "单位",
+  edit_add_ingredient: "添加食材…",
+  edit_add_step: "添加步骤…",
+  step_placeholder: (n: number) => `第 ${n} 步`,
+  save_to_mine: "存入「我的」",
+
+  // ── Discover screen ───────────────────────────────────────────────────────
+  tap_for_details: "点击查看详情",
+  include_tags_label: "包含标签",
+  add_tag_or_ingredient: "添加食材或标签…",
+  cached_label: "缓存",
+  clear_filters: "清除筛选条件",
+
+  // ── History tab ───────────────────────────────────────────────────────────
+  history_generate_save: "生成并保存食谱",
+  history_saved_banner: "已保存到食谱",
+  history_failed_banner: "生成失败，请重试",
+
+  // ── Find recipe modal ─────────────────────────────────────────────────────
+  more_ingredients: (n: number) => `+${n} 种食材`,
+
   // ── Onboarding bullets ───────────────────────────────────────────────────
   onboarding_bullet_1: "根据您的需求智能生成餐饮计划",
   onboarding_bullet_2: "管理食材库存，减少浪费",

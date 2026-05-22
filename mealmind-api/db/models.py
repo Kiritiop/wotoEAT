@@ -109,6 +109,7 @@ class GenerateRecipeRequest(BaseModel):
     dish_name: str
     language: str = "en"
     servings: int = 2
+    force_refresh: bool = False
 
 
 class TranslateRequest(BaseModel):
@@ -224,6 +225,11 @@ class SwapMealRequest(BaseModel):
     profile: Optional[HealthProfile] = None
     pantry: list[str] = Field(default_factory=list)
     language: str = "en"
+    cuisine_preference: Optional[str] = None
+    flavour_preference: Optional[str] = None
+    max_prep_time_mins: Optional[int] = None
+    required_ingredients: Optional[str] = None
+    meal_style: str = "full"
 
 
 # ---------------------------------------------------------------------------

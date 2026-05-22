@@ -73,6 +73,7 @@ export default function RecipesScreen() {
   const [historySelected, setHistorySelected] = useState<MealSuggestion | null>(null);
   const [historyGenerating, setHistoryGenerating] = useState(false);
   const [historyBanner, setHistoryBanner] = useState<string | null>(null);
+  const [historyBannerIsError, setHistoryBannerIsError] = useState(false);
 
   // ── New recipe creation (H-2) ─────────────────────────────────────────────
   const [isNewRecipe, setIsNewRecipe] = useState(false);
@@ -127,7 +128,7 @@ export default function RecipesScreen() {
 
   async function handleSaveEdit() {
     if (!selectedRecipe) return;
-    if (!editTitle.trim()) { setEditError("Title is required."); return; }
+    if (!editTitle.trim()) { setEditError(t("edit_title_required")); return; }
     setEditSaving(true);
     setEditError(null);
     try {
@@ -266,13 +267,15 @@ export default function RecipesScreen() {
     setHistoryGenerating(true);
     setHistoryBanner(null);
     try {
-      const recipe = await generateRecipeByName(historySelected.name, language);
+      const recipe = await generateRecipeByName(historySelected.name, language, storeServings || 2, true);
       await saveRecipe(recipe);
-      setHistoryBanner(language === "zh" ? "已保存到食谱" : "Saved to Recipes");
+      setHistoryBannerIsError(false);
+      setHistoryBanner(t("history_saved_banner"));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setTimeout(() => setHistoryBanner(null), 3000);
     } catch {
-      setHistoryBanner(language === "zh" ? "生成失败，请重试" : "Failed — please try again");
+      setHistoryBannerIsError(true);
+      setHistoryBanner(t("history_failed_banner"));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setTimeout(() => setHistoryBanner(null), 3000);
     } finally {
@@ -510,8 +513,8 @@ export default function RecipesScreen() {
       )}
 
       {/* History meal detail sheet */}
-      <Modal visible={!!historySelected} transparent animationType="slide" onRequestClose={() => { setHistorySelected(null); setHistoryBanner(null); setHistoryGenerating(false); }}>
-        <Pressable style={styles.histOverlay} onPress={() => { setHistorySelected(null); setHistoryBanner(null); setHistoryGenerating(false); }}>
+      <Modal visible={!!historySelected} transparent animationType="slide" onRequestClose={() => { setHistorySelected(null); setHistoryBanner(null); setHistoryBannerIsError(false); setHistoryGenerating(false); }}>
+        <Pressable style={styles.histOverlay} onPress={() => { setHistorySelected(null); setHistoryBanner(null); setHistoryBannerIsError(false); setHistoryGenerating(false); }}>
           <Pressable style={[styles.histSheet, { backgroundColor: c.surface }]} onPress={(e) => e.stopPropagation()}>
             <View style={[styles.histHandle, { backgroundColor: c.border }]} />
             {historySelected && (
@@ -529,7 +532,7 @@ export default function RecipesScreen() {
                   <View style={styles.histStatItem}>
                     <Ionicons name="flame-outline" size={16} color="#F59E0B" />
                     <Text style={[styles.histStatValue, { color: c.text }]}>{historySelected.calories_per_serving}</Text>
-                    <Text style={[styles.histStatLabel, { color: c.textMuted }]}>kcal</Text>
+                    <Text style={[styles.histStatLabel, { color: c.textMuted }]}>{t("calories_label")}</Text>
                   </View>
                   <View style={[styles.histStatDivider, { backgroundColor: c.border }]} />
                   <View style={styles.histStatItem}>
@@ -556,14 +559,14 @@ export default function RecipesScreen() {
                 >
                   {historyGenerating
                     ? <ActivityIndicator color="#FFF" size="small" />
-                    : <><Ionicons name="document-text-outline" size={18} color="#FFF" /><Text style={styles.histGenBtnText}>{language === "zh" ? "生成并保存食谱" : "Generate & Save Recipe"}</Text></>
+                    : <><Ionicons name="document-text-outline" size={18} color="#FFF" /><Text style={styles.histGenBtnText}>{t("history_generate_save")}</Text></>
                   }
                 </TouchableOpacity>
                 {historyBanner && (
-                  <View style={[styles.histBanner, { backgroundColor: historyBanner.includes("Fail") || historyBanner.includes("失败") ? c.errorBg : c.successBg }]}>
-                    <Ionicons name={historyBanner.includes("Fail") || historyBanner.includes("失败") ? "alert-circle-outline" : "checkmark-circle-outline"} size={14}
-                      color={historyBanner.includes("Fail") || historyBanner.includes("失败") ? c.error : c.success} />
-                    <Text style={[styles.histBannerText, { color: historyBanner.includes("Fail") || historyBanner.includes("失败") ? c.error : c.success }]}>{historyBanner}</Text>
+                  <View style={[styles.histBanner, { backgroundColor: historyBannerIsError ? c.errorBg : c.successBg }]}>
+                    <Ionicons name={historyBannerIsError ? "alert-circle-outline" : "checkmark-circle-outline"} size={14}
+                      color={historyBannerIsError ? c.error : c.success} />
+                    <Text style={[styles.histBannerText, { color: historyBannerIsError ? c.error : c.success }]}>{historyBanner}</Text>
                   </View>
                 )}
               </ScrollView>
@@ -612,7 +615,7 @@ export default function RecipesScreen() {
                     value={editPrepTime}
                     onChangeText={setEditPrepTime}
                     keyboardType="number-pad"
-                    placeholder="e.g. 30"
+                    placeholder={t("edit_placeholder_prep")}
                     placeholderTextColor={c.textPlaceholder}
                   />
                   <Text style={[styles.editFieldLabel, { color: c.textMuted }]}>{t("edit_field_calories").toUpperCase()}</Text>
@@ -621,7 +624,7 @@ export default function RecipesScreen() {
                     value={editCalories}
                     onChangeText={setEditCalories}
                     keyboardType="number-pad"
-                    placeholder="e.g. 450"
+                    placeholder={t("edit_placeholder_calories")}
                     placeholderTextColor={c.textPlaceholder}
                   />
                   <Text style={[styles.editFieldLabel, { color: c.textMuted }]}>{t("edit_field_servings").toUpperCase()}</Text>
@@ -630,7 +633,7 @@ export default function RecipesScreen() {
                     value={editServings}
                     onChangeText={setEditServings}
                     keyboardType="number-pad"
-                    placeholder="e.g. 2"
+                    placeholder={t("edit_placeholder_servings")}
                     placeholderTextColor={c.textPlaceholder}
                   />
 
@@ -644,7 +647,7 @@ export default function RecipesScreen() {
                         style={[styles.editIngName, { color: c.text, borderColor: c.border, backgroundColor: c.inputBg }]}
                         value={ing.name}
                         onChangeText={(v) => setEditIngredients((prev) => prev.map((x, j) => j === i ? { ...x, name: v } : x))}
-                        placeholder="Ingredient"
+                        placeholder={t("edit_placeholder_ingredient")}
                         placeholderTextColor={c.textPlaceholder}
                       />
                       <TextInput
@@ -652,14 +655,14 @@ export default function RecipesScreen() {
                         value={ing.amount}
                         onChangeText={(v) => setEditIngredients((prev) => prev.map((x, j) => j === i ? { ...x, amount: v } : x))}
                         keyboardType="default"
-                        placeholder="Amt"
+                        placeholder={t("edit_placeholder_amount")}
                         placeholderTextColor={c.textPlaceholder}
                       />
                       <TextInput
                         style={[styles.editIngUnit, { color: c.text, borderColor: c.border, backgroundColor: c.inputBg }]}
                         value={ing.unit}
                         onChangeText={(v) => setEditIngredients((prev) => prev.map((x, j) => j === i ? { ...x, unit: v } : x))}
-                        placeholder="Unit"
+                        placeholder={t("edit_placeholder_unit")}
                         placeholderTextColor={c.textPlaceholder}
                       />
                       <TouchableOpacity
@@ -676,7 +679,7 @@ export default function RecipesScreen() {
                   >
                     <Ionicons name="add" size={15} color={c.textMuted} />
                     <Text style={[styles.addRowBoxText, { color: c.textPlaceholder }]}>
-                      {language === "zh" ? "添加食材…" : "Add ingredient…"}
+                      {t("edit_add_ingredient")}
                     </Text>
                   </TouchableOpacity>
 
@@ -693,7 +696,7 @@ export default function RecipesScreen() {
                         style={[styles.editStepInput, { color: c.text, borderColor: c.border, backgroundColor: c.inputBg }]}
                         value={step}
                         onChangeText={(v) => setEditSteps((prev) => prev.map((s, j) => j === i ? v : s))}
-                        placeholder={`Step ${i + 1}`}
+                        placeholder={strings.step_placeholder(i + 1)}
                         placeholderTextColor={c.textPlaceholder}
                         multiline
                       />
@@ -711,7 +714,7 @@ export default function RecipesScreen() {
                   >
                     <Ionicons name="add" size={15} color={c.textMuted} />
                     <Text style={[styles.addRowBoxText, { color: c.textPlaceholder }]}>
-                      {language === "zh" ? "添加步骤…" : "Add step…"}
+                      {t("edit_add_step")}
                     </Text>
                   </TouchableOpacity>
 
@@ -731,7 +734,7 @@ export default function RecipesScreen() {
                     >
                       {editSaving
                         ? <ActivityIndicator size="small" color="#FFF" />
-                        : <Text style={styles.editSaveBtnText}>{selectedRecipe?.source_name === "__mine__" ? (language === "zh" ? "保存" : "Save") : (language === "zh" ? "存入「我的」" : "Save to Mine")}</Text>
+                        : <Text style={styles.editSaveBtnText}>{selectedRecipe?.source_name === "__mine__" ? t("save") : t("save_to_mine")}</Text>
                       }
                     </TouchableOpacity>
                   </View>
@@ -760,7 +763,7 @@ export default function RecipesScreen() {
                   <View style={styles.detailTagsRow}>
                     {(selectedRecipe.tags ?? []).map((tag) => (
                       <View key={tag} style={[styles.tag, { backgroundColor: c.chipBg }]}>
-                        <Text style={[styles.tagText, { color: c.chipText }]}>{tag}</Text>
+                        <Text style={[styles.tagText, { color: c.chipText }]}>{translateTag(tag, language)}</Text>
                       </View>
                     ))}
                     {showTagInput ? (
@@ -769,7 +772,7 @@ export default function RecipesScreen() {
                           style={[{ fontSize: 12, color: c.text, minWidth: 60 }]}
                           value={newTagText}
                           onChangeText={setNewTagText}
-                          placeholder={language === "zh" ? "输入标签…" : "Tag name…"}
+                          placeholder={t("add_tag")}
                           placeholderTextColor={c.textPlaceholder}
                           autoFocus
                           returnKeyType="done"

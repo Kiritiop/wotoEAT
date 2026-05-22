@@ -266,6 +266,11 @@ export async function swapMeal(
   profile: HealthProfile,
   pantry: PantryItem[],
   language = "en",
+  cuisine_preference?: string,
+  flavour_preference?: string,
+  max_prep_time_mins?: number,
+  required_ingredients?: string,
+  meal_style?: string,
 ): Promise<DailyPlanMeal> {
   const res = await api.post("/meals/swap", {
     slot,
@@ -273,6 +278,11 @@ export async function swapMeal(
     profile,
     pantry: pantry.map((p) => p.name),
     language,
+    cuisine_preference,
+    flavour_preference,
+    max_prep_time_mins,
+    required_ingredients,
+    meal_style,
   });
   return res.data;
 }
@@ -308,8 +318,9 @@ export async function generateRecipeByName(
   dishName: string,
   language = "en",
   servings = 2,
+  forceRefresh = false,
 ): Promise<Recipe> {
-  const res = await api.post("/recipes/generate", { dish_name: dishName, language, servings });
+  const res = await api.post("/recipes/generate", { dish_name: dishName, language, servings, force_refresh: forceRefresh });
   return res.data as Recipe;
 }
 
@@ -349,6 +360,11 @@ export async function getPantry(): Promise<PantryItem[]> {
 
 export async function upsertPantry(items: PantryItem[]): Promise<PantryItem[]> {
   const res = await api.post("/pantry/", { items });
+  return res.data;
+}
+
+export async function replacePantry(items: PantryItem[]): Promise<PantryItem[]> {
+  const res = await api.post("/pantry/replace", { items });
   return res.data;
 }
 

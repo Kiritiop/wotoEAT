@@ -70,8 +70,9 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
     }
     setPhase("loading");
     setError(null);
+    const isRegenerate = recipe != null;
     try {
-      const result = await generateRecipeByName(dishName.trim(), language, globalServings ?? 2);
+      const result = await generateRecipeByName(dishName.trim(), language, globalServings ?? 2, isRegenerate);
       setRecipe(result);
       // BUG-14: use the user's requested servings, not whatever the API returned
       setPreviewServings(globalServings ?? 2);
@@ -273,9 +274,7 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
                     })}
                     {recipe.ingredients.length > 6 && (
                       <Text style={[styles.moreHint, { color: c.textPlaceholder }]}>
-                        {language === "zh"
-                          ? `+${recipe.ingredients.length - 6} 种食材`
-                          : `+${recipe.ingredients.length - 6} more ingredients`}
+                        {strings.more_ingredients(recipe.ingredients.length - 6)}
                       </Text>
                     )}
                   </>

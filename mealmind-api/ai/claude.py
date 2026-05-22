@@ -100,12 +100,13 @@ async def generate_shopping_list(recipes: list, pantry: list, language: str = "e
 # Recipe generation by dish name
 # ---------------------------------------------------------------------------
 
-async def generate_recipe_by_name(dish_name: str, language: str = "en", servings: int = 2) -> dict:
+async def generate_recipe_by_name(dish_name: str, language: str = "en", servings: int = 2, force_refresh: bool = False) -> dict:
     cache_data = {"dish": dish_name.lower().strip(), "lang": language, "servings": servings}
     key = _cache_key(cache_data)
-    cached = cache_get(key)
-    if cached is not None:
-        return cached
+    if not force_refresh:
+        cached = cache_get(key)
+        if cached is not None:
+            return cached
 
     response = await _client.chat.completions.create(
         model=MODEL,
@@ -136,6 +137,8 @@ async def generate_meal_plan(filters: dict) -> tuple[dict, bool]:
         messages=[{"role": "user", "content": meal_generate_prompt(filters, language)}],
     )
     result = json.loads(_clean_json(_extract_text(response)))
+    if isinstance(result, dict) and result.get("error") == "no_match":
+        raise ValueError(result.get("message", "No dish can satisfy the required tags."))
     cache_set(key, result, _CACHE_TTL)
     return result, False
 
@@ -153,6 +156,8 @@ async def swap_meal(slot: str, current_plan: dict, filters: dict) -> dict:
         messages=[{"role": "user", "content": meal_generate_prompt(swap_filters, language)}],
     )
     result = json.loads(_clean_json(_extract_text(response)))
+    if isinstance(result, dict) and result.get("error") == "no_match":
+        raise ValueError(result.get("message", "No dish can satisfy the required tags."))
     meals = result.get("meals", [result])
     return meals[0] if meals else result
 

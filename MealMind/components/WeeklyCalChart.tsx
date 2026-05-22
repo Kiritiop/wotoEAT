@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet } from "react-native";
 import { useTheme } from "@/hooks/useTheme";
 import { useAppStore } from "@/store/useAppStore";
+import { useTranslation } from "@/hooks/useTranslation";
 import type { PlanHistoryEntry } from "@/services/api";
 
 interface Props {
@@ -20,6 +21,7 @@ function formatDate(dateStr: string, locale: string): string {
  */
 export function WeeklyCalChart({ history, targetCalories }: Props) {
   const c = useTheme();
+  const { t } = useTranslation();
   const language = useAppStore((s) => s.language);
   const locale = language === "zh" ? "zh-CN" : "en-US";
 
@@ -33,12 +35,12 @@ export function WeeklyCalChart({ history, targetCalories }: Props) {
 
   return (
     <View style={[styles.container, { backgroundColor: c.surface, borderColor: c.border }]}>
-      <Text style={[styles.title, { color: c.text }]}>{language === "zh" ? "本周卡路里" : "Weekly Calories"}</Text>
+      <Text style={[styles.title, { color: c.text }]}>{t("weekly_cal_chart")}</Text>
 
       {/* Target line label */}
       {targetCalories != null && (
         <Text style={[styles.targetLabel, { color: c.textMuted }]}>
-          Target: {targetCalories} kcal
+          {t("calorie_goal")}: {targetCalories} {t("calories_label")}
         </Text>
       )}
 
