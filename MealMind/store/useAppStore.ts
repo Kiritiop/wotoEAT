@@ -234,7 +234,10 @@ export const useAppStore = create<AppState>()(
         if (!state) return;
         const today = new Date().toISOString().slice(0, 10);
         if (state.dailyPlan && state.planDate !== today) {
-          state.clearDailyPlan();
+          state.dailyPlan = null;
+          state.planDate = null;
+          state.confirmedSlots = [];
+          state.selectedRecipes = [];
         }
       },
       // Only persist user-generated data; authReady is ephemeral (never persisted)

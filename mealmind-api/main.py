@@ -14,7 +14,10 @@ app = FastAPI(
     description="AI-powered meal discovery, recipe parsing, and shopping list engine.",
 )
 
-_origins_env = os.getenv("ALLOWED_ORIGINS", "http://localhost:8081,http://localhost:19006,https://wotoeat.com")
+_origins_env = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:8081,http://localhost:19006,https://wotoeat.com,https://wotoeat.vercel.app",
+)
 _allowed_origins = [o.strip() for o in _origins_env.split(",") if o.strip()]
 
 app.add_middleware(

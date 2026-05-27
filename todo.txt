@@ -1,0 +1,165 @@
+loading saved recipes dont work:
+Failed to load resource: the server responded with a status of 401 ()Understand this error
+mealmind-production-dc38.up.railway.app/shopping/current:1  Failed to load resource: the server responded with a status of 401 ()Understand this error
+mealmind-production-dc38.up.railway.app/profile/:1  Failed to load resource: the server responded with a status of 401 ()Understand this error
+mealmind-production-dc38.up.railway.app/shopping/current:1  Failed to load resource: the server responded with a status of 401 ()Understand this error
+mealmind-production-dc38.up.railway.app/pantry/:1  Failed to load resource: the server responded with a status of 401 ()Understand this error
+mealmind-production-dc38.up.railway.app/pantry/:1  Failed to load resource: the server responded with a status of 401 ()Understand this error
+mealmind-production-dc38.up.railway.app/recipes/saved:1  Failed to load resource: the server responded with a status of 401 ()Understand this error
+mealmind-production-dc38.up.railway.app/recipes/saved:1  Failed to load resource: the server responded with a status of 401 ()Understand this error
+mealmind-production-dc38.up.railway.app/recipes/saved:1  Failed to load resource: the server responded with a status of 401 ()Understand this error
+mealmind-production-dc38.up.railway.app/recipes/saved:1  Failed to load resource: the server responded with a status of 401 ()Understand this error
+mealmind-production-dc38.up.railway.app/recipes/saved:1  Failed to load resource: the server responded with a status of 401 ()Understand this error
+mealmind-production-dc38.up.railway.app/recipes/saved:1  Failed to load resource: the server responded with a status of 401 ()Understand this error
+mealmind-production-dc38.up.railway.app/recipes/saved:1  Failed to load resource: the server responded with a status of 401 ()Understand this error
+mealmind-production-dc38.up.railway.app/recipes/saved:1  Failed to load resource: the server responded with a status of 401 ()Understand this error
+mealmind-production-dc38.up.railway.app/recipes/saved:1  Failed to load resource: the server responded with a status of 401 ()Understand this error
+mealmind-production-dc38.up.railway.app/recipes/saved:1  Failed to load resource: the server responded with a status of 401 ()
+
+
+additionally, when the page is opened, the previous plan should be removed and it should say no plan yet, the recipe from the previous session should be gone
+
+searching for a recipe still doesnt work:
+
+entry-9087729e1ac4efbd1e5d246a2ceb4084.js:904  POST https://mealmind-production-dc38.up.railway.app/recipes/generate 401 (Unauthorized)
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:904
+xhr @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:904
+c @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:887
+Promise.then
+_request @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:880
+request @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:880
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:880
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:879
+_e.generateRecipeByName @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:875
+J @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:999
+onClick @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:442
+ef @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+Bn @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+of @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+Fd @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+Td @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531Understand this error
+entry-9087729e1ac4efbd1e5d246a2ceb4084.js:904  POST https://mealmind-production-dc38.up.railway.app/recipes/generate 401 (Unauthorized)
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:904
+xhr @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:904
+c @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:887
+Promise.then
+_request @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:880
+request @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:880
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:879
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:875
+Promise.then
+_request @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:880
+request @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:880
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:880
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:879
+_e.generateRecipeByName @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:875
+J @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:999
+onClick @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:442
+ef @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+Bn @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+of @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+Fd @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+Td @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531Understand this error
+entry-9087729e1ac4efbd1e5d246a2ceb4084.js:904  POST https://mealmind-production-dc38.up.railway.app/recipes/generate 401 (Unauthorized)
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:904
+xhr @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:904
+c @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:887
+Promise.then
+_request @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:880
+request @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:880
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:880
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:879
+_e.generateRecipeByName @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:875
+J @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:999
+onClick @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:442
+ef @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+Bn @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+of @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+Fd @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+Td @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531Understand this error
+entry-9087729e1ac4efbd1e5d246a2ceb4084.js:904  POST https://mealmind-production-dc38.up.railway.app/recipes/generate 401 (Unauthorized)
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:904
+xhr @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:904
+c @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:887
+Promise.then
+_request @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:880
+request @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:880
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:879
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:875
+Promise.then
+_request @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:880
+request @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:880
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:880
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:879
+_e.generateRecipeByName @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:875
+J @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:999
+onClick @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:442
+ef @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+Bn @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+of @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+Fd @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+Td @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531Understand this error
+entry-9087729e1ac4efbd1e5d246a2ceb4084.js:904  POST https://mealmind-production-dc38.up.railway.app/recipes/generate 401 (Unauthorized)
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:904
+xhr @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:904
+c @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:887
+Promise.then
+_request @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:880
+request @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:880
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:880
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:879
+_e.generateRecipeByName @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:875
+J @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:999
+onClick @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:442
+ef @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+Bn @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+of @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+Fd @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+Td @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531Understand this error
+entry-9087729e1ac4efbd1e5d246a2ceb4084.js:904  POST https://mealmind-production-dc38.up.railway.app/recipes/generate 401 (Unauthorized)
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:904
+xhr @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:904
+c @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:887
+Promise.then
+_request @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:880
+request @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:880
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:879
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:875
+Promise.then
+_request @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:880
+request @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:880
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:880
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:879
+_e.generateRecipeByName @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:875
+J @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:999
+onClick @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:442
+ef @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+Bn @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+of @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+Fd @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+Td @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531Understand this error
+entry-9087729e1ac4efbd1e5d246a2ceb4084.js:904  POST https://mealmind-production-dc38.up.railway.app/recipes/generate 401 (Unauthorized)
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:904
+xhr @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:904
+c @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:887
+Promise.then
+_request @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:880
+request @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:880
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:880
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:879
+_e.generateRecipeByName @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:875
+J @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:999
+onClick @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:442
+ef @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+(anonymous) @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+Bn @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+of @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+Fd @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531
+Td @ entry-9087729e1ac4efbd1e5d246a2ceb4084.js:531Understand this error
+entry-9087729e1ac4efbd1e5d246a2ceb4084.js:904  POST https://mealmind-production-dc38.up.railway.app/recipes/generate 401 (Unauthorized)
