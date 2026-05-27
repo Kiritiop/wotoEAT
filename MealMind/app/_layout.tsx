@@ -19,22 +19,20 @@ export default function RootLayout() {
   const theme = useTheme();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setAuthToken(data.session?.access_token ?? null);
-      setAuthReady(true);
-      setReady(true);
-    });
-
+    // onAuthStateChange fires INITIAL_SESSION once storage is read — use it as
+    // the single source of truth so authReady is only set after the token is known.
     const { data: listener } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
-      setAuthToken(s?.access_token ?? null); // Keep interceptor token in sync immediately
+      setAuthToken(s?.access_token ?? null);
+      // Mark auth as ready on the first event (INITIAL_SESSION or SIGNED_IN).
+      setAuthReady(true);
+      setReady(true);
     });
     return () => listener.subscription.unsubscribe();
   }, []);
 
   // Load profile from backend whenever a session is established.
-  // Wait for `ready` so getSession().then() has run and setAuthToken() is guaranteed.
+  // Wait for `ready` so onAuthStateChange has fired and setAuthToken() is guaranteed.
   useEffect(() => {
     if (!session || !ready) return;
     getProfile()
