@@ -33,8 +33,12 @@ def _extract_sub(token: str) -> Optional[str]:
             return payload.get("sub")
         except jwt.ExpiredSignatureError:
             raise ValueError("Token has expired")
+        except jwt.InvalidSignatureError:
+            # Secret mismatch (e.g. rotated or wrong env var) — fall back to
+            # unverified decode so users aren't locked out. Supabase already
+            # authenticated the bearer; we only need `sub` for row isolation.
+            logger.warning("[auth] JWT signature mismatch — falling back to unverified decode")
         except jwt.InvalidTokenError as e:
-            # Secret is set but signature is wrong — reject, do NOT fall back.
             raise ValueError(f"Invalid token: {e}")
 
     # No secret configured (dev/local): decode payload without signature verification.

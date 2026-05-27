@@ -135,9 +135,52 @@ def delete_recipe(recipe_id: str, user_id: str) -> None:
     )
 
 
+def update_recipe_labels(recipe_id: str, user_id: str, labels: list) -> dict:
+    result = (
+        get_client()
+        .table("saved_recipes")
+        .update({"labels": labels})
+        .eq("id", recipe_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    return result.data[0] if result.data else {}
+
+
 # ---------------------------------------------------------------------------
 # Shopping lists
 # ---------------------------------------------------------------------------
+
+def get_current_shopping_list(user_id: str) -> dict | None:
+    result = (
+        get_client()
+        .table("shopping_lists")
+        .select("items")
+        .eq("user_id", user_id)
+        .eq("name", "current")
+        .limit(1)
+        .execute()
+    )
+    if result.data:
+        return result.data[0].get("items")
+    return None
+
+
+def upsert_current_shopping_list(user_id: str, items: dict) -> None:
+    client = get_client()
+    existing = (
+        client.table("shopping_lists")
+        .select("id")
+        .eq("user_id", user_id)
+        .eq("name", "current")
+        .limit(1)
+        .execute()
+    )
+    if existing.data:
+        client.table("shopping_lists").update({"items": items}).eq("id", existing.data[0]["id"]).execute()
+    else:
+        client.table("shopping_lists").insert({"user_id": user_id, "name": "current", "items": items, "recipe_ids": []}).execute()
+
 
 def save_shopping_list(user_id: str, name: str, items: dict, recipe_ids: list[str]) -> Any:
     row = {

@@ -202,6 +202,7 @@ export interface SavedRecipe {
   steps?: string[];
   tags?: string[];
   warnings?: string[];
+  labels?: string[];
   created_at?: string;
 }
 
@@ -341,6 +342,28 @@ export async function updateRecipe(id: string, recipe: Recipe): Promise<SavedRec
 
 export async function deleteRecipe(id: string): Promise<void> {
   await api.delete(`/recipes/${id}`);
+}
+
+export async function updateRecipeLabels(id: string, labels: string[]): Promise<void> {
+  await api.patch(`/recipes/${id}/labels`, { labels });
+}
+
+export async function getCurrentShoppingList(): Promise<ShoppingList | null> {
+  try {
+    const res = await api.get("/shopping/current");
+    const data = res.data as ShoppingList;
+    return data?.groups?.length ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveCurrentShoppingList(list: ShoppingList): Promise<void> {
+  try {
+    await api.put("/shopping/current", list);
+  } catch {
+    // best-effort — local state is still updated
+  }
 }
 
 export async function generateShoppingList(

@@ -1,16 +1,15 @@
-1. When the user enters the platform the meal from the previous session and whatnot should be refreshed and be gone 
-2. The _tag_note() require tag count should have no upper limit, there should have all the tags that is necessary to be part of the dish
-3. When you reload the page on the wotoeat.com/discover tab, it just straight up gives you an error. The platform should not always default to the starting menu, it should only be shown to new users and whatnot. Every page should be a standalone page and not all have to go back to the root wotoeat.com page
-4. When the user selects the Main Dish setting, the meal should not have carbohydrates and should just be a dish not a full meal. A dish is like something that goes with rice etc in asian cultures you make a dish and you can eat it with rice and stuff, but rice and other carbs shouldnt be a part of the actual dish.
-5. The swap button should also exist for searched recipes, or the Regenerate button has to generate a different dish, right now it keeps generating the same dish for no reason
-6. The swap button also completely ignores the tags selected in preferences. Upon clicking the swap button, it should keep in mind all the preferences and generate another recipe accordingly. This feature should also work if the user presses the Generate button again.
-7. The nutritional values: "520
-kcal
-55g
-Protein
-30g
-Carbs
-20g
-Fat
-5g
-" should only be available when the user presses on the information icon. 
+Failed to load resource: the server responded with a status of 401 ()Understand this error
+mealmind-production-dc38.up.railway.app/profile/:1  Failed to load resource: the server responded with a status of 401 ()Understand this error
+mealmind-production-dc38.up.railway.app/recipes/generate:1  Failed to load resource: the server responded with a status of 401 ()Understand this error
+mealmind-production-dc38.up.railway.app/recipes/generate:1  Failed to load resource: the server responded with a status of 401 ()Understand this error
+discover:1  Failed to load resource: the server responded with a status of 404 ()
+
+when I try to seach up a recipe now, it shows error
+
+additionally, for images i dont want to just use this databse, i want the ai to search the internet for pictures accurately depicting the dish and not some random images
+
+this is the format of the steps i want a recipe to have:
+
+烹饪步骤1.切丁与腌制：耗时约10分钟。将鸡腿肉剔骨，切成约 1.5 厘米见方的小丁。加入料酒、生抽和水淀粉，用手抓匀，直到鸡肉把水分吸干，表面呈现黏稠感，最后淋入半汤匙植物油锁住水分，静置腌制10分钟。2.调制碗汁：炒菜前的关键准备。找一个小碗，将白糖、香醋、生抽、老抽、料酒、干淀粉和清水倒入碗中，彻底搅拌均匀。炒这道菜必须提前调好汁，因为爆炒速度极快，容不得在锅里一项项慢慢加调料。3.爆香底料：逼出糊辣风味。热锅冷油，下入腌好的鸡丁，快速滑散至变色（约八成熟），立刻捞出备用。锅内留底油，转小火，先下花椒和干辣椒段，慢炒至辣椒微微变焦黄（即“糊辣”风味的来源），随后放入姜片、蒜片和大葱段炒出香味。4.大火快炒与泼汁：起锅关键期。转大火，倒入滑好的鸡丁快速翻炒几下。将调好的碗汁再次搅拌均匀（防止淀粉沉淀），顺着锅边淋入。迅速翻炒，让芡汁在高温下瞬间浓稠，均匀地包裹在每一个鸡丁上。5.花生米收尾：保持酥脆的秘诀。关火前，倒入准备好的熟花生米，快速颠锅翻匀，即可出锅装盘。花生米一定要最后放，在锅里停留时间超过10秒就会被芡汁捂软，失去酥脆的灵魂。美味秘诀：糖和醋的比例基本是 1:1，这就是标准的荔枝味基底。如果你喜欢酸甜感更明显，可以稍微多加一点点醋。炒大葱段时，不要炒得太烂，保留一点点脆度，吸饱了酱汁的葱段甚至比鸡肉还要抢手！
+
+additionally, when the user logs out, all their content is wiped, settings, preferences, history, whatever, EVERYTHIGN is wiped. fix this issue

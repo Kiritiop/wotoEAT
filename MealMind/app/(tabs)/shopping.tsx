@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import { IngredientRow } from "@/components/IngredientRow";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useAppStore } from "@/store/useAppStore";
-import { generateShoppingList } from "@/services/api";
+import { generateShoppingList, saveCurrentShoppingList } from "@/services/api";
 import { formatShoppingListText, countShoppingItems } from "@/utils/shopping";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -33,6 +33,18 @@ export default function ShoppingScreen() {
   const c = useTheme();
   const { t, strings } = useTranslation();
   const [loading, setLoading] = useState(false);
+
+  // Debounced auto-save: sync shopping list to account 2s after any change
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      if (shoppingList) saveCurrentShoppingList(shoppingList).catch(() => {});
+    }, 2000);
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+  }, [shoppingList]);
   const [error, setError] = useState<string | null>(null);
 
   async function handleGenerate() {

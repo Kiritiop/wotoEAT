@@ -4,7 +4,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StatusBar } from "expo-status-bar";
 import { supabase } from "@/lib/supabase";
 import { useAppStore } from "@/store/useAppStore";
-import { getProfile, setAuthToken } from "@/services/api";
+import { getProfile, setAuthToken, getCurrentShoppingList } from "@/services/api";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { NetworkBanner } from "@/components/NetworkBanner";
 import { useTheme } from "@/hooks/useTheme";
@@ -15,7 +15,7 @@ export default function RootLayout() {
   const [ready, setReady] = useState(false);
   const router = useRouter();
   const segments = useSegments();
-  const { setProfile, setHasOnboarded, hasOnboarded, setAuthReady } = useAppStore();
+  const { setProfile, setHasOnboarded, hasOnboarded, setAuthReady, setShoppingList } = useAppStore();
   const theme = useTheme();
 
   useEffect(() => {
@@ -45,6 +45,9 @@ export default function RootLayout() {
         }
       })
       .catch(() => {}); // Silently ignore; persisted local profile is fallback
+    getCurrentShoppingList()
+      .then((list) => { if (list) setShoppingList(list); })
+      .catch(() => {});
   }, [session?.user?.id, ready]);
 
   // Redirect based on auth + onboarding state

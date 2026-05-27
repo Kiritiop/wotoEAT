@@ -16,13 +16,17 @@ def _tag_note() -> str:
         'tags must ALWAYS be in English, regardless of the response language. '
         'Generate as many tags as the dish genuinely requires — include every one that applies. '
         'Cover ALL of: '
-        '(1) every key ingredient as its own tag (e.g. "chicken", "garlic", "tomato", "rice"), '
+        '(1) every key ingredient as its own tag — use the SPECIFIC cut, part, or form used in the dish, '
+        'not just the base protein/vegetable. '
+        'For example: "chicken wings" not "chicken", "chicken breast" not "chicken", '
+        '"pork belly" not "pork", "ground beef" not "beef", "salmon fillet" not "fish". '
+        'Only use the generic name (e.g. "chicken") when no specific cut is implied. '
         '(2) dietary labels (e.g. "high-protein", "gluten-free", "dairy-free"), '
         '(3) flavour profile (e.g. "spicy", "umami", "savory", "mild"), '
         '(4) cooking style (e.g. "stir-fry", "baked", "steamed", "one-pot"), '
         '(5) occasion/lifestyle (e.g. "quick", "meal-prep", "comfort food", "healthy"). '
-        'Be thorough — list every main ingredient separately. '
-        'Examples: "chicken", "broccoli", "soy sauce", "high-protein", "stir-fry", "spicy", "quick", "gluten-free"'
+        'Be thorough — list every main ingredient separately using its specific form. '
+        'Examples: "chicken wings", "broccoli", "soy sauce", "high-protein", "stir-fry", "spicy", "quick", "gluten-free"'
     )
 
 
@@ -164,7 +168,7 @@ This recipe is for {servings} {serving_word} — scale all ingredient amounts ac
 
 RULES:
 - ingredients must have realistic amounts and units scaled for {servings} serving(s) (e.g. {{"name": "chicken breast", "amount": 300, "unit": "g"}})
-- steps should be clear and actionable — include as many steps as the dish genuinely requires; do not compress or skip steps
+- steps: include as many steps as the dish requires — never compress or skip. Each step MUST use this format: "Step N — [Brief Title] (≈X min): [Full instructions with technique cues, visual/sensory checkpoints, and tips]". Example: "Step 1 — Marinate (≈10 min): Cut chicken thigh into 1.5 cm cubes. Combine with rice wine, soy sauce, and cornstarch; knead until sticky. Drizzle oil to seal moisture. Rest 10 minutes." Keep each step focused on one phase.
 - calories_per_serving is a realistic estimate per individual serving, or null if uncertain
 - {tag_note}
 - warnings are allergen notices in the response language (e.g. "contains eggs")
@@ -248,7 +252,7 @@ RULES:
 - difficulty must be one of: "easy", "medium", "hard"
 - prep_time_mins is realistic total time including cooking
 - ingredients: flat list scaled for {servings} serving(s), e.g. ["300g chicken breast", "2 tbsp soy sauce"]
-- steps: 3-6 clear, actionable cooking steps
+- steps: include every step the dish requires — never compress. Each step MUST use this format: "Step N — [Brief Title] (≈X min): [Full instructions with technique cues and tips]". Example: "Step 2 — Sear (≈5 min): Heat oil in wok until smoking. Add chicken; stir-fry without moving for 30 seconds until golden on one side, then toss until just cooked through. Remove and set aside."
 - components.vegetable / .protein / .staple: short component names (e.g. "broccoli", "chicken", "rice")
 - uses_pantry_items: ingredient names that match items in the pantry filter
 - {tag_note}

@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from db.models import GenerateShoppingListRequest, ShoppingList
 from ai.claude import generate_shopping_list
 from db import supabase_client as db
-from .auth import get_optional_user_id
+from .auth import get_optional_user_id, require_user_id
 
 router = APIRouter(tags=["shopping"])
 
@@ -33,6 +33,29 @@ async def generate(
             pass
 
     return shopping_list
+
+
+@router.get("/current", response_model=dict)
+async def get_current(user_id: str = Depends(require_user_id)):
+    """GET /shopping/current — returns the user's saved shopping list."""
+    try:
+        data = db.get_current_shopping_list(user_id)
+        return data if data is not None else {"groups": []}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.put("/current", response_model=dict)
+async def save_current(
+    req: ShoppingList,
+    user_id: str = Depends(require_user_id),
+):
+    """PUT /shopping/current — save/update the user's current shopping list."""
+    try:
+        db.upsert_current_shopping_list(user_id, req.model_dump())
+        return req.model_dump()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @router.get("/history", response_model=list[dict])

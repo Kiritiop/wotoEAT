@@ -64,6 +64,7 @@ interface AppState {
   recipeLabels: Record<string, string[]>;
   addRecipeLabel: (recipeId: string, label: string) => void;
   removeRecipeLabel: (recipeId: string, label: string) => void;
+  setAllRecipeLabels: (labels: Record<string, string[]>) => void;
 
   // ── Servings preference ───────────────────────────────────────────────────
   servings: number;
@@ -190,6 +191,7 @@ export const useAppStore = create<AppState>()(
           const existing = state.recipeLabels[recipeId] ?? [];
           return { recipeLabels: { ...state.recipeLabels, [recipeId]: existing.filter((l) => l !== label) } };
         }),
+      setAllRecipeLabels: (labels) => set({ recipeLabels: labels }),
 
       // ── Servings ──────────────────────────────────────────────────────────
       servings: 2,
@@ -209,19 +211,18 @@ export const useAppStore = create<AppState>()(
         })),
 
       // ── Sign-out reset ────────────────────────────────────────────────────
+      // Only clear session-specific data. Preserve device preferences
+      // (language, servings, hasOnboarded, recipeLabels) so they survive
+      // logout and are ready immediately on next sign-in.
       resetAll: () =>
         set({
-          profile: DEFAULT_PROFILE,
-          hasOnboarded: false,
           dailyPlan: null,
           planDate: null,
           ratings: {},
           selectedRecipes: [],
           pantry: [],
           shoppingList: null,
-          recipeLabels: {},
           confirmedSlots: [],
-          planServings: 2,
         }),
     }),
     {

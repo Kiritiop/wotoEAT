@@ -96,6 +96,10 @@ class UpdateRecipeRequest(BaseModel):
     recipe: Recipe
 
 
+class UpdateLabelsRequest(BaseModel):
+    labels: list[str] = Field(default_factory=list)
+
+
 class ParseRecipeRequest(BaseModel):
     url: str
     language: str = "en"

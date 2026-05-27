@@ -1,4 +1,5 @@
 # wotoEAT — Project Reference
+Update this document every time changes happen, adapt accordingly
 
 ## Overview
 

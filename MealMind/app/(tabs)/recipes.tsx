@@ -16,7 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { getSavedRecipes, deleteRecipe, updateRecipe, saveRecipe, getMealHistory, generateRecipeByName } from "@/services/api";
+import { getSavedRecipes, deleteRecipe, updateRecipe, saveRecipe, getMealHistory, generateRecipeByName, updateRecipeLabels } from "@/services/api";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useAppStore } from "@/store/useAppStore";
@@ -29,7 +29,7 @@ import { MealCard } from "@/components/MealCard";
 type RecipeTab = "saved" | "liked" | "mine" | "history";
 
 export default function RecipesScreen() {
-  const { authReady, recipeLabels, addRecipeLabel, removeRecipeLabel, language, servings: storeServings } = useAppStore();
+  const { authReady, recipeLabels, addRecipeLabel, removeRecipeLabel, setAllRecipeLabels, language, servings: storeServings } = useAppStore();
   const c = useTheme();
   const { t, strings } = useTranslation();
 
@@ -187,6 +187,10 @@ export default function RecipesScreen() {
     try {
       const data = await getSavedRecipes();
       setRecipes(data);
+      // Populate label store from backend (labels column on saved_recipes)
+      const labelsFromBackend: Record<string, string[]> = {};
+      data.forEach((r) => { if (r.labels?.length) labelsFromBackend[r.id] = r.labels; });
+      if (Object.keys(labelsFromBackend).length > 0) setAllRecipeLabels(labelsFromBackend);
       hasFetchedRef.current = true;
     } catch {
       // Silently ignore load errors
@@ -212,10 +216,12 @@ export default function RecipesScreen() {
   }
 
   function toggleLabel(recipeId: string, label: string) {
-    const labels = recipeLabels[recipeId] ?? [];
-    if (labels.includes(label)) removeRecipeLabel(recipeId, label);
+    const current = recipeLabels[recipeId] ?? [];
+    const newLabels = current.includes(label) ? current.filter((l) => l !== label) : [...current, label];
+    if (current.includes(label)) removeRecipeLabel(recipeId, label);
     else addRecipeLabel(recipeId, label);
     Haptics.selectionAsync();
+    updateRecipeLabels(recipeId, newLabels).catch(() => {});
   }
 
   async function addTagToRecipe(tag: string) {
