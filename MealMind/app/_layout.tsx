@@ -22,6 +22,7 @@ export default function RootLayout() {
     // onAuthStateChange fires INITIAL_SESSION once storage is read — use it as
     // the single source of truth so authReady is only set after the token is known.
     const { data: listener } = supabase.auth.onAuthStateChange((_event, s) => {
+      console.log("[auth] onAuthStateChange event:", _event, "token:", s?.access_token ? "EXISTS" : "NULL");
       setSession(s);
       setAuthToken(s?.access_token ?? null);
       // Mark auth as ready on the first event (INITIAL_SESSION or SIGNED_IN).
