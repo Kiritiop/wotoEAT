@@ -48,6 +48,9 @@ export default function ProfileScreen() {
   const [otherRestrictionText, setOtherRestrictionText] = useState("");
   const [showOtherRestrictionInput, setShowOtherRestrictionInput] = useState(false);
 
+  // Inline validation errors for numeric fields (M1, M2)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({});
+
   // BUG-08: local display states prevent float drift from repeated kg↔lbs round-trips
   const toDisplay = (kg: number | undefined, imperial: boolean, factor: number) =>
     kg != null ? (imperial ? (kg * factor).toFixed(1) : kg.toString()) : "";
@@ -267,8 +270,15 @@ export default function ProfileScreen() {
                     placeholder={t("onboarding_age_placeholder")}
                     placeholderTextColor={c.textPlaceholder}
                     value={profile.age?.toString() ?? ""}
-                    onChangeText={(v) => { setProfile({ age: v ? parseInt(v) : undefined }); setSaved(false); }}
+                    onChangeText={(v) => {
+                      const n = v ? parseInt(v) : undefined;
+                      if (n != null && n <= 0) { setFieldErrors((e) => ({ ...e, age: t("validation_positive") })); return; }
+                      setFieldErrors((e) => ({ ...e, age: null }));
+                      setProfile({ age: n });
+                      setSaved(false);
+                    }}
                   />
+                  {fieldErrors.age && <Text style={[styles.fieldError, { color: c.error }]}>{fieldErrors.age}</Text>}
                 </View>
                 <View style={styles.half}>
                   <Text style={[styles.fieldLabel, { color: c.textMuted }]}>{t("sex")}</Text>
@@ -301,12 +311,13 @@ export default function ProfileScreen() {
                     value={weightDisplay}
                     onChangeText={(v) => { setWeightDisplay(v); setSaved(false); }}
                     onBlur={() => {
-                      if (weightDisplay === "") { setProfile({ weight_kg: undefined }); return; }
+                      if (weightDisplay === "") { setProfile({ weight_kg: undefined }); setFieldErrors((e) => ({ ...e, weight: null })); return; }
                       const num = parseFloat(weightDisplay);
-                      if (!isNaN(num) && num > 0) setProfile({ weight_kg: profile.use_imperial ? num / 2.20462 : num });
-                      else setWeightDisplay(profile.weight_kg != null ? toDisplay(profile.weight_kg, !!profile.use_imperial, 2.20462) : "");
+                      if (!isNaN(num) && num > 0) { setProfile({ weight_kg: profile.use_imperial ? num / 2.20462 : num }); setFieldErrors((e) => ({ ...e, weight: null })); }
+                      else { setWeightDisplay(profile.weight_kg != null ? toDisplay(profile.weight_kg, !!profile.use_imperial, 2.20462) : ""); setFieldErrors((e) => ({ ...e, weight: t("validation_positive") })); }
                     }}
                   />
+                  {fieldErrors.weight && <Text style={[styles.fieldError, { color: c.error }]}>{fieldErrors.weight}</Text>}
                 </View>
                 <View style={styles.half}>
                   <Text style={[styles.fieldLabel, { color: c.textMuted }]}>
@@ -320,12 +331,13 @@ export default function ProfileScreen() {
                     value={heightDisplay}
                     onChangeText={(v) => { setHeightDisplay(v); setSaved(false); }}
                     onBlur={() => {
-                      if (heightDisplay === "") { setProfile({ height_cm: undefined }); return; }
+                      if (heightDisplay === "") { setProfile({ height_cm: undefined }); setFieldErrors((e) => ({ ...e, height: null })); return; }
                       const num = parseFloat(heightDisplay);
-                      if (!isNaN(num) && num > 0) setProfile({ height_cm: profile.use_imperial ? num * 2.54 : num });
-                      else setHeightDisplay(profile.height_cm != null ? toDisplay(profile.height_cm, !!profile.use_imperial, 1 / 2.54) : "");
+                      if (!isNaN(num) && num > 0) { setProfile({ height_cm: profile.use_imperial ? num * 2.54 : num }); setFieldErrors((e) => ({ ...e, height: null })); }
+                      else { setHeightDisplay(profile.height_cm != null ? toDisplay(profile.height_cm, !!profile.use_imperial, 1 / 2.54) : ""); setFieldErrors((e) => ({ ...e, height: t("validation_positive") })); }
                     }}
                   />
+                  {fieldErrors.height && <Text style={[styles.fieldError, { color: c.error }]}>{fieldErrors.height}</Text>}
                 </View>
               </View>
 
@@ -339,8 +351,15 @@ export default function ProfileScreen() {
                     placeholder={t("calorie_goal_placeholder")}
                     placeholderTextColor={c.textPlaceholder}
                     value={profile.calorie_goal?.toString() ?? ""}
-                    onChangeText={(v) => { setProfile({ calorie_goal: v ? parseInt(v) : undefined }); setSaved(false); }}
+                    onChangeText={(v) => {
+                      const n = v ? parseInt(v) : undefined;
+                      if (n != null && n <= 0) { setFieldErrors((e) => ({ ...e, calorie_goal: t("validation_positive") })); return; }
+                      setFieldErrors((e) => ({ ...e, calorie_goal: null }));
+                      setProfile({ calorie_goal: n });
+                      setSaved(false);
+                    }}
                   />
+                  {fieldErrors.calorie_goal && <Text style={[styles.fieldError, { color: c.error }]}>{fieldErrors.calorie_goal}</Text>}
                 </View>
                 <View style={styles.half}>
                   <Text style={[styles.fieldLabel, { color: c.textMuted }]}>{t("protein_goal")}</Text>
@@ -350,8 +369,15 @@ export default function ProfileScreen() {
                     placeholder={t("protein_goal_placeholder")}
                     placeholderTextColor={c.textPlaceholder}
                     value={profile.protein_goal_g?.toString() ?? ""}
-                    onChangeText={(v) => { setProfile({ protein_goal_g: v ? parseInt(v) : undefined }); setSaved(false); }}
+                    onChangeText={(v) => {
+                      const n = v ? parseInt(v) : undefined;
+                      if (n != null && n <= 0) { setFieldErrors((e) => ({ ...e, protein_goal_g: t("validation_positive") })); return; }
+                      setFieldErrors((e) => ({ ...e, protein_goal_g: null }));
+                      setProfile({ protein_goal_g: n });
+                      setSaved(false);
+                    }}
                   />
+                  {fieldErrors.protein_goal_g && <Text style={[styles.fieldError, { color: c.error }]}>{fieldErrors.protein_goal_g}</Text>}
                 </View>
               </View>
             </View>
@@ -682,6 +708,7 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
       paddingHorizontal: 12, paddingVertical: 10,
       fontSize: 14,
     },
+    fieldError: { fontSize: 11, marginTop: 3 },
     segmented: { flexDirection: "row", borderRadius: 10, overflow: "hidden", borderWidth: 1 },
     segment: { flex: 1, paddingVertical: 10, alignItems: "center" },
     segmentText: { fontSize: 12, fontWeight: "600" },

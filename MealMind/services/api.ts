@@ -135,6 +135,7 @@ export interface DailyPlanMeal {
   slot: "breakfast" | "lunch" | "dinner";
   name: string;
   cuisine: string;
+  intro?: string | null;
   description: string;
   prep_time_mins: number;
   calories_per_serving: number;
@@ -144,6 +145,7 @@ export interface DailyPlanMeal {
   tags: string[];
   ingredients: string[];
   steps: string[];
+  chef_tips?: string[];
   protein_g?: number;
   carbs_g?: number;
   fat_g?: number;
@@ -172,18 +174,21 @@ export interface PlanHistoryEntry {
 
 export interface Ingredient {
   name: string;
-  amount: number | string;
+  amount: number | string | null;
   unit: string;
   calories?: number;
+  tip?: string | null;
 }
 
 export interface Recipe {
   title: string;
+  intro?: string | null;
   servings: number;
   prep_time_mins: number;
   calories_per_serving?: number;
   ingredients: Ingredient[];
   steps: string[];
+  chef_tips?: string[];
   tags: string[];
   warnings: string[];
   source_url?: string;
@@ -193,6 +198,7 @@ export interface Recipe {
 export interface SavedRecipe {
   id: string;
   title: string;
+  intro?: string | null;
   source_name?: string;
   source_url?: string;
   servings?: number;
@@ -200,6 +206,7 @@ export interface SavedRecipe {
   calories_per_serving?: number;
   ingredients?: Ingredient[];
   steps?: string[];
+  chef_tips?: string[];
   tags?: string[];
   warnings?: string[];
   labels?: string[];

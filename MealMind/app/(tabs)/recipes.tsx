@@ -179,21 +179,24 @@ export default function RecipesScreen() {
     }
   }
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const loadRecipes = useCallback(async (isRefresh = false) => {
     if (!authReady) return;
     // BUG-16: skip redundant fetches on every modal open/close; only refetch on explicit refresh
     if (!isRefresh && hasFetchedRef.current) return;
     if (isRefresh) setRefreshing(true); else setLoading(true);
+    setLoadError(null);
     try {
       const data = await getSavedRecipes();
       setRecipes(data);
-      // Populate label store from backend (labels column on saved_recipes)
+      // Populate label store from backend — include ALL recipes so removed labels are cleared
       const labelsFromBackend: Record<string, string[]> = {};
-      data.forEach((r) => { if (r.labels?.length) labelsFromBackend[r.id] = r.labels; });
-      if (Object.keys(labelsFromBackend).length > 0) setAllRecipeLabels(labelsFromBackend);
+      data.forEach((r) => { labelsFromBackend[r.id] = r.labels ?? []; });
+      setAllRecipeLabels(labelsFromBackend);
       hasFetchedRef.current = true;
-    } catch {
-      // Silently ignore load errors
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Could not load recipes.");
     } finally {
       setRefreshing(false);
       setLoading(false);
@@ -400,6 +403,18 @@ export default function RecipesScreen() {
               </View>
             )}
             {loading && <ActivityIndicator style={{ marginTop: 24 }} color={c.primary} />}
+            {loadError && (
+              <View style={{ marginBottom: 10 }}>
+                <ErrorBanner message={loadError} style={{ marginBottom: 6 }} />
+                <TouchableOpacity
+                  style={[styles.retryBtn, { borderColor: c.error, backgroundColor: c.errorBg }]}
+                  onPress={() => loadRecipes(true)}
+                >
+                  <Ionicons name="refresh-outline" size={14} color={c.error} />
+                  <Text style={[styles.retryBtnText, { color: c.error }]}>{t("retry")}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
             <ErrorBanner message={deleteError} style={{ marginBottom: 10 }} />
             {filteredRecipes.length > 0 && (
               <Text style={[styles.countLabel, { color: c.textPlaceholder }]}>
@@ -765,6 +780,11 @@ export default function RecipesScreen() {
                     )}
                   </View>
 
+                  {/* Intro / flavor description */}
+                  {selectedRecipe.intro && (
+                    <Text style={[styles.detailIntro, { color: c.textSecondary }]}>{selectedRecipe.intro}</Text>
+                  )}
+
                   {/* Tags row */}
                   <View style={styles.detailTagsRow}>
                     {(selectedRecipe.tags ?? []).map((tag) => (
@@ -806,7 +826,12 @@ export default function RecipesScreen() {
                       </Text>
                       {selectedRecipe.ingredients!.map((ing, i) => (
                         <View key={i} style={[styles.detailIngRow, { borderBottomColor: c.borderLight }]}>
-                          <Text style={[styles.detailIngName, { color: c.textSecondary }]}>{ing.name}</Text>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.detailIngName, { color: c.textSecondary }]}>{ing.name}</Text>
+                            {ing.tip && (
+                              <Text style={[styles.detailIngTip, { color: c.textPlaceholder }]}>{ing.tip}</Text>
+                            )}
+                          </View>
                           <Text style={[styles.detailIngAmt, { color: c.textMuted }]}>{ing.amount} {ing.unit}</Text>
                         </View>
                       ))}
@@ -823,6 +848,19 @@ export default function RecipesScreen() {
                             <Text style={styles.detailStepNumText}>{i + 1}</Text>
                           </View>
                           <Text style={[styles.detailStepText, { color: c.textSecondary }]}>{step}</Text>
+                        </View>
+                      ))}
+                    </>
+                  )}
+                  {(selectedRecipe.chef_tips?.length ?? 0) > 0 && (
+                    <>
+                      <Text style={[styles.detailSectionLabel, { color: c.textPlaceholder }]}>
+                        {t("chef_tips_label")}
+                      </Text>
+                      {selectedRecipe.chef_tips!.map((tip, i) => (
+                        <View key={i} style={[styles.detailTipRow, { backgroundColor: c.primaryLight }]}>
+                          <Ionicons name="bulb-outline" size={14} color={c.primary} style={{ flexShrink: 0, marginTop: 1 }} />
+                          <Text style={[styles.detailTipText, { color: c.text }]}>{tip}</Text>
                         </View>
                       ))}
                     </>
@@ -949,6 +987,8 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     searchInput: { flex: 1, fontSize: 14 },
     content: { padding: 16, paddingBottom: 40 },
     countLabel: { fontSize: 13, fontWeight: "600", marginBottom: 8 },
+    retryBtn: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, alignSelf: "flex-start" },
+    retryBtnText: { fontSize: 13, fontWeight: "600" },
     card: {
       flexDirection: "row", alignItems: "flex-start",
       borderRadius: 14, padding: 14, marginBottom: 10,
@@ -985,16 +1025,20 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
       fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5,
       marginTop: 16, marginBottom: 8,
     },
+    detailIntro: { fontSize: 14, lineHeight: 20, marginBottom: 12, fontStyle: "italic" },
     detailIngRow: {
-      flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+      flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start",
       paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth,
     },
     detailIngName: { fontSize: 14, flex: 1 },
+    detailIngTip: { fontSize: 11, lineHeight: 15, marginTop: 2 },
     detailIngAmt: { fontSize: 13 },
     detailStep: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 10 },
     detailStepNum: { width: 22, height: 22, borderRadius: 11, alignItems: "center", justifyContent: "center", flexShrink: 0 },
     detailStepNumText: { fontSize: 11, fontWeight: "800", color: "#FFF" },
     detailStepText: { fontSize: 13, lineHeight: 18, flex: 1 },
+    detailTipRow: { flexDirection: "row", alignItems: "flex-start", gap: 8, borderRadius: 10, padding: 10, marginBottom: 6 },
+    detailTipText: { fontSize: 13, lineHeight: 18, flex: 1 },
     // Edit mode
     editTitleInput: {
       flex: 1, fontSize: 17, fontWeight: "700", borderWidth: 1, borderRadius: 10,

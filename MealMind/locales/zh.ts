@@ -16,6 +16,7 @@ const zh = {
   loading: "加载中…",
   error: "错误",
   retry: "重试",
+  validation_positive: "必须大于 0。",
   done: "完成",
   next: "下一步",
   back: "返回",
@@ -174,6 +175,7 @@ const zh = {
   // ── Expanded meal card ────────────────────────────────────────────────────
   ingredients_label: "配料",
   steps_label: "烹饪步骤",
+  chef_tips_label: "厨师技巧",
   find_recipes_online: "搜索相关食谱",
   min_label: "分钟",
   difficulty_easy: "简单",
@@ -322,6 +324,7 @@ const zh = {
   onboarding_bullet_1: "根据您的需求智能生成餐饮计划",
   onboarding_bullet_2: "管理食材库存，减少浪费",
   onboarding_bullet_3: "智能购物清单",
+  onboarding_save_error: "无法保存您的信息，请检查网络连接后重试。",
 
   // ── Landing page ──────────────────────────────────────────────────────────
   landing_hero_title: "每天吃得更聪明",

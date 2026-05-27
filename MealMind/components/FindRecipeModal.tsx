@@ -260,7 +260,7 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
                       {t("ingredients_label")} ({recipe.ingredients.length})
                     </Text>
                     {recipe.ingredients.slice(0, 6).map((ing, i) => {
-                      const scaledAmt = ing.amount * factor;
+                      const scaledAmt = (typeof ing.amount === "number" ? ing.amount : parseFloat(String(ing.amount ?? "1")) || 1) * factor;
                       const displayAmt = scaledAmt % 1 < 0.05
                         ? Math.round(scaledAmt).toString()
                         : scaledAmt.toFixed(1);

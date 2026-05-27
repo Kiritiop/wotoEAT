@@ -8,23 +8,31 @@ from typing import Optional, Union
 
 class Ingredient(BaseModel):
     name: str
-    amount: float
+    amount: Union[float, None] = None
     unit: str
     calories: Optional[float] = None
+    tip: Optional[str] = None
 
     @field_validator("amount", mode="before")
     @classmethod
-    def coerce_amount(cls, v: Union[str, float, int]) -> float:
+    def coerce_amount(cls, v: Union[str, float, int, None]) -> Optional[float]:
+        if v is None:
+            return None
         if isinstance(v, str):
             v = v.strip()
+            if not v:
+                return None
             try:
                 if "/" in v:
                     num, den = v.split("/", 1)
-                    return float(num) / float(den)
-                return float(v)
+                    result = float(num) / float(den)
+                    return result if result > 0 else None
+                result = float(v)
+                return result if result > 0 else None
             except (ValueError, ZeroDivisionError):
-                return 0.0
-        return float(v)
+                return None
+        result = float(v)
+        return result if result > 0 else None
 
 
 # ---------------------------------------------------------------------------
@@ -43,6 +51,9 @@ class HealthProfile(BaseModel):
     calorie_goal: Optional[int] = None     # daily calorie target
     protein_goal_g: Optional[int] = None   # daily protein target in grams
     use_imperial: Optional[bool] = None    # display weight in lbs, height in inches
+    cuisine_preferences: Optional[list[str]] = None
+    flavour_preference: Optional[str] = None
+    preferred_max_prep_mins: Optional[int] = None
 
 
 # ---------------------------------------------------------------------------
@@ -81,11 +92,13 @@ class MealSuggestResponse(BaseModel):
 
 class Recipe(BaseModel):
     title: str
+    intro: Optional[str] = None
     servings: int
     prep_time_mins: int
     calories_per_serving: Optional[int] = None
     ingredients: list[Ingredient]
     steps: list[str]
+    chef_tips: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     source_url: Optional[str] = None
@@ -177,6 +190,7 @@ class GeneratedMeal(BaseModel):
     slot: str
     name: str
     cuisine: str
+    intro: Optional[str] = None
     description: str
     prep_time_mins: int
     calories_per_serving: int
@@ -186,6 +200,7 @@ class GeneratedMeal(BaseModel):
     tags: list[str] = Field(default_factory=list)
     ingredients: list[str] = Field(default_factory=list)
     steps: list[str] = Field(default_factory=list)
+    chef_tips: list[str] = Field(default_factory=list)
     protein_g: Optional[float] = None
     carbs_g: Optional[float] = None
     fat_g: Optional[float] = None

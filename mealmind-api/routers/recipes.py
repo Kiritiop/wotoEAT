@@ -122,7 +122,7 @@ async def update(
 ):
     """PUT /recipes/{id} — updates an existing saved recipe."""
     try:
-        updated = db.update_recipe(recipe_id, user_id, req.recipe.model_dump())
+        updated = db.update_recipe(recipe_id, user_id, req.recipe.model_dump(exclude_none=True))
         if not updated:
             raise HTTPException(status_code=404, detail="Recipe not found")
         return updated

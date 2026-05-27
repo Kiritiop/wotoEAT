@@ -67,6 +67,7 @@ function MealSlotCard({
   const [showInfo, setShowInfo] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
   const scrollStartY = useRef(0);
+  const isConfirming = useRef(false);
   const c = useTheme();
   const { t, strings } = useTranslation();
   const { language, servings: storeServings, planServings, pantry, shoppingList, addToShoppingList, removeFromShoppingList, addRecipe, removeRecipe, selectedRecipes, toggleConfirmedSlot } = useAppStore();
@@ -96,6 +97,8 @@ function MealSlotCard({
   const [savedBanner, setSavedBanner] = useState<string | null>(null);
 
   function handleConfirm() {
+    if (isConfirming.current) return;
+    isConfirming.current = true;
     const willConfirm = !isConfirmed;
     toggleConfirmedSlot(meal.slot);
     if (willConfirm) {
@@ -128,6 +131,7 @@ function MealSlotCard({
       setCartBanner(null);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
+    isConfirming.current = false;
   }
 
   // Serving size scaler — relative to the servings the plan was generated for
@@ -140,8 +144,10 @@ function MealSlotCard({
   // Dynamic AI translation — kicks in when language="zh" and content is English
   const translatedName = useTranslated(meal.name);
   const translatedDescription = useTranslated(meal.description);
+  const translatedIntro = useTranslated(meal.intro || meal.description);
   const translatedIngredients = useBatchTranslated(meal.ingredients ?? []);
   const translatedSteps = useBatchTranslated(meal.steps ?? []);
+  const translatedChefTips = useBatchTranslated(meal.chef_tips ?? []);
 
   // BUG-05: slot prefix prevents collision when two meals share the same name
   const cartCategory = `${meal.slot}-${meal.name}`;
@@ -255,9 +261,9 @@ function MealSlotCard({
         </View>
 
         <View style={cardStyles.compsRow}>
-          <CompChip icon="leaf" label={meal.components.vegetable} color="#16A34A" />
-          <CompChip icon="fish" label={meal.components.protein} color="#2563EB" />
-          {!!meal.components.staple && <CompChip icon="ellipse" label={meal.components.staple} color="#D97706" />}
+          <CompChip icon="leaf" label={meal.components?.vegetable ?? ""} color="#16A34A" />
+          <CompChip icon="fish" label={meal.components?.protein ?? ""} color="#2563EB" />
+          {!!meal.components?.staple && <CompChip icon="ellipse" label={meal.components.staple} color="#D97706" />}
         </View>
 
         {pantryMatches.length > 0 && (
@@ -365,15 +371,15 @@ function MealSlotCard({
             <View style={cardStyles.componentsList}>
               <View style={cardStyles.componentRow}>
                 <View style={[cardStyles.componentDot, { backgroundColor: "#16A34A" }]} />
-                <Text style={[cardStyles.componentText, { color: c.textSecondary }]}>{meal.components.vegetable}</Text>
+                <Text style={[cardStyles.componentText, { color: c.textSecondary }]}>{meal.components?.vegetable ?? ""}</Text>
               </View>
               <View style={cardStyles.componentRow}>
                 <View style={[cardStyles.componentDot, { backgroundColor: "#2563EB" }]} />
-                <Text style={[cardStyles.componentText, { color: c.textSecondary }]}>{meal.components.protein}</Text>
+                <Text style={[cardStyles.componentText, { color: c.textSecondary }]}>{meal.components?.protein ?? ""}</Text>
               </View>
               <View style={cardStyles.componentRow}>
                 <View style={[cardStyles.componentDot, { backgroundColor: "#D97706" }]} />
-                <Text style={[cardStyles.componentText, { color: c.textSecondary }]}>{meal.components.staple}</Text>
+                <Text style={[cardStyles.componentText, { color: c.textSecondary }]}>{meal.components?.staple ?? ""}</Text>
               </View>
             </View>
 
@@ -447,8 +453,8 @@ function MealSlotCard({
                     </View>
                   </View>
 
-                  {/* Description */}
-                  <Text style={[cardStyles.modalDesc, { color: c.textSecondary }]}>{translatedDescription}</Text>
+                  {/* Intro (rich flavor description) when available, otherwise description */}
+                  <Text style={[cardStyles.modalDesc, { color: c.textSecondary }]}>{translatedIntro}</Text>
 
                   {/* Macros */}
                   <View style={[cardStyles.macroRow, { paddingHorizontal: 20, marginBottom: 16 }]}>
@@ -460,9 +466,9 @@ function MealSlotCard({
                   </View>
 
                   {/* Tags */}
-                  {(meal.tags ?? []).length > 0 && (
+                  {(meal.tags ?? []).filter(Boolean).length > 0 && (
                     <View style={[cardStyles.tags, { paddingHorizontal: 20, marginBottom: 16 }]}>
-                      {(meal.tags ?? []).map((tag) => (
+                      {(meal.tags ?? []).filter(Boolean).map((tag) => (
                         <TouchableOpacity
                           key={tag}
                           style={[cardStyles.tag, { backgroundColor: c.chipBg }]}
@@ -525,15 +531,28 @@ function MealSlotCard({
                   )}
 
                   {/* Steps */}
-                  {(meal.steps ?? []).length > 0 && (
+                  {(meal.steps ?? []).filter(Boolean).length > 0 && (
                     <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
                       <Text style={[cardStyles.recipeLabel, { color: c.text, marginBottom: 8 }]}>{t("steps_label")}</Text>
-                      {translatedSteps.map((step, i) => (
+                      {translatedSteps.filter(Boolean).map((step, i) => (
                         <View key={i} style={cardStyles.stepRow}>
                           <View style={[cardStyles.stepNum, { backgroundColor: c.primary }]}>
                             <Text style={cardStyles.stepNumText}>{i + 1}</Text>
                           </View>
                           <Text style={[cardStyles.stepText, { color: c.textSecondary }]}>{step}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* Chef's tips */}
+                  {translatedChefTips.filter(Boolean).length > 0 && (
+                    <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
+                      <Text style={[cardStyles.recipeLabel, { color: c.text, marginBottom: 8 }]}>{t("chef_tips_label")}</Text>
+                      {translatedChefTips.filter(Boolean).map((tip, i) => (
+                        <View key={i} style={[cardStyles.tipRow, { backgroundColor: c.primaryLight }]}>
+                          <Ionicons name="bulb-outline" size={14} color={c.primary} style={{ flexShrink: 0, marginTop: 1 }} />
+                          <Text style={[cardStyles.tipText, { color: c.text }]}>{tip}</Text>
                         </View>
                       ))}
                     </View>
@@ -591,7 +610,7 @@ function CompChip({ icon, label, color }: {
 }
 
 export default function TodayScreen() {
-  const { profile, pantry, dailyPlan, planDate, setDailyPlan, patchDailyPlan, clearDailyPlan, language, ratings, setRating, servings, setPlanServings, removeRecipe, confirmedSlots, toggleConfirmedSlot } = useAppStore();
+  const { profile, pantry, dailyPlan, planDate, setDailyPlan, patchDailyPlan, clearDailyPlan, language, ratings, setRating, servings, setPlanServings, removeRecipe, confirmedSlots, toggleConfirmedSlot, shoppingList, removeFromShoppingList } = useAppStore();
   const today = new Date().toISOString().slice(0, 10);
   const planIsStale = !!dailyPlan && !!planDate && planDate !== today;
   const { t } = useTranslation();
@@ -748,6 +767,11 @@ export default function TodayScreen() {
       if (oldMeal) {
         removeRecipe(oldMeal.name);
         if (confirmedSlots.includes(slot)) toggleConfirmedSlot(slot);
+        const oldCategory = `${slot}-${oldMeal.name}`;
+        const oldGroup = shoppingList?.groups.find((g) => g.category === oldCategory);
+        if (oldGroup) {
+          oldGroup.items.forEach((item) => removeFromShoppingList(oldCategory, item.name));
+        }
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
@@ -1168,6 +1192,8 @@ const cardStyles = StyleSheet.create({
   stepNum: { width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center", flexShrink: 0 },
   stepNumText: { fontSize: 11, fontWeight: "800", color: "#FFF" },
   stepText: { fontSize: 13, lineHeight: 18, flex: 1 },
+  tipRow: { flexDirection: "row", alignItems: "flex-start", gap: 8, borderRadius: 10, padding: 10, marginBottom: 6 },
+  tipText: { fontSize: 13, lineHeight: 18, flex: 1 },
   tags: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   tag: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 3 },
   tagText: { fontSize: 12 },

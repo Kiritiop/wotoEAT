@@ -160,29 +160,33 @@ def generate_recipe_prompt(dish_name: str, language: str = "en", servings: int =
     lang_note = _LANG_INSTRUCTION.get(language, _LANG_INSTRUCTION["en"])
     tag_note = _tag_note()
     serving_word = "person" if servings == 1 else "people"
-    return f"""You are a professional chef and recipe writer.
+    return f"""You are a professional chef and recipe writer who writes with warmth and expertise.
 {lang_note}
 
 Generate a complete, detailed recipe for: {dish_name}
 This recipe is for {servings} {serving_word} — scale all ingredient amounts accordingly.
 
 RULES:
-- ingredients must have realistic amounts and units scaled for {servings} serving(s) (e.g. {{"name": "chicken breast", "amount": 300, "unit": "g"}})
-- steps: include as many steps as the dish requires — never compress or skip. Each step MUST use this format: "Step N — [Brief Title] (≈X min): [Full instructions with technique cues, visual/sensory checkpoints, and tips]". Example: "Step 1 — Marinate (≈10 min): Cut chicken thigh into 1.5 cm cubes. Combine with rice wine, soy sauce, and cornstarch; knead until sticky. Drizzle oil to seal moisture. Rest 10 minutes." Keep each step focused on one phase.
-- calories_per_serving is a realistic estimate per individual serving, or null if uncertain
+- intro: 2–3 sentences describing the dish's flavor profile, aroma, and what makes it special — written warmly, as if recommending it to a friend. Mention the defining taste or texture experience.
+- ingredients: realistic amounts and units scaled for {servings} serving(s). Each ingredient may have an optional "tip" (1-sentence substitution or quality note, e.g. "chicken thigh stays juicier than breast here"). Only add a tip where it genuinely helps.
+- steps: include every step the dish requires — never compress or skip. Write for a beginner cook who has never made this dish before. Each step MUST follow this format exactly: "Step N — [Evocative Title] (≈X min): [Complete instructions with exact quantities repeated where helpful, specific technique cues (e.g. medium-high heat, not just 'heat the pan'), and at least one sensory/visual checkpoint the cook can verify — such as color change, texture, aroma, or sound. Where the reason for a step is non-obvious, explain it briefly.]" Example: "Step 1 — Marinate (≈10 min): Cut chicken thigh into 1.5 cm cubes — thigh stays juicier than breast here. Combine with 1 tbsp rice wine, 1 tbsp soy sauce, and 1 tsp cornstarch; knead with your hands until the meat turns sticky and fully absorbs the liquid (about 1 min). Drizzle ½ tsp oil over the surface and toss to coat — this seals in moisture so the pieces don't dry out when they hit the hot wok. Rest 10 minutes at room temperature."
+- chef_tips: 2–4 short tips covering key ratios, common mistakes to avoid, or the "why" behind a critical technique. Be specific, not generic — e.g. "Sugar and vinegar in a 1:1 ratio is the classic lychee-flavour base; add a touch more vinegar for a sharper finish."
+- calories_per_serving: realistic per-serving estimate. Only set null for highly unusual dishes where estimation is genuinely impossible — for mainstream dishes always estimate.
 - {tag_note}
-- warnings are allergen notices in the response language (e.g. "contains eggs")
+- warnings: allergen notices in the response language (e.g. "contains eggs")
 
 Respond with ONLY valid JSON, no markdown:
 {{
   "title": "string",
+  "intro": "string",
   "servings": {servings},
   "prep_time_mins": integer,
   "calories_per_serving": integer or null,
   "ingredients": [
-    {{"name": "string", "amount": number, "unit": "string", "calories": number or null}}
+    {{"name": "string", "amount": number, "unit": "string", "calories": number or null, "tip": "string or null"}}
   ],
   "steps": ["string"],
+  "chef_tips": ["string"],
   "tags": ["string"],
   "warnings": ["string"]
 }}"""
@@ -238,7 +242,7 @@ def meal_generate_prompt(filters: dict, language: str = "en") -> str:
     else:
         style_block = ""
 
-    return f"""You are a world-class culinary expert.
+    return f"""You are a world-class culinary expert who writes with warmth and expertise.
 {lang_note}
 Suggest exactly one real, well-known dish for EACH of these slots: {', '.join(slots)}.
 For {servings} {serving_word}. Match ALL active (non-null) filters below.
@@ -251,11 +255,14 @@ RULES:
 - Every dish must satisfy ALL active (non-null) filters
 - difficulty must be one of: "easy", "medium", "hard"
 - prep_time_mins is realistic total time including cooking
+- intro: 2–3 sentences describing the dish's flavor profile, aroma, and what makes it special — written warmly. Mention the defining taste or texture experience.
 - ingredients: flat list scaled for {servings} serving(s), e.g. ["300g chicken breast", "2 tbsp soy sauce"]
-- steps: include every step the dish requires — never compress. Each step MUST use this format: "Step N — [Brief Title] (≈X min): [Full instructions with technique cues and tips]". Example: "Step 2 — Sear (≈5 min): Heat oil in wok until smoking. Add chicken; stir-fry without moving for 30 seconds until golden on one side, then toss until just cooked through. Remove and set aside."
+- steps: include every step the dish requires — never compress. Write for a beginner cook who has never made this dish before. Each step MUST follow this format exactly: "Step N — [Evocative Title] (≈X min): [Complete instructions with exact quantities repeated where helpful, specific heat levels and timing, and at least one sensory/visual checkpoint the cook can verify — color, texture, aroma, or sound. Where the reason is non-obvious, explain it briefly.]" Example: "Step 2 — Sear (≈5 min): Heat 1 tbsp oil in a wok over high heat until you see faint wisps of smoke — this is the right temperature for a fast sear. Add the chicken in a single layer and leave untouched for 30 seconds until the underside turns golden and releases easily. Toss and stir-fry a further 1–2 minutes until no pink remains; the pieces should feel firm when pressed, not squishy. Remove and set aside."
+- chef_tips: 1–2 short tips covering a key ratio, common mistake to avoid, or the "why" behind a critical technique. Be specific.
 - components.vegetable / .protein / .staple: short component names (e.g. "broccoli", "chicken", "rice")
 - uses_pantry_items: ingredient names that match items in the pantry filter
 - {tag_note}
+- calories_per_serving: realistic estimate per serving — only null for genuinely unusual dishes
 - protein_g / carbs_g / fat_g / fiber_g: realistic per-serving estimates
 - shopping_reminders: 1-3 key items NOT in pantry that are needed
 - nutrition_note: 1-2 sentence nutritional summary of the full set
@@ -268,6 +275,7 @@ Respond with ONLY valid JSON, no markdown:
       "slot": "breakfast|lunch|dinner",
       "name": "string",
       "cuisine": "string",
+      "intro": "string",
       "description": "1-2 sentence description",
       "prep_time_mins": integer,
       "calories_per_serving": integer,
@@ -277,6 +285,7 @@ Respond with ONLY valid JSON, no markdown:
       "tags": ["string"],
       "ingredients": ["string"],
       "steps": ["string"],
+      "chef_tips": ["string"],
       "protein_g": number, "carbs_g": number, "fat_g": number, "fiber_g": number
     }}
   ],

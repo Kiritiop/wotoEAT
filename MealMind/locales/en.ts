@@ -16,6 +16,7 @@ const en = {
   loading: "Loading…",
   error: "Error",
   retry: "Try again",
+  validation_positive: "Must be greater than 0.",
   done: "Done",
   next: "Next",
   back: "Back",
@@ -174,6 +175,7 @@ const en = {
   // ── Expanded meal card ────────────────────────────────────────────────────
   ingredients_label: "Ingredients",
   steps_label: "Steps",
+  chef_tips_label: "Chef's Tips",
   find_recipes_online: "Find recipes online",
   min_label: "min",
   difficulty_easy: "Easy",
@@ -322,6 +324,7 @@ const en = {
   onboarding_bullet_1: "AI meal plans tailored to you",
   onboarding_bullet_2: "Track pantry & reduce waste",
   onboarding_bullet_3: "Smart shopping lists",
+  onboarding_save_error: "Could not save your profile. Please check your connection and try again.",
 
   // ── Landing page ──────────────────────────────────────────────────────────
   landing_hero_title: "Eat smarter, every day",

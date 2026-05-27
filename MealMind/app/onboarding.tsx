@@ -4,15 +4,18 @@ import {
   TouchableOpacity,
   StyleSheet,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { useState } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useTheme } from "@/hooks/useTheme";
 import { LanguageToggle } from "@/components/LanguageToggle";
+import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { saveProfile } from "@/services/api";
 
 export default function OnboardingScreen() {
@@ -20,13 +23,23 @@ export default function OnboardingScreen() {
   const { t } = useTranslation();
   const c = useTheme();
   const { setHasOnboarded, profile } = useAppStore();
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  function handleStart() {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setHasOnboarded(true);
-    // N-08: persist profile data so it isn't lost if user force-closes before reaching Profile tab
-    saveProfile(profile).catch(() => {/* best-effort */});
-    router.replace("/(tabs)/discover");
+  async function handleStart() {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await saveProfile(profile);
+      setHasOnboarded(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.replace("/(tabs)/discover");
+    } catch {
+      setSaveError(t("onboarding_save_error"));
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setSaving(false);
+    }
   }
 
   const styles = makeStyles(c);
@@ -66,16 +79,24 @@ export default function OnboardingScreen() {
 
       {/* CTA */}
       <View style={styles.footer}>
+        <ErrorBanner message={saveError} />
         <Text style={[styles.hint, { color: c.textPlaceholder }]}>
           {t("complete_profile_sub")}
         </Text>
         <TouchableOpacity
-          style={[styles.startBtn, { backgroundColor: c.primary }]}
+          style={[styles.startBtn, { backgroundColor: saving ? c.disabled : c.primary }]}
           onPress={handleStart}
+          disabled={saving}
           activeOpacity={0.85}
         >
-          <Text style={styles.startBtnText}>{t("onboarding_get_started")}</Text>
-          <Ionicons name="arrow-forward" size={20} color="#FFF" />
+          {saving ? (
+            <ActivityIndicator color="#FFF" size="small" />
+          ) : (
+            <>
+              <Text style={styles.startBtnText}>{t("onboarding_get_started")}</Text>
+              <Ionicons name="arrow-forward" size={20} color="#FFF" />
+            </>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
