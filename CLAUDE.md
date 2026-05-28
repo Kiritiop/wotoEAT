@@ -21,7 +21,7 @@ wotoEAT/
 
 ### Stack
 - **Python 3.12+**, FastAPI, Uvicorn
-- **AI**: Groq API (`llama-3.3-70b-versatile`) via `groq` async client
+- **AI**: Google Gemini API (`gemini-2.0-flash`) via `google-generativeai` async client
 - **Database**: Supabase (Postgres) via `supabase-py` with service-role key
 - **Auth**: Supabase JWT — extracted from `Authorization: Bearer <token>` header
 - **Cache**: SQLite TTL cache (`ai/sqlite_cache.py`) — reduces AI calls, survives restarts. Default TTL 600s (env `CACHE_TTL_SECONDS`).
@@ -36,7 +36,7 @@ uvicorn main:app --reload
 ### Environment Variables (`mealmind-api/.env`)
 | Variable | Purpose |
 |---|---|
-| `GROQ_API_KEY` | Groq LLM API key |
+| `GEMINI_API_KEY` | Google Gemini API key |
 | `SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_KEY` | Supabase service-role key |
 | `ALLOWED_ORIGINS` | CORS origins, comma-separated |
@@ -61,8 +61,7 @@ uvicorn main:app --reload
 | `PUT /recipes/{id}` | `routers/recipes.py` | Update saved recipe |
 | `DELETE /recipes/{id}` | `routers/recipes.py` | Delete saved recipe |
 | `GET /pantry/` | `routers/pantry.py` | Get user pantry |
-| `POST /pantry/` | `routers/pantry.py` | Upsert pantry items |
-| `POST /pantry/replace` | `routers/pantry.py` | Replace entire pantry |
+| `POST /pantry/` | `routers/pantry.py` | Replace entire pantry |
 | `DELETE /pantry/{name}` | `routers/pantry.py` | Delete one pantry item |
 | `GET /profile/` | `routers/profile.py` | Get health profile |
 | `PUT /profile/` | `routers/profile.py` | Upsert health profile |
@@ -81,7 +80,7 @@ uvicorn main:app --reload
 
 **`_tag_note()`** — Injected into every prompt that returns recipes. Instructs AI to produce **as many English tags as needed** (no upper limit) covering: key ingredients (each as its own tag), dietary labels, flavour profile, cooking style, occasion/lifestyle. Tags are always English; the frontend translates them via `TAG_ZH` lookup table in `constants/filters.ts`.
 
-**`ai/claude.py`** — Async wrappers around the Groq client:
+**`ai/claude.py`** — Async wrappers around the Gemini client:
 - `suggest_meals(filters)` → `(list, cached_bool)`
 - `generate_meal_plan(filters)` → `(dict, cached_bool)` — raises `ValueError` if AI returns `{"error": "no_match", ...}` (unsatisfiable required tags)
 - `parse_recipe(html, language)` → `dict`

@@ -33,9 +33,11 @@ async def suggest(
         return MealSuggestResponse(meals=meals, cached=cached)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
-    except GeminiTransientError:
+    except GeminiTransientError as exc:
+        logger.warning("[meals] suggest transient AI error: %s", exc)
         raise HTTPException(status_code=503, detail="AI service is temporarily at capacity. Please try again in a few minutes.")
     except Exception as exc:
+        logger.exception("[meals] suggest unhandled error")
         raise HTTPException(status_code=500, detail=f"AI error: {exc}")
 
 

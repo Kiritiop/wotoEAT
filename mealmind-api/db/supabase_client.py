@@ -43,17 +43,6 @@ def get_pantry(user_id: str) -> list[Any]:
     return result.data or []
 
 
-def upsert_pantry_items(user_id: str, items: list[dict]) -> list[Any]:
-    rows = [{"user_id": user_id, "name": item["name"]} for item in items]
-    result = (
-        get_client()
-        .table("pantry")
-        .upsert(rows, on_conflict="user_id,name")
-        .execute()
-    )
-    return result.data or []
-
-
 def replace_pantry(user_id: str, items: list[dict]) -> list[Any]:
     """Replace the user's entire pantry atomically: delete all then insert new set."""
     client = get_client()
@@ -203,33 +192,6 @@ def get_shopping_lists(user_id: str) -> list[Any]:
         .execute()
     )
     return result.data or []
-
-
-# ---------------------------------------------------------------------------
-# User preferences
-# ---------------------------------------------------------------------------
-
-def get_preferences(user_id: str) -> Any:
-    result = (
-        get_client()
-        .table("user_preferences")
-        .select("*")
-        .eq("user_id", user_id)
-        .limit(1)
-        .execute()
-    )
-    return result.data[0] if result.data else {}
-
-
-def upsert_preferences(user_id: str, prefs: dict) -> Any:
-    row = {"user_id": user_id, **prefs}
-    result = (
-        get_client()
-        .table("user_preferences")
-        .upsert(row, on_conflict="user_id")
-        .execute()
-    )
-    return result.data[0] if result.data else {}
 
 
 # ---------------------------------------------------------------------------

@@ -389,11 +389,6 @@ export async function getPantry(): Promise<PantryItem[]> {
   return res.data;
 }
 
-export async function upsertPantry(items: PantryItem[]): Promise<PantryItem[]> {
-  const res = await api.post("/pantry/", { items });
-  return res.data;
-}
-
 export async function replacePantry(items: PantryItem[]): Promise<PantryItem[]> {
   const res = await api.post("/pantry/replace", { items });
   return res.data;

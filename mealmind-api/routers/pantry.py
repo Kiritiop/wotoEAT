@@ -31,18 +31,6 @@ async def upsert_pantry(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@router.post("/replace", response_model=list[dict])
-async def replace_pantry(
-    req: UpsertPantryRequest,
-    user_id: str = Depends(require_user_id),
-):
-    """POST /pantry/replace — replaces the entire pantry (same as POST /, explicit path for clarity)."""
-    try:
-        items = [item.model_dump() for item in req.items]
-        return db.replace_pantry(user_id, items)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
-
 
 @router.delete("/{item_name}")
 async def delete_pantry_item(

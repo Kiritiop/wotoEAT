@@ -1,12 +1,14 @@
 """
-AI API calls via Google Gemini. Uses the async client so FastAPI
-endpoints stay non-blocking. SQLite-backed TTL cache reduces API calls
-and survives server restarts.
+AI API calls via Google Gemini (google-genai SDK).
+Uses async so FastAPI endpoints stay non-blocking.
+SQLite-backed TTL cache reduces API calls and survives server restarts.
 """
 import json
 import os
 import hashlib
-import google.generativeai as genai
+import logging
+from google import genai
+from google.genai import types
 from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable, DeadlineExceeded, InternalServerError
 from dotenv import load_dotenv
 
@@ -22,7 +24,13 @@ from ai.prompts import (
 
 load_dotenv()
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+logger = logging.getLogger(__name__)
+
+_api_key = os.getenv("GEMINI_API_KEY")
+if not _api_key:
+    raise RuntimeError("GEMINI_API_KEY is not set — check your environment variables")
+
+_client = genai.Client(api_key=_api_key)
 MODEL = "gemini-2.0-flash"
 _CACHE_TTL = int(os.getenv("CACHE_TTL_SECONDS", "600"))
 
@@ -44,14 +52,14 @@ def _cache_key(data: object) -> str:
 
 
 async def _generate(prompt: str, max_tokens: int = 4000) -> str:
-    model = genai.GenerativeModel(
-        MODEL,
-        generation_config=genai.types.GenerationConfig(
+    response = await _client.aio.models.generate_content(
+        model=MODEL,
+        contents=prompt,
+        config=types.GenerateContentConfig(
             max_output_tokens=max_tokens,
             temperature=0.7,
         ),
     )
-    response = await model.generate_content_async(prompt)
     return response.text
 
 
@@ -109,7 +117,7 @@ async def generate_recipe_by_name(dish_name: str, language: str = "en", servings
     result = json.loads(_clean_json(text))
     if "error" in result:
         raise ValueError(result["error"])
-    cache_set(key, result, 604800)  # cache for 7 days
+    cache_set(key, result, 604800)  # 7 days
     return result
 
 
@@ -165,5 +173,5 @@ async def translate_texts(texts: list[str]) -> list[str]:
     return translations[:len(texts)]
 
 
-# Re-export the exception types routers need to catch
+# Exception types routers should catch for transient AI failures
 GeminiTransientError = (ResourceExhausted, ServiceUnavailable, DeadlineExceeded, InternalServerError)
