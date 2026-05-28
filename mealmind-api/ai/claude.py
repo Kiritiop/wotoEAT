@@ -36,7 +36,7 @@ _client = genai.Client(api_key=_api_key)
 _MODEL_PRIMARY = "gemini-2.0-flash"
 _MODEL_FALLBACK = "gemini-2.0-flash-lite"
 
-_CACHE_TTL = int(os.getenv("CACHE_TTL_SECONDS", "600"))
+_CACHE_TTL = int(os.getenv("CACHE_TTL_SECONDS", "3600"))
 
 
 def _clean_json(text: str) -> str:
@@ -79,14 +79,21 @@ async def _generate(prompt: str, max_tokens: int = 4000) -> str:
         )
         return _text(response)
     except ClientError as exc:
+        if not _is_quota_error(exc):
+            raise
+        logger.warning("[ai] primary model quota exceeded, trying fallback")
+    try:
+        response = await _client.aio.models.generate_content(
+            model=_MODEL_FALLBACK,
+            contents=prompt,
+            config=config,
+        )
+        return _text(response)
+    except ClientError as exc:
         if _is_quota_error(exc):
-            logger.warning("[ai] primary model quota exceeded, trying fallback")
-            response = await _client.aio.models.generate_content(
-                model=_MODEL_FALLBACK,
-                contents=prompt,
-                config=config,
-            )
-            return _text(response)
+            logger.error("[ai] both models quota exceeded")
+            # Re-raise as ServerError so routers return 503, not 500
+            raise ServerError(503, {"message": "AI quota exceeded on all models. Please try again later."})
         raise
 
 

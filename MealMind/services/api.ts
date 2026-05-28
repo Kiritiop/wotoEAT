@@ -45,15 +45,16 @@ api.interceptors.response.use(
         return api(originalRequest);
       }
     }
-    if (error.response?.status === 429 || error.response?.status === 503) {
+    // 503 = AI quota exhausted — do NOT retry, it just burns more quota.
+    // 429 = our own rate limiter — retry with backoff.
+    if (error.response?.status === 429) {
       const retryCount = originalRequest._retryCount ?? 0;
       if (retryCount < 3) {
         originalRequest._retryCount = retryCount + 1;
         const retryAfter = error.response.headers?.["retry-after"];
-        const baseWait = error.response.status === 503 ? 3000 : 1500;
         const waitMs = retryAfter
           ? parseInt(retryAfter, 10) * 1000
-          : Math.pow(2, retryCount) * baseWait;
+          : Math.pow(2, retryCount) * 1500;
         await new Promise<void>((resolve) => setTimeout(resolve, waitMs));
         return api(originalRequest);
       }
