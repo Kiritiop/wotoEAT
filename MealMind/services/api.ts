@@ -22,7 +22,6 @@ api.interceptors.request.use(async (config) => {
     _authToken ??
     (await supabase.auth.getSession()).data.session?.access_token ??
     null;
-  console.log("[api] request", config.url, "token:", token ? "EXISTS" : "NULL", "_authToken:", _authToken ? "EXISTS" : "NULL");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }

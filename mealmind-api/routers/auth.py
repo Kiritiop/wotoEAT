@@ -60,16 +60,12 @@ async def get_optional_user_id(
     authorization: Optional[str] = Header(None),
 ) -> Optional[str]:
     if not authorization or not authorization.startswith("Bearer "):
-        logger.warning("[auth] no Bearer token in request")
         return None
     token = authorization.removeprefix("Bearer ")
-    logger.warning("[auth] token prefix: %s... secret_set: %s", token[:20], bool(_JWT_SECRET))
     try:
-        result = _extract_sub(token)
-        logger.warning("[auth] _extract_sub result: %s", result)
-        return result
+        return _extract_sub(token)
     except ValueError as e:
-        logger.warning("[auth] token rejected: %s", e)
+        logger.debug("[auth] token rejected: %s", e)
         return None
 
 
