@@ -56,6 +56,7 @@ async def generate_meals(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     except Exception as exc:
+        logger.exception("[meals] generate_meals unhandled error")
         raise HTTPException(status_code=500, detail=f"AI error: {exc}")
 
 
