@@ -1,12 +1,13 @@
 """
-AI API calls via Groq (free tier). Uses the async client so FastAPI
+AI API calls via Google Gemini. Uses the async client so FastAPI
 endpoints stay non-blocking. SQLite-backed TTL cache reduces API calls
 and survives server restarts.
 """
 import json
 import os
 import hashlib
-from groq import AsyncGroq
+import google.generativeai as genai
+from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable, DeadlineExceeded, InternalServerError
 from dotenv import load_dotenv
 
 from ai.sqlite_cache import cache_get, cache_set
@@ -21,13 +22,9 @@ from ai.prompts import (
 
 load_dotenv()
 
-_client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
-MODEL = "llama-3.3-70b-versatile"
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+MODEL = "gemini-2.0-flash"
 _CACHE_TTL = int(os.getenv("CACHE_TTL_SECONDS", "600"))
-
-
-def _extract_text(response) -> str:
-    return response.choices[0].message.content
 
 
 def _clean_json(text: str) -> str:
@@ -46,6 +43,18 @@ def _cache_key(data: object) -> str:
     ).hexdigest()
 
 
+async def _generate(prompt: str, max_tokens: int = 4000) -> str:
+    model = genai.GenerativeModel(
+        MODEL,
+        generation_config=genai.types.GenerationConfig(
+            max_output_tokens=max_tokens,
+            temperature=0.7,
+        ),
+    )
+    response = await model.generate_content_async(prompt)
+    return response.text
+
+
 # ---------------------------------------------------------------------------
 # Meal suggestions
 # ---------------------------------------------------------------------------
@@ -57,12 +66,8 @@ async def suggest_meals(filters: dict) -> tuple[list, bool]:
         return cached, True
 
     language = filters.get("language", "en")
-    response = await _client.chat.completions.create(
-        model=MODEL,
-        max_tokens=2000,
-        messages=[{"role": "user", "content": meal_suggestion_prompt(filters, language)}],
-    )
-    meals = json.loads(_clean_json(_extract_text(response)))
+    text = await _generate(meal_suggestion_prompt(filters, language), max_tokens=2000)
+    meals = json.loads(_clean_json(text))
     cache_set(key, meals, _CACHE_TTL)
     return meals, False
 
@@ -72,12 +77,8 @@ async def suggest_meals(filters: dict) -> tuple[list, bool]:
 # ---------------------------------------------------------------------------
 
 async def parse_recipe(html: str, language: str = "en") -> dict:
-    response = await _client.chat.completions.create(
-        model=MODEL,
-        max_tokens=2500,
-        messages=[{"role": "user", "content": recipe_parse_prompt(html)}],
-    )
-    result = json.loads(_clean_json(_extract_text(response)))
+    text = await _generate(recipe_parse_prompt(html), max_tokens=2500)
+    result = json.loads(_clean_json(text))
     if "error" in result:
         raise ValueError(result["error"])
     return result
@@ -88,12 +89,8 @@ async def parse_recipe(html: str, language: str = "en") -> dict:
 # ---------------------------------------------------------------------------
 
 async def generate_shopping_list(recipes: list, pantry: list, language: str = "en") -> dict:
-    response = await _client.chat.completions.create(
-        model=MODEL,
-        max_tokens=2500,
-        messages=[{"role": "user", "content": shopping_list_prompt(recipes, pantry, language)}],
-    )
-    return json.loads(_clean_json(_extract_text(response)))
+    text = await _generate(shopping_list_prompt(recipes, pantry, language), max_tokens=2500)
+    return json.loads(_clean_json(text))
 
 
 # ---------------------------------------------------------------------------
@@ -108,12 +105,8 @@ async def generate_recipe_by_name(dish_name: str, language: str = "en", servings
         if cached is not None:
             return cached
 
-    response = await _client.chat.completions.create(
-        model=MODEL,
-        max_tokens=2500,
-        messages=[{"role": "user", "content": generate_recipe_prompt(dish_name, language, servings)}],
-    )
-    result = json.loads(_clean_json(_extract_text(response)))
+    text = await _generate(generate_recipe_prompt(dish_name, language, servings), max_tokens=2500)
+    result = json.loads(_clean_json(text))
     if "error" in result:
         raise ValueError(result["error"])
     cache_set(key, result, 604800)  # cache for 7 days
@@ -131,12 +124,8 @@ async def generate_meal_plan(filters: dict) -> tuple[dict, bool]:
         return cached, True
 
     language = filters.get("language", "en")
-    response = await _client.chat.completions.create(
-        model=MODEL,
-        max_tokens=4000,
-        messages=[{"role": "user", "content": meal_generate_prompt(filters, language)}],
-    )
-    result = json.loads(_clean_json(_extract_text(response)))
+    text = await _generate(meal_generate_prompt(filters, language), max_tokens=4000)
+    result = json.loads(_clean_json(text))
     if isinstance(result, dict) and result.get("error") == "no_match":
         raise ValueError(result.get("message", "No dish can satisfy the required tags."))
     cache_set(key, result, _CACHE_TTL)
@@ -146,16 +135,11 @@ async def generate_meal_plan(filters: dict) -> tuple[dict, bool]:
 async def swap_meal(slot: str, current_plan: dict, filters: dict) -> dict:
     language = filters.get("language", "en")
     avoid = [m["name"] for m in current_plan.get("meals", [])]
-    # Merge existing ratings with all current-plan meals marked "down" so the prompt avoids them
     merged_ratings = {name: "down" for name in avoid}
     merged_ratings.update(filters.get("recent_ratings") or {})
     swap_filters = {**filters, "slots": [slot], "recent_ratings": merged_ratings}
-    response = await _client.chat.completions.create(
-        model=MODEL,
-        max_tokens=1500,
-        messages=[{"role": "user", "content": meal_generate_prompt(swap_filters, language)}],
-    )
-    result = json.loads(_clean_json(_extract_text(response)))
+    text = await _generate(meal_generate_prompt(swap_filters, language), max_tokens=1500)
+    result = json.loads(_clean_json(text))
     if isinstance(result, dict) and result.get("error") == "no_match":
         raise ValueError(result.get("message", "No dish can satisfy the required tags."))
     meals = result.get("meals", [result])
@@ -169,19 +153,17 @@ async def swap_meal(slot: str, current_plan: dict, filters: dict) -> dict:
 async def translate_texts(texts: list[str]) -> list[str]:
     if not texts:
         return []
-    response = await _client.chat.completions.create(
-        model=MODEL,
-        max_tokens=1000,
-        messages=[{"role": "user", "content": translate_prompt(texts)}],
-    )
-    raw = _extract_text(response).strip()
-    # Parse numbered list: "1. 食材\n2. 配料\n..."
+    raw = await _generate(translate_prompt(texts), max_tokens=1000)
+    raw = raw.strip()
     translations = []
     for line in raw.splitlines():
         line = line.strip()
         if line and line[0].isdigit() and ". " in line:
             translations.append(line.split(". ", 1)[1].strip())
-    # Fall back to originals for any missing entries
     while len(translations) < len(texts):
         translations.append(texts[len(translations)])
     return translations[:len(texts)]
+
+
+# Re-export the exception types routers need to catch
+GeminiTransientError = (ResourceExhausted, ServiceUnavailable, DeadlineExceeded, InternalServerError)
