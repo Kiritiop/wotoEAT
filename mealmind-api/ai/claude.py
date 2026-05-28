@@ -9,7 +9,7 @@ import hashlib
 import logging
 from google import genai
 from google.genai import types
-from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable, DeadlineExceeded, InternalServerError
+from google.genai.errors import ClientError, ServerError
 from dotenv import load_dotenv
 
 from ai.sqlite_cache import cache_get, cache_set
@@ -31,7 +31,11 @@ if not _api_key:
     raise RuntimeError("GEMINI_API_KEY is not set — check your environment variables")
 
 _client = genai.Client(api_key=_api_key)
-MODEL = "gemini-2.0-flash"
+
+# Primary model, fallback for when primary hits quota
+_MODEL_PRIMARY = "gemini-2.0-flash"
+_MODEL_FALLBACK = "gemini-2.0-flash-lite"
+
 _CACHE_TTL = int(os.getenv("CACHE_TTL_SECONDS", "600"))
 
 
@@ -51,16 +55,39 @@ def _cache_key(data: object) -> str:
     ).hexdigest()
 
 
+def _is_quota_error(exc: ClientError) -> bool:
+    return exc.code == 429 or (exc.status or "").upper() == "RESOURCE_EXHAUSTED"
+
+
+def _text(response) -> str:
+    text = response.text
+    if text is None:
+        raise ValueError("Gemini returned an empty response (likely blocked by safety filters)")
+    return text
+
+
 async def _generate(prompt: str, max_tokens: int = 4000) -> str:
-    response = await _client.aio.models.generate_content(
-        model=MODEL,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            max_output_tokens=max_tokens,
-            temperature=0.7,
-        ),
+    config = types.GenerateContentConfig(
+        max_output_tokens=max_tokens,
+        temperature=0.7,
     )
-    return response.text
+    try:
+        response = await _client.aio.models.generate_content(
+            model=_MODEL_PRIMARY,
+            contents=prompt,
+            config=config,
+        )
+        return _text(response)
+    except ClientError as exc:
+        if _is_quota_error(exc):
+            logger.warning("[ai] primary model quota exceeded, trying fallback")
+            response = await _client.aio.models.generate_content(
+                model=_MODEL_FALLBACK,
+                contents=prompt,
+                config=config,
+            )
+            return _text(response)
+        raise
 
 
 # ---------------------------------------------------------------------------
@@ -173,5 +200,6 @@ async def translate_texts(texts: list[str]) -> list[str]:
     return translations[:len(texts)]
 
 
-# Exception types routers should catch for transient AI failures
-GeminiTransientError = (ResourceExhausted, ServiceUnavailable, DeadlineExceeded, InternalServerError)
+# Exception types routers should catch for transient AI failures.
+# ClientError covers 429 quota; ServerError covers 5xx outages.
+GeminiTransientError = (ClientError, ServerError)
