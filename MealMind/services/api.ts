@@ -45,14 +45,15 @@ api.interceptors.response.use(
         return api(originalRequest);
       }
     }
-    if (error.response?.status === 429) {
+    if (error.response?.status === 429 || error.response?.status === 503) {
       const retryCount = originalRequest._retryCount ?? 0;
       if (retryCount < 3) {
         originalRequest._retryCount = retryCount + 1;
         const retryAfter = error.response.headers?.["retry-after"];
+        const baseWait = error.response.status === 503 ? 3000 : 1500;
         const waitMs = retryAfter
           ? parseInt(retryAfter, 10) * 1000
-          : Math.pow(2, retryCount) * 1500;
+          : Math.pow(2, retryCount) * baseWait;
         await new Promise<void>((resolve) => setTimeout(resolve, waitMs));
         return api(originalRequest);
       }

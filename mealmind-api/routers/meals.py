@@ -1,7 +1,7 @@
 from datetime import date as _date
 import logging
 from fastapi import APIRouter, HTTPException, Depends
-from groq import RateLimitError as GroqRateLimitError
+from groq import RateLimitError as GroqRateLimitError, InternalServerError as GroqInternalServerError, APIConnectionError as GroqAPIConnectionError, APITimeoutError as GroqAPITimeoutError
 from db.models import (
     MealFilter, MealSuggestResponse, MealSuggestion,
     MealGenerateRequest, MealGenerateResponse, GeneratedPlan, SwapMealRequest,
@@ -33,7 +33,7 @@ async def suggest(
         return MealSuggestResponse(meals=meals, cached=cached)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
-    except GroqRateLimitError:
+    except (GroqRateLimitError, GroqInternalServerError, GroqAPIConnectionError, GroqAPITimeoutError):
         raise HTTPException(status_code=503, detail="AI service is temporarily at capacity. Please try again in a few minutes.")
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"AI error: {exc}")
@@ -58,7 +58,7 @@ async def generate_meals(
         return MealGenerateResponse(plan=plan, cached=cached)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
-    except GroqRateLimitError:
+    except (GroqRateLimitError, GroqInternalServerError, GroqAPIConnectionError, GroqAPITimeoutError):
         raise HTTPException(status_code=503, detail="AI service is temporarily at capacity. Please try again in a few minutes.")
     except Exception as exc:
         logger.exception("[meals] generate_meals unhandled error")
@@ -83,7 +83,7 @@ async def swap_meal(
         return meal
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
-    except GroqRateLimitError:
+    except (GroqRateLimitError, GroqInternalServerError, GroqAPIConnectionError, GroqAPITimeoutError):
         raise HTTPException(status_code=503, detail="AI service is temporarily at capacity. Please try again in a few minutes.")
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"AI error: {exc}")
