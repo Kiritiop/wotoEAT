@@ -5,7 +5,8 @@ import zh from "@/locales/zh";
 type Strings = typeof en;
 type StringKey = keyof Strings;
 
-const locales: Record<string, Strings> = { en, zh };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const locales: Record<string, Strings> = { en, zh } as any;
 
 /**
  * Returns a bound translation function `t(key)` for the user's current language.

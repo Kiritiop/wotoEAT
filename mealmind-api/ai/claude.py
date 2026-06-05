@@ -33,8 +33,8 @@ if not _api_key:
 _client = genai.Client(api_key=_api_key)
 
 # Primary model, fallback for when primary hits quota
-_MODEL_PRIMARY = "gemini-2.0-flash"
-_MODEL_FALLBACK = "gemini-2.0-flash-lite"
+_MODEL_PRIMARY = "gemini-2.5-flash"
+_MODEL_FALLBACK = "gemini-2.5-flash-lite"
 
 _CACHE_TTL = int(os.getenv("CACHE_TTL_SECONDS", "3600"))
 
