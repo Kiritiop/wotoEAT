@@ -76,11 +76,11 @@ function MealSlotCard({
 
   // N-01: extract name from ingredient string — handles "100g chicken breast", "2 eggs", bare strings
   function ingredientNameFrom(s: string): string {
-    const withUnit = s.match(/^[\d.]+\s*[a-zA-Z一-鿿]+\s+(.+)$/);
-    if (withUnit) return withUnit[1].trim().toLowerCase();
-    const noUnit = s.match(/^[\d.]+\s+(.+)$/);
-    if (noUnit) return noUnit[1].trim().toLowerCase();
-    return s.trim().toLowerCase();
+    const withUnit = s.match(/^[\d./]+\s*[a-zA-Z一-鿿]+\s+(.+)$/);
+    let name = withUnit ? withUnit[1] : s.match(/^[\d./]+\s+(.+)$/) ? s.match(/^[\d./]+\s+(.+)$/)![1] : s;
+    // Strip preparation notes after comma or opening parenthesis
+    name = name.split(/[,(]/)[0];
+    return name.trim().toLowerCase();
   }
   const pantryMatches = (meal.ingredients ?? []).filter((ing) => {
     const n = ingredientNameFrom(ing);

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
-from ai.claude import GeminiTransientError
+from ai.claude import GroqTransientError
 from db.models import GenerateShoppingListRequest, ShoppingList
 from ai.claude import generate_shopping_list
 from db import supabase_client as db
@@ -17,7 +17,7 @@ async def generate(
 
     try:
         result = await generate_shopping_list(recipes_dicts, req.pantry, req.language)
-    except GeminiTransientError:
+    except GroqTransientError:
         raise HTTPException(status_code=503, detail="AI service is temporarily at capacity. Please try again in a few minutes.")
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"AI error: {exc}")

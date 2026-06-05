@@ -1,5 +1,5 @@
 """
-AI API calls via Google Gemini (google-genai SDK).
+AI API calls via Groq (fast Llama inference).
 Uses async so FastAPI endpoints stay non-blocking.
 SQLite-backed TTL cache reduces API calls and survives server restarts.
 """
@@ -7,9 +7,7 @@ import json
 import os
 import hashlib
 import logging
-from google import genai
-from google.genai import types
-from google.genai.errors import ClientError, ServerError
+from groq import AsyncGroq, APIStatusError, APIConnectionError, RateLimitError
 from dotenv import load_dotenv
 
 from ai.sqlite_cache import cache_get, cache_set
@@ -26,21 +24,18 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-_api_key = os.getenv("GEMINI_API_KEY")
+_api_key = os.getenv("GROQ_API_KEY")
 if not _api_key:
-    raise RuntimeError("GEMINI_API_KEY is not set — check your environment variables")
+    raise RuntimeError("GROQ_API_KEY is not set — check your environment variables")
 
-_client = genai.Client(api_key=_api_key)
+_client = AsyncGroq(api_key=_api_key)
 
-# Primary model, fallback for when primary hits quota
-_MODEL_PRIMARY = "gemini-2.5-flash"
-_MODEL_FALLBACK = "gemini-2.5-flash-lite"
+_MODEL = "llama-3.3-70b-versatile"
 
 _CACHE_TTL = int(os.getenv("CACHE_TTL_SECONDS", "3600"))
 
 
 def _clean_json(text: str) -> str:
-    """Strip markdown fences if the model wraps output in them."""
     text = text.strip()
     if text.startswith("```"):
         text = text.split("\n", 1)[-1]
@@ -55,61 +50,28 @@ def _cache_key(data: object) -> str:
     ).hexdigest()
 
 
-def _is_quota_error(exc: ClientError) -> bool:
-    return exc.code == 429 or (exc.status or "").upper() == "RESOURCE_EXHAUSTED"
+def _extract_text(response) -> str:
+    return response.choices[0].message.content
 
 
-def _text(response) -> str:
-    text = response.text
-    if text is None:
-        raise ValueError("Gemini returned an empty response (likely blocked by safety filters)")
-    return text
-
-
-async def _call(prompt: str, config: types.GenerateContentConfig) -> str:
-    """Internal: try primary model, fall back to secondary on quota errors."""
-    try:
-        response = await _client.aio.models.generate_content(
-            model=_MODEL_PRIMARY,
-            contents=prompt,
-            config=config,
-        )
-        return _text(response)
-    except ClientError as exc:
-        if not _is_quota_error(exc):
-            raise
-        logger.warning("[ai] primary model quota exceeded, trying fallback")
-    try:
-        response = await _client.aio.models.generate_content(
-            model=_MODEL_FALLBACK,
-            contents=prompt,
-            config=config,
-        )
-        return _text(response)
-    except ClientError as exc:
-        if _is_quota_error(exc):
-            logger.error("[ai] both models quota exceeded")
-            raise ServerError(503, {"message": "AI quota exceeded on all models. Please try again later."})
-        raise
-
-
-async def _generate(prompt: str, max_tokens: int = 4000) -> str:
-    """Generate a response, instructing Gemini to return valid JSON."""
-    config = types.GenerateContentConfig(
-        max_output_tokens=max_tokens,
+async def _generate(prompt: str, max_tokens: int = 6000) -> str:
+    response = await _client.chat.completions.create(
+        model=_MODEL,
+        max_tokens=max_tokens,
         temperature=0.7,
-        response_mime_type="application/json",
+        messages=[{"role": "user", "content": prompt}],
     )
-    return await _call(prompt, config)
+    return _extract_text(response)
 
 
 async def _generate_text(prompt: str, max_tokens: int = 1000) -> str:
-    """Generate a plain-text response (no JSON mode) — used for translations."""
-    config = types.GenerateContentConfig(
-        max_output_tokens=max_tokens,
+    response = await _client.chat.completions.create(
+        model=_MODEL,
+        max_tokens=max_tokens,
         temperature=0.3,
+        messages=[{"role": "user", "content": prompt}],
     )
-    return await _call(prompt, config)
+    return _extract_text(response)
 
 
 # ---------------------------------------------------------------------------
@@ -223,5 +185,4 @@ async def translate_texts(texts: list[str]) -> list[str]:
 
 
 # Exception types routers should catch for transient AI failures.
-# ClientError covers 429 quota; ServerError covers 5xx outages.
-GeminiTransientError = (ClientError, ServerError)
+GroqTransientError = (RateLimitError, APIConnectionError, APIStatusError)

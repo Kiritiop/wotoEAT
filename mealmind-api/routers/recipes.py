@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
-from ai.claude import GeminiTransientError
+from ai.claude import GroqTransientError
 from db.models import ParseRecipeRequest, Recipe, SaveRecipeRequest, GenerateRecipeRequest, TranslateRequest, UpdateRecipeRequest, UpdateLabelsRequest
 from ai.claude import parse_recipe, generate_recipe_by_name, translate_texts
 from ai.sqlite_cache import rate_limit_check
@@ -57,7 +57,7 @@ async def generate(
         recipe_dict = await generate_recipe_by_name(req.dish_name, req.language, req.servings, req.force_refresh)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
-    except GeminiTransientError:
+    except GroqTransientError:
         raise HTTPException(status_code=503, detail="AI service is temporarily at capacity. Please try again in a few minutes.")
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"AI generation error: {exc}")

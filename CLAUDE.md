@@ -21,7 +21,7 @@ wotoEAT/
 
 ### Stack
 - **Python 3.12+**, FastAPI, Uvicorn
-- **AI**: Google Gemini API (`gemini-2.5-flash`) via `google-genai` async client
+- **AI**: Groq API (`llama-3.3-70b-versatile`) via `groq` async client
 - **Database**: Supabase (Postgres) via `supabase-py` with service-role key
 - **Auth**: Supabase JWT — extracted from `Authorization: Bearer <token>` header
 - **Cache**: SQLite TTL cache (`ai/sqlite_cache.py`) — reduces AI calls, survives restarts. Default TTL 600s (env `CACHE_TTL_SECONDS`).
@@ -36,7 +36,7 @@ uvicorn main:app --reload
 ### Environment Variables (`mealmind-api/.env`)
 | Variable | Purpose |
 |---|---|
-| `GEMINI_API_KEY` | Google Gemini API key |
+| `GROQ_API_KEY` | Groq API key (llama-3.3-70b-versatile) |
 | `SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_KEY` | Supabase service-role key |
 | `ALLOWED_ORIGINS` | CORS origins, comma-separated |
@@ -81,7 +81,7 @@ uvicorn main:app --reload
 
 **`_tag_note()`** — Injected into every prompt that returns recipes. Instructs AI to produce **as many English tags as needed** (no upper limit) covering: key ingredients (each as its own tag), dietary labels, flavour profile, cooking style, occasion/lifestyle. Tags are always English; the frontend translates them via `TAG_ZH` lookup table in `constants/filters.ts`.
 
-**`ai/claude.py`** — Async wrappers around the Gemini client:
+**`ai/claude.py`** — Async wrappers around the Groq client (`llama-3.3-70b-versatile`):
 - `suggest_meals(filters)` → `(list, cached_bool)`
 - `generate_meal_plan(filters)` → `(dict, cached_bool)` — raises `ValueError` if AI returns `{"error": "no_match", ...}` (unsatisfiable required tags)
 - `parse_recipe(html, language)` → `dict`
@@ -91,10 +91,9 @@ uvicorn main:app --reload
 - `translate_texts(texts)` → `list[str]`
 
 Internal helpers:
-- `_generate(prompt, max_tokens)` — calls Gemini with `response_mime_type="application/json"` enforced; tries primary model then falls back to secondary on quota errors
-- `_generate_text(prompt, max_tokens)` — same fallback logic but **no JSON mode**; used only by `translate_texts()` which parses numbered plain-text lines
-- `_call(prompt, config)` — shared model-call + fallback implementation
-- `GeminiTransientError` — tuple `(ClientError, ServerError)` used by routers to catch transient AI failures and return 503
+- `_generate(prompt, max_tokens)` — calls Groq with temperature 0.7; used for all JSON-returning functions
+- `_generate_text(prompt, max_tokens)` — calls Groq with temperature 0.3; used only by `translate_texts()` which parses numbered plain-text lines
+- `GroqTransientError` — tuple `(RateLimitError, APIConnectionError, APIStatusError)` used by routers to catch transient AI failures and return 503
 
 **`ai/sqlite_cache.py`** — MD5-keyed SQLite TTL cache + rate-limit counters.
 
@@ -224,7 +223,7 @@ Key functions: `generateMeals`, `swapMeal`, `suggestMeals`, `getMealHistory`, `p
 2. `handleGenerate()` in `discover.tsx`:
    - Resolves target slot (always exactly **one**): "Auto" → infers from current hour (5–11 → breakfast, 11–15 → lunch, else dinner); otherwise uses the single selected slot.
    - Calls `generateMeals(profile, pantry, cuisines, maxTime, language, ratings, servings, [slot], flavour, requiredIngredients+pantryItems, mealStyle)`.
-3. Backend `POST /meals/generate` → `generate_meal_plan(filters)` → Gemini (`gemini-2.5-flash`, 6000 token limit).
+3. Backend `POST /meals/generate` → `generate_meal_plan(filters)` → Groq (`llama-3.3-70b-versatile`, 6000 token limit).
 4. Response merges the new meal into `dailyPlan` in the store (replaces that slot if it already existed).
 5. Meal cards render with slot colour coding (breakfast=amber, lunch=green, dinner=indigo).
 
@@ -253,7 +252,7 @@ Key functions: `generateMeals`, `swapMeal`, `suggestMeals`, `getMealHistory`, `p
 - Language toggle: English / 简体中文
 - `language` state in store; changing it clears the daily plan.
 - Static strings: `locales/en.ts` and `locales/zh.ts` — accessed via `useTranslation()` hook.
-- Dynamic strings (AI-generated meal names, descriptions, ingredients, steps): translated on-demand by `useDynamicTranslation.ts` → calls `POST /recipes/translate` → Gemini (plain-text mode via `_generate_text`).
+- Dynamic strings (AI-generated meal names, descriptions, ingredients, steps): translated on-demand by `useDynamicTranslation.ts` → calls `POST /recipes/translate` → Groq (via `_generate_text`).
 - Tags: always English from AI; translated client-side via `TAG_ZH` lookup.
 - AI prompts: `_LANG_INSTRUCTION` in `prompts.py` switches the AI's output language for meal names/descriptions when `language === "zh"`.
 
@@ -334,11 +333,9 @@ Key functions: `generateMeals`, `swapMeal`, `suggestMeals`, `getMealHistory`, `p
 
 ## Known Patterns / Conventions
 
-- **Backend error handling**: `ValueError` → HTTP 422; `GeminiTransientError` (ClientError/ServerError) → HTTP 503; uncaught exceptions → HTTP 500.
+- **Backend error handling**: `ValueError` → HTTP 422; `GroqTransientError` (RateLimitError/APIConnectionError/APIStatusError) → HTTP 503; uncaught exceptions → HTTP 500.
 - **Cache key**: MD5 of sorted JSON of the filters dict (excluding `recent_ratings` for plan cache keys to avoid thrashing).
-- **AI JSON mode**: `_generate()` always sets `response_mime_type="application/json"` on the Gemini config — this is required for reliable JSON output. `_generate_text()` omits it and is used only for translation.
-- **Gemini models**: primary `gemini-2.5-flash`, fallback `gemini-2.5-flash-lite`. Both `gemini-2.0-flash` and `gemini-2.0-flash-lite` are deprecated and return 404. Do not revert to 2.0 models.
-- **Token limits**: `generate_meal_plan` and `swap_meal` use 6000 tokens; `generate_recipe_by_name` and `parse_recipe` use 6000 tokens. A single rich meal response is ~5–6k chars — lower limits cause truncated JSON and 422 errors.
+- **Token limits**: `generate_meal_plan`, `swap_meal`, `generate_recipe_by_name`, and `parse_recipe` all use 6000 tokens. A single rich meal response is ~4–6k chars — lower limits cause truncated JSON and 422 errors.
 - **CORS**: `main.py` allows `GET, POST, PUT, PATCH, DELETE, OPTIONS`. `PATCH` is required for `/recipes/{id}/labels`.
 - **Pantry replace**: frontend calls `POST /pantry/` (not `/pantry/replace`) with body `{ items: [...] }`.
 - **AI JSON cleaning**: `_clean_json()` strips markdown fences that some models prepend.
