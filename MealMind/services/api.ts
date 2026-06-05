@@ -391,7 +391,7 @@ export async function getPantry(): Promise<PantryItem[]> {
 }
 
 export async function replacePantry(items: PantryItem[]): Promise<PantryItem[]> {
-  const res = await api.post("/pantry/replace", { items });
+  const res = await api.post("/pantry/", { items });
   return res.data;
 }
 

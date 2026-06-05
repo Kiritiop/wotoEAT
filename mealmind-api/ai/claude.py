@@ -66,11 +66,8 @@ def _text(response) -> str:
     return text
 
 
-async def _generate(prompt: str, max_tokens: int = 4000) -> str:
-    config = types.GenerateContentConfig(
-        max_output_tokens=max_tokens,
-        temperature=0.7,
-    )
+async def _call(prompt: str, config: types.GenerateContentConfig) -> str:
+    """Internal: try primary model, fall back to secondary on quota errors."""
     try:
         response = await _client.aio.models.generate_content(
             model=_MODEL_PRIMARY,
@@ -92,9 +89,27 @@ async def _generate(prompt: str, max_tokens: int = 4000) -> str:
     except ClientError as exc:
         if _is_quota_error(exc):
             logger.error("[ai] both models quota exceeded")
-            # Re-raise as ServerError so routers return 503, not 500
             raise ServerError(503, {"message": "AI quota exceeded on all models. Please try again later."})
         raise
+
+
+async def _generate(prompt: str, max_tokens: int = 4000) -> str:
+    """Generate a response, instructing Gemini to return valid JSON."""
+    config = types.GenerateContentConfig(
+        max_output_tokens=max_tokens,
+        temperature=0.7,
+        response_mime_type="application/json",
+    )
+    return await _call(prompt, config)
+
+
+async def _generate_text(prompt: str, max_tokens: int = 1000) -> str:
+    """Generate a plain-text response (no JSON mode) — used for translations."""
+    config = types.GenerateContentConfig(
+        max_output_tokens=max_tokens,
+        temperature=0.3,
+    )
+    return await _call(prompt, config)
 
 
 # ---------------------------------------------------------------------------
@@ -195,7 +210,7 @@ async def swap_meal(slot: str, current_plan: dict, filters: dict) -> dict:
 async def translate_texts(texts: list[str]) -> list[str]:
     if not texts:
         return []
-    raw = await _generate(translate_prompt(texts), max_tokens=1000)
+    raw = await _generate_text(translate_prompt(texts), max_tokens=1000)
     raw = raw.strip()
     translations = []
     for line in raw.splitlines():
