@@ -134,7 +134,7 @@ async def suggest_meals(filters: dict) -> tuple[list, bool]:
 # ---------------------------------------------------------------------------
 
 async def parse_recipe(html: str, language: str = "en") -> dict:
-    text = await _generate(recipe_parse_prompt(html), max_tokens=2500)
+    text = await _generate(recipe_parse_prompt(html), max_tokens=4000)
     result = json.loads(_clean_json(text))
     if "error" in result:
         raise ValueError(result["error"])
@@ -162,7 +162,7 @@ async def generate_recipe_by_name(dish_name: str, language: str = "en", servings
         if cached is not None:
             return cached
 
-    text = await _generate(generate_recipe_prompt(dish_name, language, servings), max_tokens=2500)
+    text = await _generate(generate_recipe_prompt(dish_name, language, servings), max_tokens=6000)
     result = json.loads(_clean_json(text))
     if "error" in result:
         raise ValueError(result["error"])
@@ -181,7 +181,7 @@ async def generate_meal_plan(filters: dict) -> tuple[dict, bool]:
         return cached, True
 
     language = filters.get("language", "en")
-    text = await _generate(meal_generate_prompt(filters, language), max_tokens=4000)
+    text = await _generate(meal_generate_prompt(filters, language), max_tokens=6000)
     result = json.loads(_clean_json(text))
     if isinstance(result, dict) and result.get("error") == "no_match":
         raise ValueError(result.get("message", "No dish can satisfy the required tags."))
@@ -195,7 +195,7 @@ async def swap_meal(slot: str, current_plan: dict, filters: dict) -> dict:
     merged_ratings = {name: "down" for name in avoid}
     merged_ratings.update(filters.get("recent_ratings") or {})
     swap_filters = {**filters, "slots": [slot], "recent_ratings": merged_ratings}
-    text = await _generate(meal_generate_prompt(swap_filters, language), max_tokens=1500)
+    text = await _generate(meal_generate_prompt(swap_filters, language), max_tokens=6000)
     result = json.loads(_clean_json(text))
     if isinstance(result, dict) and result.get("error") == "no_match":
         raise ValueError(result.get("message", "No dish can satisfy the required tags."))

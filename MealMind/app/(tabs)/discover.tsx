@@ -642,13 +642,12 @@ export default function TodayScreen() {
 
   function toggleMealType(tag: MealTypeTag) {
     Haptics.selectionAsync();
-    if (tag === "any") { setSelectedSlots(["any"]); return; }
-    setSelectedSlots((prev) => {
-      const without = prev.filter((s) => s !== "any" && s !== tag);
-      const adding = !prev.includes(tag);
-      const next = adding ? [...without, tag] : without;
-      return next.length === 0 ? ["any"] : next;
-    });
+    // Single-select: each generation produces exactly one meal
+    if (tag === "any" || selectedSlots.includes(tag)) {
+      setSelectedSlots(["any"]);
+    } else {
+      setSelectedSlots([tag]);
+    }
   }
 
   const sortedMeals = (dailyPlan?.meals ?? [])
