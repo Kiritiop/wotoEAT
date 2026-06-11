@@ -18,6 +18,8 @@ from ai.prompts import (
     shopping_list_prompt,
     generate_recipe_prompt,
     translate_prompt,
+    receipt_transcribe_prompt,
+    receipt_normalize_prompt,
 )
 
 load_dotenv()
@@ -31,6 +33,10 @@ if not _api_key:
 _client = AsyncGroq(api_key=_api_key)
 
 _MODEL = "llama-3.3-70b-versatile"
+
+# Only vision-capable model on Groq (preview status) — overridable so a
+# deprecation can be handled with an env change instead of a deploy.
+_VISION_MODEL = os.getenv("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
 
 _CACHE_TTL = int(os.getenv("CACHE_TTL_SECONDS", "3600"))
 
@@ -70,6 +76,22 @@ async def _generate_text(prompt: str, max_tokens: int = 1000) -> str:
         max_tokens=max_tokens,
         temperature=0.3,
         messages=[{"role": "user", "content": prompt}],
+    )
+    return _extract_text(response)
+
+
+async def _generate_vision(prompt: str, image_b64: str, max_tokens: int = 4000) -> str:
+    response = await _client.chat.completions.create(
+        model=_VISION_MODEL,
+        max_tokens=max_tokens,
+        temperature=0.2,
+        messages=[{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
+            ],
+        }],
     )
     return _extract_text(response)
 
@@ -182,6 +204,49 @@ async def translate_texts(texts: list[str]) -> list[str]:
     while len(translations) < len(texts):
         translations.append(texts[len(translations)])
     return translations[:len(texts)]
+
+
+# ---------------------------------------------------------------------------
+# Receipt scanning (two-stage: vision transcription → text normalization)
+# ---------------------------------------------------------------------------
+
+async def transcribe_receipt(image_b64: str) -> list[str]:
+    text = await _generate_vision(receipt_transcribe_prompt(), image_b64, max_tokens=4000)
+    try:
+        result = json.loads(_clean_json(text))
+    except json.JSONDecodeError:
+        raise ValueError("unreadable_receipt")
+    if isinstance(result, dict) and "error" in result:
+        raise ValueError(result["error"])
+    lines = result.get("lines") if isinstance(result, dict) else None
+    if not lines:
+        raise ValueError("no_receipt")
+    return [str(line) for line in lines]
+
+
+async def normalize_receipt_items(lines: list[str], pantry_names: list[str], language: str = "en") -> list[dict]:
+    text = await _generate_text(receipt_normalize_prompt(lines, pantry_names, language), max_tokens=3000)
+    try:
+        result = json.loads(_clean_json(text))
+    except json.JSONDecodeError:
+        raise ValueError("unreadable_receipt")
+    if isinstance(result, dict) and "error" in result:
+        raise ValueError(result["error"])
+    items = result.get("items", []) if isinstance(result, dict) else []
+    items = [item for item in items if isinstance(item, dict)]
+    pantry_set = set(pantry_names)
+    for item in items:
+        # The model sometimes invents matches; only exact pantry strings count.
+        if item.get("matches_pantry") not in pantry_set:
+            item["matches_pantry"] = None
+    return items
+
+
+async def scan_receipt(image_b64: str, pantry_names: list[str], language: str = "en") -> dict:
+    # No result caching — every receipt is unique.
+    lines = await transcribe_receipt(image_b64)
+    items = await normalize_receipt_items(lines, pantry_names, language)
+    return {"items": items}
 
 
 # Exception types routers should catch for transient AI failures.

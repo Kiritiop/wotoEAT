@@ -12,6 +12,7 @@ import {
   ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAppStore } from "@/store/useAppStore";
@@ -31,6 +32,7 @@ export default function PantryScreen() {
   } = useAppStore();
   const c = useTheme();
   const { t, strings } = useTranslation();
+  const router = useRouter();
 
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -135,10 +137,23 @@ export default function PantryScreen() {
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={styles.addBtn} onPress={() => { setShowTagPicker(true); Haptics.selectionAsync(); }}>
-              <Ionicons name="add" size={20} color="#FFF" />
-              <Text style={styles.addBtnText}>{t("add_ingredient")}</Text>
-            </TouchableOpacity>
+            <View style={styles.addRow}>
+              <TouchableOpacity style={styles.addBtn} onPress={() => { setShowTagPicker(true); Haptics.selectionAsync(); }}>
+                <Ionicons name="add" size={20} color="#FFF" />
+                <Text style={styles.addBtnText}>{t("add_ingredient")}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.scanBtn, { borderColor: c.primary }]}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  router.push("/pantry/scan" as any);
+                }}
+              >
+                <Ionicons name="scan-outline" size={18} color={c.primary} />
+                <Text style={[styles.scanBtnText, { color: c.primary }]}>{t("scan_receipt")}</Text>
+              </TouchableOpacity>
+            </View>
             {loading && <ActivityIndicator style={{ marginTop: 24 }} color={c.primary} />}
             <ErrorBanner message={deleteError} style={{ marginTop: 8 }} />
             {pantry.length > 0 && (
@@ -274,11 +289,17 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
       alignItems: "center", justifyContent: "center",
     },
     cartBadgeText: { color: "#FFF", fontSize: 9, fontWeight: "700" },
+    addRow: { flexDirection: "row", gap: 10, marginBottom: 16 },
     addBtn: {
-      flexDirection: "row", alignItems: "center", justifyContent: "center",
-      backgroundColor: c.primary, borderRadius: 14, paddingVertical: 13, gap: 8, marginBottom: 16,
+      flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
+      backgroundColor: c.primary, borderRadius: 14, paddingVertical: 13, gap: 8,
     },
     addBtnText: { color: "#FFF", fontSize: 15, fontWeight: "700" },
+    scanBtn: {
+      flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
+      borderRadius: 14, paddingVertical: 13, gap: 8, borderWidth: 1.5,
+    },
+    scanBtnText: { fontSize: 15, fontWeight: "700" },
     countLabel: { fontSize: 13, color: c.textPlaceholder, fontWeight: "600", marginBottom: 8 },
     itemRow: {
       flexDirection: "row", alignItems: "center", borderRadius: 10,

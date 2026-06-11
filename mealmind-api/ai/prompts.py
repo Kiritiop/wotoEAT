@@ -306,3 +306,71 @@ Keep translations concise — this is a mobile UI.
 {numbered}
 
 Respond with ONLY the numbered translations in the same format. No explanation."""
+
+
+# Like _MATCHING_RULES but for receipt→pantry matching: same semantic examples,
+# without the shopping-list actions (which would confuse this task).
+_RECEIPT_MATCHING_RULES = """
+SEMANTIC PANTRY MATCHING (critical — read carefully):
+- Match by ingredient TYPE, not exact name, across languages. Examples:
+  - Pantry has "巴沙鱼" or "basa fish" → matches a scanned "white fish", "fish fillet", "swai"
+  - Pantry has "虾" or "对虾" → matches "shrimp", "prawns", "虾仁"
+  - Pantry has "鸡胸肉" → matches "chicken breast", "chicken"
+  - Pantry has "生抽" → matches "soy sauce", "酱油"
+  - Pantry has "食用油" → matches "vegetable oil", "cooking oil"
+- matches_pantry must be the EXACT pantry item string copied verbatim from the pantry list, or null.
+- Only match when it is clearly the same ingredient type; if genuinely unsure, use null.
+- NEVER put a value in matches_pantry that is not in the pantry list.
+"""
+
+
+def receipt_transcribe_prompt() -> str:
+    """Stage 1 of receipt scanning: vision model transcribes the photo verbatim."""
+    return """You are a receipt transcription machine.
+Transcribe EVERY printed line of the grocery receipt in this image, top to bottom, exactly as printed.
+- Copy lines VERBATIM: keep abbreviations, item codes, prices, weights, and quantities exactly as they appear.
+- Do NOT interpret, expand, translate, reorder, or omit anything. Include the store header, every item line, discounts, tax, totals, and footer lines.
+- If part of a line is unreadable, transcribe the readable part and write ??? for the unreadable part.
+- One receipt line = one array element.
+If the image is not a receipt, or is too blurry to read any lines at all, respond with ONLY:
+{"error": "no_receipt"}
+Otherwise respond with ONLY valid JSON, no markdown, no explanation:
+{"lines": ["string"]}"""
+
+
+def receipt_normalize_prompt(lines: list[str], pantry: list[str], language: str = "en") -> str:
+    """Stage 2 of receipt scanning: turn raw receipt lines into normalized pantry items."""
+    lang_note = _LANG_INSTRUCTION.get(language, _LANG_INSTRUCTION["en"])
+    lines_str = "\n".join(lines)
+    pantry_str = "\n".join(f"- {n}" for n in pantry) if pantry else "(empty)"
+    return f"""You are a grocery receipt analyst for a meal planning app.
+{lang_note}
+Below are the raw transcribed lines of a grocery receipt, followed by the user's current pantry.
+Extract every PURCHASED PRODUCT into a structured item list.
+
+RECEIPT LINES:
+{lines_str}
+
+USER'S CURRENT PANTRY:
+{pantry_str}
+
+{_RECEIPT_MATCHING_RULES}
+
+RULES:
+1. Expand store abbreviations into real product names: "ORG BNLS CKN BRST" → "chicken breast", "GV 2% RDCD FAT MILK" → "milk", "WHP CRM" → "whipping cream".
+2. name: the specific food in the response language, 1-4 words, using the culinarily meaningful cut/form ("chicken breast" not "chicken"). Strip brand names and marketing words (GREAT VALUE, KIRKLAND, ORGANIC, FRESH).
+3. is_food: true for human food and drink; false for non-edible products (paper towels, detergent, shopping bags, batteries, pet food, cosmetics).
+4. OMIT ENTIRELY — do not output as items: subtotal/tax/total/change/payment/card lines, coupons, discounts, bottle deposits (CRV), loyalty/membership lines, store name/address/phone, dates, cashier and barcode lines.
+5. Weight/price detail lines that belong to the previous item (e.g. "2.14 lb @ 5.88/lb") must be folded into that item, never emitted as their own item.
+6. Deduplicate: the same product on multiple lines becomes ONE item (combine the quantity, join the raw lines).
+7. raw_text: the verbatim receipt line(s) the item came from.
+8. quantity: short human-readable string for display only ("2.14 lb", "x3", "1 gal") or null. It will not be stored.
+9. matches_pantry: per the SEMANTIC PANTRY MATCHING rules above.
+If the receipt contains no food items at all, respond with ONLY: {{"error": "no_food_items"}}
+
+Respond with ONLY valid JSON, no markdown:
+{{
+  "items": [
+    {{"name": "string", "raw_text": "string", "is_food": true, "quantity": "string or null", "matches_pantry": "string or null"}}
+  ]
+}}"""

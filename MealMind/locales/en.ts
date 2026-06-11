@@ -143,6 +143,32 @@ const en = {
   edit_ingredient: "Edit Ingredient",
   saving: "Saving…",
 
+  // ── Receipt scanning ──────────────────────────────────────────────────────
+  scan_receipt: "Scan receipt",
+  scan_intro: "Photograph a grocery receipt and we'll add the food items to your pantry.",
+  scan_take_photo: "Take photo",
+  scan_pick_photo: "Choose from library",
+  scan_processing: "Reading your receipt…",
+  scan_processing_hint: "This usually takes a few seconds.",
+  scan_found: (n: number) => `${n} food item${n !== 1 ? "s" : ""} found`,
+  scan_breakdown: (matched: number, nonFood: number) => {
+    const parts: string[] = [];
+    if (matched > 0) parts.push(`${matched} already in pantry`);
+    if (nonFood > 0) parts.push(`${nonFood} not food`);
+    return parts.join(" · ");
+  },
+  scan_edit_hint: "Tap a name to edit it. Uncheck anything you don't want.",
+  scan_already_have: "Already in pantry",
+  scan_not_food: "Not food",
+  scan_add_items: (n: number) => `Add ${n} item${n !== 1 ? "s" : ""} to pantry`,
+  scan_rescan: "Scan again",
+  scan_no_items_checked: "Select at least one item to add.",
+  scan_err_no_receipt: "We couldn't find a readable receipt in that photo. Try a closer, sharper shot.",
+  scan_err_no_food: "No food items were found on this receipt.",
+  scan_err_generic: "Couldn't scan the receipt. Please try again.",
+  scan_rate_limited: "You've reached the scan limit. Try again in an hour.",
+  scan_camera_denied: "Camera access is needed to scan receipts. Enable it in Settings.",
+
   // ── Shopping ──────────────────────────────────────────────────────────────
   generate_list: "Generate List",
   shopping_empty_title: "Your list is empty",

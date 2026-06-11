@@ -399,6 +399,26 @@ export async function deletePantryItem(name: string): Promise<void> {
   await api.delete(`/pantry/${encodeURIComponent(name)}`);
 }
 
+// ─── Receipt scanning ────────────────────────────────────────────────────────
+
+export interface ScannedItem {
+  name: string;
+  raw_text: string;
+  is_food: boolean;
+  quantity?: string | null; // display-only, never persisted (pantry is name-only)
+  matches_pantry?: string | null;
+}
+
+export async function scanReceipt(imageBase64: string, language = "en"): Promise<ScannedItem[]> {
+  // Two chained AI calls server-side — allow longer than the instance default.
+  const res = await api.post(
+    "/pantry/scan-receipt",
+    { image_base64: imageBase64, language },
+    { timeout: 60_000 },
+  );
+  return res.data.items as ScannedItem[];
+}
+
 // ─── Dynamic content translation ─────────────────────────────────────────────
 //
 // Backend endpoint to add (FastAPI, calls the local Ollama mealmind-translator):

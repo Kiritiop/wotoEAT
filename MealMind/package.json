@@ -13,7 +13,8 @@
     "vercel-build": "expo export --platform web",
     "translate": "node scripts/translate.mjs",
     "translate:audit": "node scripts/translate.mjs --audit",
-    "translate:fix": "node scripts/translate.mjs --audit --fix"
+    "translate:fix": "node scripts/translate.mjs --audit --fix",
+    "lint": "expo lint"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
@@ -25,6 +26,8 @@
     "expo-constants": "~18.0.13",
     "expo-font": "~14.0.11",
     "expo-haptics": "~15.0.8",
+    "expo-image-manipulator": "~14.0.8",
+    "expo-image-picker": "~17.0.11",
     "expo-linking": "~8.0.11",
     "expo-location": "~19.0.8",
     "expo-router": "~6.0.23",
@@ -46,6 +49,8 @@
   "devDependencies": {
     "@babel/core": "^7.24.0",
     "@types/react": "~19.1.10",
+    "eslint": "^9.0.0",
+    "eslint-config-expo": "~10.0.0",
     "typescript": "^5.3.3"
   },
   "private": true

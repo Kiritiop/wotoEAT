@@ -16,7 +16,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.wotoeat.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "wotoEAT uses your location to find nearby restaurants in Eat Out mode."
+        "NSLocationWhenInUseUsageDescription": "wotoEAT uses your location to find nearby restaurants in Eat Out mode.",
+        "NSCameraUsageDescription": "wotoEAT uses your camera to scan grocery receipts.",
+        "NSPhotoLibraryUsageDescription": "wotoEAT accesses your photos so you can scan a saved receipt image."
       }
     },
     "android": {
@@ -27,7 +29,8 @@
       "package": "com.wotoeat.app",
       "permissions": [
         "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION"
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA"
       ]
     },
     "web": {
@@ -46,6 +49,14 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "wotoEAT uses your location to find nearby restaurants."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "wotoEAT uses your camera to scan grocery receipts.",
+          "photosPermission": "wotoEAT accesses your photos so you can scan a saved receipt image.",
+          "microphonePermission": false
         }
       ],
       "expo-web-browser",

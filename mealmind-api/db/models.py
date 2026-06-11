@@ -151,6 +151,30 @@ class UpsertPantryRequest(BaseModel):
     items: list[PantryItem]
 
 
+class ScanReceiptRequest(BaseModel):
+    image_base64: str
+    language: str = "en"
+
+
+class ScannedItem(BaseModel):
+    name: str
+    raw_text: str = ""
+    is_food: bool = True
+    quantity: Optional[str] = None  # display-only, never persisted (pantry is name-only)
+    matches_pantry: Optional[str] = None  # existing pantry item this duplicates, verbatim
+
+    @field_validator("quantity", "matches_pantry", mode="before")
+    @classmethod
+    def empty_to_none(cls, v):
+        if isinstance(v, str) and v.strip().lower() in ("", "null", "none"):
+            return None
+        return v
+
+
+class ScanReceiptResponse(BaseModel):
+    items: list[ScannedItem]
+
+
 # ---------------------------------------------------------------------------
 # Shopping list
 # ---------------------------------------------------------------------------

@@ -143,6 +143,32 @@ const zh = {
   edit_ingredient: "编辑食材",
   saving: "保存中…",
 
+  // ── Receipt scanning ──────────────────────────────────────────────────────
+  scan_receipt: "扫描小票",
+  scan_intro: "拍摄购物小票，自动识别并添加食材到食材库。",
+  scan_take_photo: "拍照",
+  scan_pick_photo: "从相册选择",
+  scan_processing: "正在识别小票…",
+  scan_processing_hint: "通常只需几秒钟。",
+  scan_found: (n: number) => `识别到 ${n} 种食材`,
+  scan_breakdown: (matched: number, nonFood: number) => {
+    const parts: string[] = [];
+    if (matched > 0) parts.push(`${matched} 项已在食材库`);
+    if (nonFood > 0) parts.push(`${nonFood} 项非食材`);
+    return parts.join(" · ");
+  },
+  scan_edit_hint: "点击名称可编辑，取消勾选不需要的项目。",
+  scan_already_have: "已在食材库",
+  scan_not_food: "非食材",
+  scan_add_items: (n: number) => `添加 ${n} 种食材`,
+  scan_rescan: "重新扫描",
+  scan_no_items_checked: "请至少选择一项。",
+  scan_err_no_receipt: "未能从照片中识别出小票，请靠近一些重拍。",
+  scan_err_no_food: "未在小票上识别到食材。",
+  scan_err_generic: "扫描失败，请重试。",
+  scan_rate_limited: "已达到扫描次数上限，请一小时后再试。",
+  scan_camera_denied: "扫描小票需要相机权限，请在设置中开启。",
+
   // ── Shopping ──────────────────────────────────────────────────────────────
   generate_list: "生成购物清单",
   shopping_empty_title: "购物清单为空",

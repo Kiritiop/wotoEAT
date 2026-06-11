@@ -111,6 +111,14 @@ export default function RootLayout() {
               headerBackTitle: "Back",
             }}
           />
+          <Stack.Screen
+            name="pantry/scan"
+            options={{
+              headerShown: true,
+              title: "Scan Receipt",
+              headerBackTitle: "Back",
+            }}
+          />
         </Stack>
       </GestureHandlerRootView>
     </ErrorBoundary>
