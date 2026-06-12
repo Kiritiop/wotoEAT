@@ -37,6 +37,12 @@ wotoEAT/
 └── mealmind-api/      # FastAPI Python backend
 ```
 
+## Deployment
+
+- **Backend → Railway** (`mealmind-api/`, Procfile: uvicorn). Backend env vars live in the Railway service settings. `SUPABASE_KEY` there must be the **service-role** key — the anon key makes pantry writes fail with RLS errors (silently, in the fire-and-forget paths).
+- **Web frontend → Vercel** (`MealMind/`, build = `vercel-build` script → `expo export --platform web`). Vercel needs only `EXPO_PUBLIC_API_URL` (Railway backend URL), `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`. **Never add the service-role key to Vercel** — all `EXPO_PUBLIC_*` values are baked into the public JS bundle.
+- **Native builds → EAS** (`build:ios` / `build:android` scripts). Changes to native permissions in app.json (e.g. camera for receipt scanning) only take effect in a fresh EAS build; Expo Go and web are unaffected.
+
 ---
 
 ## Backend — `mealmind-api/`
@@ -106,7 +112,7 @@ uvicorn main:app --reload
 - `shopping_list_prompt(recipes, pantry, language)` — de-duplicated shopping list with pantry subtraction
 - `translate_prompt(texts)` — batch English→Chinese translation
 - `receipt_transcribe_prompt()` — receipt scan stage 1: vision model transcribes the photo verbatim into `{"lines": [...]}`
-- `receipt_normalize_prompt(lines, pantry, language)` — receipt scan stage 2: raw lines → normalized food items; uses `_RECEIPT_MATCHING_RULES` (semantic cross-language matching examples adapted from `_MATCHING_RULES`, without its shopping-list action bullets)
+- `receipt_normalize_prompt(lines, pantry, language)` — receipt scan stage 2: raw lines → normalized food items (`name` always canonical English + `name_zh` Chinese display name; `language` param intentionally unused); uses `_RECEIPT_MATCHING_RULES` (semantic cross-language matching examples adapted from `_MATCHING_RULES`, without its shopping-list action bullets)
 
 **`_tag_note()`** — Injected into every prompt that returns recipes. Instructs AI to produce **as many English tags as needed** (no upper limit) covering: key ingredients (each as its own tag), dietary labels, flavour profile, cooking style, occasion/lifestyle. Tags are always English; the frontend translates them via `TAG_ZH` lookup table in `constants/filters.ts`.
 
@@ -138,7 +144,7 @@ Key models:
 - `GeneratedMeal` — slot, name, cuisine, description, prep_time_mins, calories_per_serving, difficulty, components (vegetable/protein/staple), uses_pantry_items, tags, ingredients, steps, protein_g, carbs_g, fat_g, fiber_g
 - `Recipe` — title, servings, prep_time_mins, calories_per_serving, ingredients (list of `Ingredient`), steps, tags, warnings, source_url, source_name
 - `MealFilter` — legacy model, only used by the dead `/meals/suggest`
-- `ScanReceiptRequest` / `ScannedItem` / `ScanReceiptResponse` — receipt scanning. `ScannedItem.quantity` is display-only (never persisted — pantry is name-only); `matches_pantry` is the verbatim existing pantry item the scanned item duplicates, or null.
+- `ScanReceiptRequest` / `ScannedItem` / `ScanReceiptResponse` — receipt scanning. `ScannedItem.name` is canonical English (what gets stored); `name_zh` is the Simplified Chinese display name (display-only); `quantity` is display-only (never persisted — pantry is name-only); `matches_pantry` is the verbatim existing pantry item the scanned item duplicates, or null.
 
 ### Database Tables (Supabase)
 | Table | Purpose |
@@ -294,6 +300,7 @@ Defined but with **zero callers** (legacy): `suggestMeals`, `translateBatch`.
 - Dynamic strings (AI-generated meal names, descriptions, ingredients, steps): translated **client-side** by `useDynamicTranslation.ts` → `services/translate.ts` (Google Translate unofficial endpoint → MyMemory free API fallback → silent passthrough), with in-memory + AsyncStorage caching. The backend `POST /recipes/translate` exists but has no frontend callers (legacy).
 - Tags: always English from AI; translated client-side via `TAG_ZH` lookup.
 - AI prompts: `_LANG_INSTRUCTION` in `prompts.py` switches the AI's output language for meal names/descriptions when `language === "zh"`.
+- Pantry item names: stored canonical English; displayed per-language via `usePantryDisplay` in `hooks/useDynamicTranslation.ts` (curated `TAG_ZH` hit → cached dynamic translation → raw). Used by the Pantry tab list, Discover "From pantry" chips, and scan-review badges.
 
 ---
 
@@ -312,7 +319,8 @@ Defined but with **zero callers** (legacy): `suggestMeals`, `translateBatch`.
 ### Pantry Tab
 - Add items by **name only** (via `PantryTagPicker` category multi-select with custom entries) — there is no quantity/unit anywhere in the pantry stack.
 - "Scan receipt" button beside the add button → pushes `/pantry/scan` (see Receipt Scanning section).
-- Items sync to Supabase `pantry` table on save (`replacePantry` = full replace, fire-and-forget).
+- Item names display per-language (`usePantryDisplay`); each row has inline **rename** (pencil → TextInput prefilled with the **raw stored name**, not the translated display; ci-collision against other items shows `pantry_name_exists`; commit = optimistic store write + awaited `replacePantry`, with `loadPantry()` restoring server truth on failure) plus delete.
+- Items sync to Supabase `pantry` table on save (`replacePantry` = full replace, fire-and-forget on picker save; awaited on rename and scan-confirm).
 - Local cache in `useAppStore.pantry`.
 - "Generate Shopping List" button: takes `selectedRecipes` from store → calls `POST /shopping/generate` → backend subtracts pantry items semantically (via `_MATCHING_RULES` prompt) → grouped shopping list.
 
@@ -334,7 +342,7 @@ Closes the input side of the pantry loop: photograph a grocery receipt → AI ex
 
 ### Pipeline (two-stage, both on Groq)
 1. **Stage 1 — vision transcription** (`transcribe_receipt`, model `_VISION_MODEL` = Llama 4 Scout, temp 0.2): the photo is transcribed verbatim into raw text lines. No interpretation. Isolated and swappable — if Groq deprecates Scout (it's preview; Maverick was killed Feb 2026), set env `GROQ_VISION_MODEL` or replace this one function (e.g. with AWS Textract).
-2. **Stage 2 — text normalization** (`normalize_receipt_items`, existing `llama-3.3-70b-versatile`, temp 0.3): raw lines + the user's current pantry (fetched server-side) + language → items with `name` (abbreviations expanded: "ORG BNLS CKN BRST" → "chicken breast"; brands stripped), `raw_text`, `is_food` (paper towels/detergent → false), display-only `quantity`, and `matches_pantry` (semantic cross-language match against an existing pantry item, e.g. scanned "chicken breast" ↔ existing "鸡胸肉"; guarded server-side against hallucinated values). Tax/totals/coupons/deposits/payment lines are omitted entirely. Testable with plain-text fixtures — no image needed.
+2. **Stage 2 — text normalization** (`normalize_receipt_items`, existing `llama-3.3-70b-versatile`, temp 0.3): raw lines + the user's current pantry (fetched server-side) → items with `name` (**always canonical English** regardless of receipt/user language — same convention as tags; abbreviations expanded: "ORG BNLS CKN BRST" → "chicken breast"; brands stripped; foreign lines translated), `name_zh` (Simplified Chinese display name, always provided), `raw_text`, `is_food` (paper towels/detergent → false), display-only `quantity`, and `matches_pantry` (semantic cross-language match against an existing pantry item, e.g. scanned 鸡蛋 ↔ existing "eggs"; guarded server-side against hallucinated values). The `language` request param is intentionally unused by this prompt. Tax/totals/coupons/deposits/payment lines are omitted entirely. Contract test: `mealmind-api/tests/test_receipt_normalize.py` (live-LLM, crossed-language fixtures — run from `mealmind-api/` with `.venv/bin/python tests/test_receipt_normalize.py`).
 
 ### Endpoint
 `POST /pantry/scan-receipt` — body `{image_base64, language}`; `require_user_id`; rate-limited 10/hr per user (`receipt-scan`); **no caching**; **annotate-only** (writes nothing). Errors: oversized/invalid image and AI error tokens (`no_receipt`, `no_food_items`, `unreadable_receipt`) → 422 (client localizes the tokens); `GroqTransientError` → 503; generic → 500.
@@ -342,9 +350,9 @@ Closes the input side of the pantry loop: photograph a grocery receipt → AI ex
 ### Frontend flow (`app/pantry/scan.tsx`)
 `pick → processing → review → saving`. Camera or library via `expo-image-picker` (camera hidden on web); the photo is resized to ≤1600px longest edge and re-encoded JPEG 0.7 via `expo-image-manipulator` (converts HEIC, bakes EXIF rotation, strips GPS), then sent as base64 JSON (~250–600KB; data-URL prefix stripped client-side AND server-side, intentionally duplicated).
 
-**Review screen**: shows ALL returned rows — nothing silently dropped. Food rows first (checked); `matches_pantry` rows default **unchecked** with an "Already in pantry" badge; non-food rows last, unchecked, with a "Not food" badge. Header counts food rows (`scan_found`); a breakdown subtitle ("3 already in pantry · 1 not food") explains why the Add button's count (checked rows) differs. Names are editable inline; `raw_text` + quantity show as the subtitle.
+**Review screen**: shows ALL returned rows — nothing silently dropped. Food rows first (checked); matched rows default **unchecked** with an "Already in pantry" badge; non-food rows last, unchecked, with a "Not food" badge. Header counts food rows (`scan_found`); a breakdown subtitle ("3 already in pantry · 1 not food") explains why the Add button's count (checked rows) differs. Names are editable inline (pencil affordance); rows display `name_zh` when the app is in Chinese until edited — once edited, the user's literal text wins and is what gets stored. For edited rows the pantry match is re-derived live (exact case-insensitive), falling back to the server's semantic match so a pending rename stays visible. `raw_text` + quantity show as the subtitle.
 
-**Merge is strictly additive** — existing pantry ∪ checked rows, never replaces or removes. New rows are case-insensitively deduped against everything before `replacePantry` (its delete-then-bulk-insert would 500 on `UNIQUE(user_id, name)` duplicates). The confirm handler **awaits** `replacePantry` before writing the store or navigating (a deliberate departure from the pantry tab's fire-and-forget) — on failure it stays on the review screen with row state intact and shows the error.
+**Merge = combine / rename / add — never removes** (`computeScanMerge` in `app/pantry/scan.tsx`, pure + exported): a checked **unedited** row that matched an existing entry is skipped (combines — checking 鸡蛋 with "eggs" in the pantry must NOT create a second entry); a checked **edited** row whose name ci-equals an existing entry combines; a checked **edited** row that semantically matched **renames** the existing entry to the user's text (collision-guarded); everything else adds with ci-dedupe. Renames run before adds against a live ci-name set, so the `replacePantry` payload can never contain duplicates (its delete-then-bulk-insert would 500 on `UNIQUE(user_id, name)`). The confirm handler **awaits** `replacePantry` before writing the store or navigating (a deliberate departure from the pantry tab's fire-and-forget) — on failure it stays on the review screen with row state intact and shows the error.
 
 ### New packages / permissions
 `expo-image-picker` + `expo-image-manipulator` (both in Expo Go SDK 54 — no dev build needed). `app.json`: expo-image-picker plugin with camera/photos strings, `NSCameraUsageDescription` + `NSPhotoLibraryUsageDescription`, Android `CAMERA` permission.
@@ -405,6 +413,7 @@ Closes the input side of the pantry loop: photograph a grocery receipt → AI ex
 - **Semantic pantry matching**: `_MATCHING_RULES` in `prompts.py` teaches the AI to match ingredient types (e.g. "巴沙鱼" satisfies "white fish").
 - **Shopping list category**: meals use `{slot}-{meal.name}` as the shopping list category key to avoid name collisions between slots.
 - **Tags always English**: the AI is instructed to return tags in English regardless of response language. Frontend translates via `TAG_ZH` at render time.
+- **Pantry names are canonical English** (same convention as tags): receipt scan returns `name` always-English plus `name_zh` for display; `PantryTagPicker` built-ins already store English (its zh labels are display-only). All pantry-name display goes through `usePantryDisplay` (curated `TAG_ZH` hit → cached dynamic translation → raw). User-typed names (picker custom items, scan edits, renames) are stored literally — user override wins. Legacy zh-stored names display as-is in EN mode (no reverse map).
 - **No calories displayed on card header**: calorie/kcal display is only visible inside the info panel (tap ℹ️ icon). Prep time is still shown in the header.
 - **Swap respects filters**: `handleSwap` passes cuisine, flavour, maxTime, requiredIngredients, and mealStyle to the backend swap endpoint.
 - **Regenerate bypasses cache**: `generateRecipeByName` accepts `force_refresh=True`; the Regenerate button (FindRecipeModal) and history Generate button both pass this flag.

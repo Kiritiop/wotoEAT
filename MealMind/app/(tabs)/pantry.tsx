@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
+  TextInput,
   FlatList,
   TouchableOpacity,
   StyleSheet,
@@ -24,6 +25,7 @@ import { formatShoppingListText, countShoppingItems } from "@/utils/shopping";
 import { IngredientRow } from "@/components/IngredientRow";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
+import { usePantryDisplay } from "@/hooks/useDynamicTranslation";
 
 export default function PantryScreen() {
   const {
@@ -38,6 +40,11 @@ export default function PantryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+
+  // Stored names are canonical English; display follows the current language.
+  const displayNames = usePantryDisplay(pantry.map((p) => p.name));
 
   // ── Shopping modal state ──────────────────────────────────────────────────
   const [showShopping, setShowShopping] = useState(false);
@@ -79,6 +86,32 @@ export default function PantryScreen() {
     setShowTagPicker(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     try { await replacePantry(newItems); } catch { /* best-effort */ }
+  }
+
+  async function commitRename(oldName: string) {
+    const newName = draft.trim();
+    if (!newName || newName === oldName) {
+      setEditingName(null);
+      return;
+    }
+    const collision = pantry.some(
+      (p) => p.name !== oldName && p.name.trim().toLowerCase() === newName.toLowerCase(),
+    );
+    if (collision) {
+      setDeleteError(t("pantry_name_exists"));
+      return; // keep edit mode open so the user can adjust
+    }
+    const renamed = pantry.map((p) => (p.name === oldName ? { name: newName } : p));
+    setEditingName(null);
+    setDeleteError(null);
+    setPantry(renamed);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    try {
+      await replacePantry(renamed);
+    } catch (err: unknown) {
+      setDeleteError(err instanceof Error ? err.message : "Could not rename.");
+      loadPantry(); // restore server truth
+    }
   }
 
   // ── Shopping helpers ──────────────────────────────────────────────────────
@@ -171,17 +204,58 @@ export default function PantryScreen() {
             />
           ) : null
         }
-        renderItem={({ item }) => (
-          <View style={[styles.itemRow, { backgroundColor: c.surface }]}>
-            <Text style={[styles.itemName, { color: c.text }]}>{item.name}</Text>
-            <TouchableOpacity
-              onPress={() => handleDelete(item.name)}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons name="close-circle" size={20} color={c.textMuted} />
-            </TouchableOpacity>
-          </View>
-        )}
+        renderItem={({ item, index }) =>
+          item.name === editingName ? (
+            <View style={[styles.itemRow, { backgroundColor: c.surface }]}>
+              <TextInput
+                style={[styles.itemEditInput, { color: c.text }]}
+                value={draft}
+                onChangeText={setDraft}
+                autoFocus
+                returnKeyType="done"
+                onSubmitEditing={() => commitRename(item.name)}
+                placeholder={t("ingredient_name")}
+                placeholderTextColor={c.textPlaceholder}
+              />
+              <TouchableOpacity
+                onPress={() => commitRename(item.name)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="checkmark-circle" size={22} color={c.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => { setEditingName(null); setDeleteError(null); }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                style={{ marginLeft: 12 }}
+              >
+                <Ionicons name="close-circle" size={20} color={c.textMuted} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={[styles.itemRow, { backgroundColor: c.surface }]}>
+              <Text style={[styles.itemName, { color: c.text }]}>{displayNames[index] ?? item.name}</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  // Prefill the RAW stored name — prefilling the translated
+                  // display would rewrite storage on a no-op save.
+                  setEditingName(item.name);
+                  setDraft(item.name);
+                  Haptics.selectionAsync();
+                }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                style={{ marginRight: 14 }}
+              >
+                <Ionicons name="create-outline" size={18} color={c.textMuted} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => handleDelete(item.name)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close-circle" size={20} color={c.textMuted} />
+              </TouchableOpacity>
+            </View>
+          )
+        }
         showsVerticalScrollIndicator={false}
       />
 
@@ -307,6 +381,7 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
       shadowColor: c.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
     },
     itemName: { flex: 1, fontSize: 15, fontWeight: "500", textTransform: "capitalize" },
+    itemEditInput: { flex: 1, fontSize: 15, fontWeight: "500", paddingVertical: 0, marginRight: 12 },
     // Shopping modal
     shoppingHeader: {
       flexDirection: "row", alignItems: "center", justifyContent: "space-between",

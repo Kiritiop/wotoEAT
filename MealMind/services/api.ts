@@ -402,7 +402,8 @@ export async function deletePantryItem(name: string): Promise<void> {
 // ─── Receipt scanning ────────────────────────────────────────────────────────
 
 export interface ScannedItem {
-  name: string;
+  name: string; // canonical English (same convention as tags); what gets stored
+  name_zh?: string | null; // Simplified Chinese display name; display-only
   raw_text: string;
   is_food: boolean;
   quantity?: string | null; // display-only, never persisted (pantry is name-only)

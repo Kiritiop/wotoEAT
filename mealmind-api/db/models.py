@@ -157,13 +157,14 @@ class ScanReceiptRequest(BaseModel):
 
 
 class ScannedItem(BaseModel):
-    name: str
+    name: str  # canonical English (same convention as tags); what gets stored
+    name_zh: Optional[str] = None  # Simplified Chinese display name; display-only
     raw_text: str = ""
     is_food: bool = True
     quantity: Optional[str] = None  # display-only, never persisted (pantry is name-only)
     matches_pantry: Optional[str] = None  # existing pantry item this duplicates, verbatim
 
-    @field_validator("quantity", "matches_pantry", mode="before")
+    @field_validator("quantity", "matches_pantry", "name_zh", mode="before")
     @classmethod
     def empty_to_none(cls, v):
         if isinstance(v, str) and v.strip().lower() in ("", "null", "none"):

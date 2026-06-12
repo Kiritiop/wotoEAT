@@ -225,7 +225,7 @@ async def transcribe_receipt(image_b64: str) -> list[str]:
 
 
 async def normalize_receipt_items(lines: list[str], pantry_names: list[str], language: str = "en") -> list[dict]:
-    text = await _generate_text(receipt_normalize_prompt(lines, pantry_names, language), max_tokens=3000)
+    text = await _generate_text(receipt_normalize_prompt(lines, pantry_names, language), max_tokens=4000)
     try:
         result = json.loads(_clean_json(text))
     except json.JSONDecodeError:
@@ -239,6 +239,10 @@ async def normalize_receipt_items(lines: list[str], pantry_names: list[str], lan
         # The model sometimes invents matches; only exact pantry strings count.
         if item.get("matches_pantry") not in pantry_set:
             item["matches_pantry"] = None
+        # If the model disobeyed and put Chinese in name, keep display usable.
+        name = str(item.get("name", ""))
+        if not item.get("name_zh") and any("一" <= ch <= "鿿" for ch in name):
+            item["name_zh"] = name
     return items
 
 

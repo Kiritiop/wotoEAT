@@ -22,7 +22,7 @@ import { generateMeals, swapMeal, saveRecipe, deleteRecipe } from "@/services/ap
 import type { Recipe, Ingredient } from "@/services/api";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useTheme } from "@/hooks/useTheme";
-import { useBatchTranslated, useTranslated } from "@/hooks/useDynamicTranslation";
+import { useBatchTranslated, useTranslated, usePantryDisplay } from "@/hooks/useDynamicTranslation";
 import FindRecipeModal from "@/components/FindRecipeModal";
 import { searchMealImage } from "@/services/imageSearch";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
@@ -615,6 +615,9 @@ export default function TodayScreen() {
   const planIsStale = !!dailyPlan && !!planDate && planDate !== today;
   const { t } = useTranslation();
   const c = useTheme();
+  // Pantry names are stored canonical English; chips display per-language while
+  // selection state / required_ingredients keep the raw stored values.
+  const pantryDisplayNames = usePantryDisplay(pantry.map((p) => p.name));
 
   const [loading, setLoading] = useState(false);
   const [swappingSlot, setSwappingSlot] = useState<string | null>(null);
@@ -928,7 +931,7 @@ export default function TodayScreen() {
               <>
                 <Text style={[styles.filterLabel, { color: c.textMuted, marginTop: 10 }]}>{t("from_pantry")}</Text>
                 <View style={styles.filterChipRow}>
-                  {pantry.map((item) => {
+                  {pantry.map((item, idx) => {
                     const active = selectedPantryItems.map(s => s.toLowerCase()).includes(item.name.toLowerCase());
                     return (
                       <TouchableOpacity
@@ -941,7 +944,7 @@ export default function TodayScreen() {
                           Haptics.selectionAsync();
                         }}
                       >
-                        <Text style={[styles.filterChipText, { color: active ? "#FFF" : c.chipText }]}>{item.name}</Text>
+                        <Text style={[styles.filterChipText, { color: active ? "#FFF" : c.chipText }]}>{pantryDisplayNames[idx] ?? item.name}</Text>
                       </TouchableOpacity>
                     );
                   })}

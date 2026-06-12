@@ -136,6 +136,7 @@ const en = {
   pantry_empty_title: "Pantry is empty",
   pantry_empty_body: "Add ingredients you already own and we'll skip them in your shopping list.",
   pantry_count: (n: number) => `${n} item${n !== 1 ? "s" : ""} in pantry`,
+  pantry_name_exists: "You already have this item.",
   missing_fields: "Enter an ingredient name and amount.",
   missing_name: "Please enter an ingredient name.",
   missing_amount: "Please enter an amount.",

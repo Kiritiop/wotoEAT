@@ -136,6 +136,7 @@ const zh = {
   pantry_empty_title: "食材库为空",
   pantry_empty_body: "添加您已有的食材，我们会在购物清单中自动跳过它们。",
   pantry_count: (n: number) => `共 ${n} 种食材`,
+  pantry_name_exists: "该食材已存在。",
   missing_fields: "请输入食材名称和数量。",
   missing_name: "请输入食材名称。",
   missing_amount: "请输入数量。",

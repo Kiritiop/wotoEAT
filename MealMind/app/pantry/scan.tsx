@@ -2,10 +2,13 @@
  * Scan Receipt screen — photograph a grocery receipt, review the extracted
  * food items, and merge them into the pantry. Accessible from the Pantry tab.
  *
- * Merge is strictly additive: existing pantry ∪ checked rows. Quantities are
+ * Names are stored canonical English (same convention as tags) and displayed
+ * per-language; user-edited text is stored literally. Merge never removes:
+ * checked matched rows COMBINE with the existing entry, edited matched rows
+ * RENAME it, everything else ADDs (see computeScanMerge). Quantities are
  * display-only context — the pantry stores names only.
  */
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -27,12 +30,15 @@ import type { ScannedItem } from "@/services/api";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
+import { usePantryDisplay } from "@/hooks/useDynamicTranslation";
 
 type Phase = "pick" | "processing" | "review" | "saving";
 
 interface ReviewRow {
   key: string;
-  name: string;
+  name: string; // canonical English until edited; the user's literal text after
+  nameZh: string | null; // display-only
+  edited: boolean;
   rawText: string;
   quantity: string | null; // display-only, never persisted
   matchesPantry: string | null;
@@ -41,6 +47,57 @@ interface ReviewRow {
 }
 
 const MAX_EDGE = 1600;
+
+const ci = (s: string) => s.trim().toLowerCase();
+
+interface MergeRow {
+  name: string;
+  matchesPantry: string | null;
+  edited: boolean;
+  checked: boolean;
+}
+
+/**
+ * Merge checked scan rows into the existing pantry. Never removes entries.
+ * - unedited row that semantically matched an existing entry → skip (combine)
+ * - edited row whose name ci-equals an existing entry → skip (combine)
+ * - edited row that semantically matched → RENAME the existing entry
+ * - otherwise → ADD, ci-deduped
+ * Renames run before adds against a live ci-name set, so the payload can never
+ * contain duplicates (replacePantry bulk-inserts under UNIQUE(user_id, name)).
+ */
+export function computeScanMerge(
+  pantry: { name: string }[],
+  rows: MergeRow[],
+): { merged: { name: string }[]; added: number; renamed: number } {
+  const merged = pantry.map((p) => ({ name: p.name }));
+  const namesCi = new Set(merged.map((e) => ci(e.name)));
+  const actionable = rows.filter((r) => r.checked && r.name.trim().length > 0);
+  let added = 0;
+  let renamed = 0;
+
+  for (const r of actionable) {
+    if (!(r.edited && r.matchesPantry)) continue;
+    const target = r.name.trim();
+    if (namesCi.has(ci(target))) continue; // collision → combine instead
+    const idx = merged.findIndex((e) => e.name === r.matchesPantry);
+    if (idx === -1) continue; // source already renamed by an earlier row
+    namesCi.delete(ci(merged[idx].name));
+    merged[idx] = { name: target };
+    namesCi.add(ci(target));
+    renamed++;
+  }
+
+  for (const r of actionable) {
+    if (!r.edited && r.matchesPantry) continue; // combine with existing entry
+    const name = r.name.trim();
+    if (namesCi.has(ci(name))) continue; // covers pass-1 targets + intra-scan dupes
+    namesCi.add(ci(name));
+    merged.push({ name });
+    added++;
+  }
+  return { merged, added, renamed };
+}
 
 export default function ScanReceiptScreen() {
   const c = useTheme();
@@ -51,6 +108,20 @@ export default function ScanReceiptScreen() {
   const [phase, setPhase] = useState<Phase>("pick");
   const [rows, setRows] = useState<ReviewRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // badgeMatch: which existing pantry entry this row will combine into / rename.
+  // For edited rows the exact ci match is re-derived live; the server's
+  // semantic match is kept as fallback so a pending rename stays visible.
+  const rowsResolved = useMemo(
+    () =>
+      rows.map((r) => {
+        const exact = pantry.find((p) => ci(p.name) === ci(r.name))?.name ?? null;
+        const badgeMatch = r.edited ? (exact ?? r.matchesPantry) : r.matchesPantry;
+        return { ...r, badgeMatch };
+      }),
+    [rows, pantry],
+  );
+  const badgeDisplayNames = usePantryDisplay(rowsResolved.map((r) => r.badgeMatch ?? ""));
 
   function mapScanError(err: unknown): string {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -127,6 +198,8 @@ export default function ScanReceiptScreen() {
         sorted.map((i, idx) => ({
           key: String(idx),
           name: i.name,
+          nameZh: i.name_zh ?? null,
+          edited: false,
           rawText: i.raw_text,
           quantity: i.quantity ?? null,
           matchesPantry: i.matches_pantry ?? null,
@@ -148,24 +221,14 @@ export default function ScanReceiptScreen() {
   }
 
   function renameRow(key: string, name: string) {
-    setRows((prev) => prev.map((r) => (r.key === key ? { ...r, name } : r)));
+    // No trim/transform here — it would break IME (pinyin) composition.
+    setRows((prev) => prev.map((r) => (r.key === key ? { ...r, name, edited: true } : r)));
   }
 
   async function handleConfirm() {
     setError(null);
     setPhase("saving");
-    // Existing items go through verbatim (they already passed the DB's UNIQUE
-    // constraint); new rows are case-insensitively deduped against everything,
-    // because replacePantry bulk-inserts and duplicates would 500.
-    const merged = pantry.map((p) => ({ name: p.name }));
-    const seen = new Set(pantry.map((p) => p.name.trim().toLowerCase()));
-    for (const r of rows) {
-      const name = r.name.trim();
-      const k = name.toLowerCase();
-      if (!r.checked || !name || seen.has(k)) continue;
-      seen.add(k);
-      merged.push({ name });
-    }
+    const { merged } = computeScanMerge(pantry, rows);
     try {
       await replacePantry(merged);
       setPantry(merged);
@@ -179,10 +242,10 @@ export default function ScanReceiptScreen() {
     }
   }
 
-  const foodCount = rows.filter((r) => r.isFood).length;
-  const matchedCount = rows.filter((r) => r.isFood && r.matchesPantry).length;
-  const nonFoodCount = rows.length - foodCount;
-  const checkedCount = rows.filter((r) => r.checked && r.name.trim()).length;
+  const foodCount = rowsResolved.filter((r) => r.isFood).length;
+  const matchedCount = rowsResolved.filter((r) => r.isFood && r.badgeMatch).length;
+  const nonFoodCount = rowsResolved.length - foodCount;
+  const checkedCount = rowsResolved.filter((r) => r.checked && r.name.trim()).length;
   const breakdown = strings.scan_breakdown(matchedCount, nonFoodCount);
 
   const styles = makeStyles(c);
@@ -226,7 +289,7 @@ export default function ScanReceiptScreen() {
   return (
     <View style={[styles.reviewContainer, { backgroundColor: c.bg }]}>
       <FlatList
-        data={rows}
+        data={rowsResolved}
         keyExtractor={(item) => item.key}
         contentContainerStyle={styles.listContent}
         keyboardShouldPersistTaps="handled"
@@ -250,46 +313,57 @@ export default function ScanReceiptScreen() {
             <ErrorBanner message={error} style={{ marginBottom: 10 }} />
           </View>
         }
-        renderItem={({ item }) => (
-          <View style={[styles.row, { backgroundColor: c.surface, shadowColor: c.shadow }]}>
-            <TouchableOpacity
-              onPress={() => toggleRow(item.key)}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons
-                name={item.checked ? "checkbox" : "square-outline"}
-                size={22}
-                color={item.checked ? c.primary : c.textPlaceholder}
-              />
-            </TouchableOpacity>
-            <View style={styles.rowBody}>
-              <TextInput
-                style={[styles.nameInput, { color: c.text }]}
-                value={item.name}
-                onChangeText={(v) => renameRow(item.key, v)}
-                placeholder={t("ingredient_name")}
-                placeholderTextColor={c.textPlaceholder}
-              />
-              <Text style={[styles.rawText, { color: c.textPlaceholder }]} numberOfLines={1}>
-                {item.rawText}
-                {item.quantity ? ` · ${item.quantity}` : ""}
-              </Text>
-              {item.matchesPantry ? (
-                <View style={[styles.badge, { backgroundColor: c.primaryLight }]}>
-                  <Ionicons name="checkmark-circle-outline" size={12} color={c.primaryText} />
-                  <Text style={[styles.badgeText, { color: c.primaryText }]}>
-                    {t("scan_already_have")}
-                    {item.matchesPantry !== item.name ? ` · ${item.matchesPantry}` : ""}
-                  </Text>
+        renderItem={({ item, index }) => {
+          const displayName = item.edited
+            ? item.name
+            : language === "zh" && item.nameZh
+              ? item.nameZh
+              : item.name;
+          const badgeName = badgeDisplayNames[index];
+          return (
+            <View style={[styles.row, { backgroundColor: c.surface, shadowColor: c.shadow }]}>
+              <TouchableOpacity
+                onPress={() => toggleRow(item.key)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons
+                  name={item.checked ? "checkbox" : "square-outline"}
+                  size={22}
+                  color={item.checked ? c.primary : c.textPlaceholder}
+                />
+              </TouchableOpacity>
+              <View style={styles.rowBody}>
+                <View style={styles.nameRow}>
+                  <TextInput
+                    style={[styles.nameInput, { color: c.text }]}
+                    value={displayName}
+                    onChangeText={(v) => renameRow(item.key, v)}
+                    placeholder={t("ingredient_name")}
+                    placeholderTextColor={c.textPlaceholder}
+                  />
+                  <Ionicons name="create-outline" size={15} color={c.textPlaceholder} />
                 </View>
-              ) : !item.isFood ? (
-                <View style={[styles.badge, { backgroundColor: c.chipBg }]}>
-                  <Text style={[styles.badgeText, { color: c.chipText }]}>{t("scan_not_food")}</Text>
-                </View>
-              ) : null}
+                <Text style={[styles.rawText, { color: c.textPlaceholder }]} numberOfLines={1}>
+                  {item.rawText}
+                  {item.quantity ? ` · ${item.quantity}` : ""}
+                </Text>
+                {item.badgeMatch ? (
+                  <View style={[styles.badge, { backgroundColor: c.primaryLight }]}>
+                    <Ionicons name="checkmark-circle-outline" size={12} color={c.primaryText} />
+                    <Text style={[styles.badgeText, { color: c.primaryText }]}>
+                      {t("scan_already_have")}
+                      {badgeName && badgeName !== displayName ? ` · ${badgeName}` : ""}
+                    </Text>
+                  </View>
+                ) : !item.isFood ? (
+                  <View style={[styles.badge, { backgroundColor: c.chipBg }]}>
+                    <Text style={[styles.badgeText, { color: c.chipText }]}>{t("scan_not_food")}</Text>
+                  </View>
+                ) : null}
+              </View>
             </View>
-          </View>
-        )}
+          );
+        }}
       />
       <View style={[styles.bottomBar, { backgroundColor: c.surface, borderTopColor: c.border }]}>
         {checkedCount === 0 && (
@@ -349,7 +423,8 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
       shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
     },
     rowBody: { flex: 1 },
-    nameInput: { fontSize: 15, fontWeight: "600", paddingVertical: 0, textTransform: "capitalize" },
+    nameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+    nameInput: { flex: 1, fontSize: 15, fontWeight: "600", paddingVertical: 0, textTransform: "capitalize" },
     rawText: { fontSize: 12, marginTop: 2 },
     badge: {
       flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start",

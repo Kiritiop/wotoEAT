@@ -339,12 +339,14 @@ Otherwise respond with ONLY valid JSON, no markdown, no explanation:
 
 
 def receipt_normalize_prompt(lines: list[str], pantry: list[str], language: str = "en") -> str:
-    """Stage 2 of receipt scanning: turn raw receipt lines into normalized pantry items."""
-    lang_note = _LANG_INSTRUCTION.get(language, _LANG_INSTRUCTION["en"])
+    """Stage 2 of receipt scanning: turn raw receipt lines into normalized pantry items.
+
+    `language` is intentionally unused: names are canonical English plus a
+    name_zh display name, mirroring the app-wide tags convention.
+    """
     lines_str = "\n".join(lines)
     pantry_str = "\n".join(f"- {n}" for n in pantry) if pantry else "(empty)"
     return f"""You are a grocery receipt analyst for a meal planning app.
-{lang_note}
 Below are the raw transcribed lines of a grocery receipt, followed by the user's current pantry.
 Extract every PURCHASED PRODUCT into a structured item list.
 
@@ -358,19 +360,20 @@ USER'S CURRENT PANTRY:
 
 RULES:
 1. Expand store abbreviations into real product names: "ORG BNLS CKN BRST" → "chicken breast", "GV 2% RDCD FAT MILK" → "milk", "WHP CRM" → "whipping cream".
-2. name: the specific food in the response language, 1-4 words, using the culinarily meaningful cut/form ("chicken breast" not "chicken"). Strip brand names and marketing words (GREAT VALUE, KIRKLAND, ORGANIC, FRESH).
-3. is_food: true for human food and drink; false for non-edible products (paper towels, detergent, shopping bags, batteries, pet food, cosmetics).
-4. OMIT ENTIRELY — do not output as items: subtotal/tax/total/change/payment/card lines, coupons, discounts, bottle deposits (CRV), loyalty/membership lines, store name/address/phone, dates, cashier and barcode lines.
-5. Weight/price detail lines that belong to the previous item (e.g. "2.14 lb @ 5.88/lb") must be folded into that item, never emitted as their own item.
-6. Deduplicate: the same product on multiple lines becomes ONE item (combine the quantity, join the raw lines).
-7. raw_text: the verbatim receipt line(s) the item came from.
-8. quantity: short human-readable string for display only ("2.14 lb", "x3", "1 gal") or null. It will not be stored.
-9. matches_pantry: per the SEMANTIC PANTRY MATCHING rules above.
+2. name: ALWAYS in English, regardless of the receipt's language and regardless of the user's language — the same convention as tags everywhere in this app. Lowercase, 1-4 words, the specific culinarily meaningful cut/form ("chicken breast" not "chicken"). Strip brand names and marketing words (GREAT VALUE, KIRKLAND, ORGANIC, FRESH). If a receipt line is in another language (e.g. Chinese), translate the food to its common English name.
+3. name_zh: the Simplified Chinese display name for the same food ("chicken breast" → "鸡胸肉", "eggs" → "鸡蛋"). ALWAYS provide it for every item — never null, never empty, never English.
+4. is_food: true for human food and drink; false for non-edible products (paper towels, detergent, shopping bags, batteries, pet food, cosmetics).
+5. OMIT ENTIRELY — do not output as items: subtotal/tax/total/change/payment/card lines, coupons, discounts, bottle deposits (CRV), loyalty/membership lines, store name/address/phone, dates, cashier and barcode lines.
+6. Weight/price detail lines that belong to the previous item (e.g. "2.14 lb @ 5.88/lb") must be folded into that item, never emitted as their own item.
+7. Deduplicate: the same product on multiple lines becomes ONE item (combine the quantity, join the raw lines).
+8. raw_text: the verbatim receipt line(s) the item came from.
+9. quantity: short human-readable string for display only ("2.14 lb", "x3", "1 gal") or null. It will not be stored.
+10. matches_pantry: per the SEMANTIC PANTRY MATCHING rules above.
 If the receipt contains no food items at all, respond with ONLY: {{"error": "no_food_items"}}
 
 Respond with ONLY valid JSON, no markdown:
 {{
   "items": [
-    {{"name": "string", "raw_text": "string", "is_food": true, "quantity": "string or null", "matches_pantry": "string or null"}}
+    {{"name": "string", "name_zh": "string", "raw_text": "string", "is_food": true, "quantity": "string or null", "matches_pantry": "string or null"}}
   ]
 }}"""
