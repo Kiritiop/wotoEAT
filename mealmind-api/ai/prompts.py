@@ -156,7 +156,7 @@ Respond with ONLY valid JSON, no markdown:
 }}"""
 
 
-def generate_recipe_prompt(dish_name: str, language: str = "en", servings: int = 2) -> str:
+def generate_recipe_prompt(dish_name: str, language: str = "en", servings: int = 1) -> str:
     lang_note = _LANG_INSTRUCTION.get(language, _LANG_INSTRUCTION["en"])
     tag_note = _tag_note()
     serving_word = "person" if servings == 1 else "people"
@@ -196,7 +196,7 @@ def meal_generate_prompt(filters: dict, language: str = "en") -> str:
     """One rich meal per requested slot (ingredients, steps, macros)."""
     lang_note = _LANG_INSTRUCTION.get(language, _LANG_INSTRUCTION["en"])
     tag_note = _tag_note()
-    servings = filters.get("servings", filters.get("serving_size", 2))
+    servings = filters.get("servings", filters.get("serving_size", 1))
     serving_word = "person" if servings == 1 else "people"
     slots = filters.get("slots", ["breakfast", "lunch", "dinner"])
 
