@@ -1,12 +1,6 @@
-INFO:     100.64.0.2:54540 - "OPTIONS /profile/ HTTP/1.1" 200 OK
-INFO:     100.64.0.3:32594 - "OPTIONS /shopping/current HTTP/1.1" 200 OK
-INFO:     100.64.0.5:38208 - "GET /profile/ HTTP/1.1" 200 OK
-INFO:     100.64.0.4:42324 - "GET /shopping/current HTTP/1.1" 200 OK
-INFO:     100.64.0.6:54420 - "OPTIONS /recipes/saved HTTP/1.1" 200 OK
-INFO:     100.64.0.7:22404 - "GET /recipes/saved HTTP/1.1" 200 OK
-INFO:     100.64.0.8:23322 - "OPTIONS /pantry/ HTTP/1.1" 200 OK
-INFO:     100.64.0.2:61280 - "GET /pantry/ HTTP/1.1" 200 OK
-INFO:     100.64.0.5:18778 - "OPTIONS /meals/generate HTTP/1.1" 200 OK
-INFO:     100.64.0.2:61280 - "POST /meals/generate HTTP/1.1" 503 Service Unavailable
+When i try to import a URL, i get errors: Request failed with status code 422
 
-entry-765d16a31780dca9956d0e89963c2148.js:904  POST https://mealmind-production-dc38.up.railway.app/meals/generate 503 (Service Unavailable)
+recipe/upload:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was receivedUnderstand this error
+entry-b42187c9efc332004e3c0c26094ee303.js:904  POST https://mealmind-production-dc38.up.railway.app/recipes/parse 422 (Unprocessable Content)
+
+Default is still 2 people for some reason not 1 person

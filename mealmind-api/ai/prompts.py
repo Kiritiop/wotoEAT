@@ -47,7 +47,7 @@ SEMANTIC INGREDIENT MATCHING (critical — read carefully):
 def meal_suggestion_prompt(filters: dict, language: str = "en") -> str:
     lang_note = _LANG_INSTRUCTION.get(language, _LANG_INSTRUCTION["en"])
     tag_note = _tag_note()
-    serving_size = filters.get("serving_size", 2)
+    serving_size = filters.get("serving_size", 1)
     serving_word = "person" if serving_size == 1 else "people"
     display_filters = {k: v for k, v in filters.items() if k not in ("serving_size", "language")}
 
