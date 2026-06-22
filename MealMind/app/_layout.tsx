@@ -15,7 +15,7 @@ export default function RootLayout() {
   const [ready, setReady] = useState(false);
   const router = useRouter();
   const segments = useSegments();
-  const { setProfile, setHasOnboarded, hasOnboarded, setAuthReady, setShoppingList, clearDailyPlan } = useAppStore();
+  const { setProfile, setHasOnboarded, hasOnboarded, setAuthReady, setShoppingList, clearMeals } = useAppStore();
   const theme = useTheme();
 
   useEffect(() => {
@@ -24,10 +24,10 @@ export default function RootLayout() {
     const { data: listener } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
       setAuthToken(s?.access_token ?? null);
-      // Clear any persisted meal plan on every fresh login or page load so
-      // the user never sees a stale plan from a previous session.
+      // Clear any persisted meals on every fresh login or page load so
+      // the user never sees stale meals from a previous session.
       if (event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "SIGNED_OUT") {
-        clearDailyPlan();
+        clearMeals();
       }
       setAuthReady(true);
       setReady(true);
@@ -116,6 +116,14 @@ export default function RootLayout() {
             options={{
               headerShown: true,
               title: "Scan Receipt",
+              headerBackTitle: "Back",
+            }}
+          />
+          <Stack.Screen
+            name="share/[id]"
+            options={{
+              headerShown: true,
+              title: "Shared Recipe",
               headerBackTitle: "Back",
             }}
           />

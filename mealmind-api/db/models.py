@@ -125,7 +125,7 @@ class SaveRecipeRequest(BaseModel):
 class GenerateRecipeRequest(BaseModel):
     dish_name: str
     language: str = "en"
-    servings: int = 2
+    servings: int = 1
     force_refresh: bool = False
 
 
@@ -256,16 +256,18 @@ class MealGenerateRequest(BaseModel):
     max_prep_time_mins: Optional[int] = None
     language: str = "en"
     recent_ratings: Optional[dict] = None
-    servings: int = 2
+    servings: int = 1
     slots: list[str] = Field(default_factory=lambda: ["breakfast", "lunch", "dinner"])
     flavour_preference: Optional[str] = None
     required_ingredients: Optional[str] = None
     meal_style: str = "full"
+    # Names of meals already shown today — never re-suggest these.
+    avoid_meals: list[str] = Field(default_factory=list)
 
 
 class SwapMealRequest(BaseModel):
     slot: str
-    current_plan: GeneratedPlan
+    current_plan: Optional[GeneratedPlan] = None
     profile: Optional[HealthProfile] = None
     pantry: list[str] = Field(default_factory=list)
     language: str = "en"
@@ -274,6 +276,26 @@ class SwapMealRequest(BaseModel):
     max_prep_time_mins: Optional[int] = None
     required_ingredients: Optional[str] = None
     meal_style: str = "full"
+    # Names of meals already shown today — never re-suggest these.
+    avoid_meals: list[str] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Sharing (public, browsable links for meals & recipes)
+# ---------------------------------------------------------------------------
+
+class CreateShareRequest(BaseModel):
+    kind: str  # "recipe" | "meal"
+    payload: dict
+
+
+class CreateShareResponse(BaseModel):
+    id: str
+
+
+class SharedItem(BaseModel):
+    kind: str
+    payload: dict
 
 
 # ---------------------------------------------------------------------------

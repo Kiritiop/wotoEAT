@@ -7,7 +7,7 @@ import type {
   ShoppingList,
   ShoppingGroup,
   HealthProfile,
-  DailyMealPlan,
+  DailyPlanMeal,
 } from "@/services/api";
 
 export type Language = "en" | "zh";
@@ -30,12 +30,17 @@ interface AppState {
   hasOnboarded: boolean;
   setHasOnboarded: (v: boolean) => void;
 
-  // ── Daily meal plan ───────────────────────────────────────────────────────
-  dailyPlan: DailyMealPlan | null;
-  planDate: string | null;
-  setDailyPlan: (plan: DailyMealPlan) => void;
-  patchDailyPlan: (plan: DailyMealPlan) => void;
-  clearDailyPlan: () => void;
+  // ── Meal stream (today's generated meals — a growing list, no daily plan) ──
+  meals: DailyPlanMeal[];
+  mealsDate: string | null;
+  addMeal: (meal: DailyPlanMeal) => void;
+  replaceMeal: (oldName: string, meal: DailyPlanMeal) => void;
+  removeMeal: (name: string) => void;
+  clearMeals: () => void;
+
+  // ── Seen meals today (so generation/swap never repeats a shown dish) ───────
+  seenMeals: string[];
+  addSeenMeals: (names: string[]) => void;
 
   // ── Meal ratings ──────────────────────────────────────────────────────────
   ratings: Record<string, Rating>;
@@ -70,14 +75,10 @@ interface AppState {
   servings: number;
   setServings: (n: number) => void;
 
-  // ── Servings used for the currently loaded daily plan ─────────────────────
+  // ── Servings used when the current meals were generated ───────────────────
   // Tracked so meal cards can compute a correct scale factor after navigation.
   planServings: number;
   setPlanServings: (n: number) => void;
-
-  // ── Confirmed meal slots for today's plan ─────────────────────────────────
-  confirmedSlots: string[];
-  toggleConfirmedSlot: (slot: string) => void;
 
   // ── Sign-out reset ────────────────────────────────────────────────────────
   resetAll: () => void;
@@ -99,20 +100,37 @@ export const useAppStore = create<AppState>()(
 
       // ── Language ────────────────────────────────────────────────────────
       language: "en",
-      // Clear plan, confirmed state, and shopping selections when language changes —
+      // Clear meals, seen-history, and shopping selections when language changes —
       // everything was generated in the old language so none of it is reusable.
-      setLanguage: (lang) => set({ language: lang, dailyPlan: null, confirmedSlots: [], selectedRecipes: [], shoppingList: null }),
+      setLanguage: (lang) => set({ language: lang, meals: [], mealsDate: null, seenMeals: [], selectedRecipes: [], shoppingList: null }),
 
       // ── Onboarding ──────────────────────────────────────────────────────
       hasOnboarded: false,
       setHasOnboarded: (v) => set({ hasOnboarded: v }),
 
-      // ── Daily plan ───────────────────────────────────────────────────────
-      dailyPlan: null,
-      planDate: null,
-      setDailyPlan: (plan) => set({ dailyPlan: plan, planDate: new Date().toISOString().slice(0, 10), confirmedSlots: [], selectedRecipes: [] }),
-      patchDailyPlan: (plan) => set({ dailyPlan: plan, planDate: new Date().toISOString().slice(0, 10) }),
-      clearDailyPlan: () => set({ dailyPlan: null, planDate: null, confirmedSlots: [], selectedRecipes: [] }),
+      // ── Meal stream ──────────────────────────────────────────────────────
+      meals: [],
+      mealsDate: null,
+      addMeal: (meal) =>
+        set((state) => ({
+          meals: [...state.meals, meal],
+          mealsDate: new Date().toISOString().slice(0, 10),
+        })),
+      replaceMeal: (oldName, meal) =>
+        set((state) => ({
+          meals: state.meals.map((m) => (m.name === oldName ? meal : m)),
+          mealsDate: new Date().toISOString().slice(0, 10),
+        })),
+      removeMeal: (name) =>
+        set((state) => ({ meals: state.meals.filter((m) => m.name !== name) })),
+      clearMeals: () => set({ meals: [], mealsDate: null, seenMeals: [], selectedRecipes: [] }),
+
+      // ── Seen meals ───────────────────────────────────────────────────────
+      seenMeals: [],
+      addSeenMeals: (names) =>
+        set((state) => ({
+          seenMeals: [...state.seenMeals, ...names.filter((n) => !state.seenMeals.includes(n))],
+        })),
 
       // ── Ratings ──────────────────────────────────────────────────────────
       ratings: {},
@@ -194,21 +212,12 @@ export const useAppStore = create<AppState>()(
       setAllRecipeLabels: (labels) => set({ recipeLabels: labels }),
 
       // ── Servings ──────────────────────────────────────────────────────────
-      servings: 2,
+      servings: 1,
       setServings: (n) => set({ servings: n }),
 
       // ── Plan servings ─────────────────────────────────────────────────────
-      planServings: 2,
+      planServings: 1,
       setPlanServings: (n) => set({ planServings: n }),
-
-      // ── Confirmed slots ───────────────────────────────────────────────────
-      confirmedSlots: [],
-      toggleConfirmedSlot: (slot) =>
-        set((state) => ({
-          confirmedSlots: state.confirmedSlots.includes(slot)
-            ? state.confirmedSlots.filter((s) => s !== slot)
-            : [...state.confirmedSlots, slot],
-        })),
 
       // ── Sign-out reset ────────────────────────────────────────────────────
       // Only clear session-specific data. Preserve device preferences
@@ -216,27 +225,27 @@ export const useAppStore = create<AppState>()(
       // logout and are ready immediately on next sign-in.
       resetAll: () =>
         set({
-          dailyPlan: null,
-          planDate: null,
+          meals: [],
+          mealsDate: null,
+          seenMeals: [],
           ratings: {},
           selectedRecipes: [],
           pantry: [],
           shoppingList: null,
-          confirmedSlots: [],
         }),
     }),
     {
       name: "wotoeat-store",
       storage: createJSONStorage(() => AsyncStorage),
-      // Clear any stale daily plan from a previous session as soon as the store rehydrates.
-      // This runs before React renders, so it works correctly on both web and native.
+      // Clear stale meals (and the day's seen-history) from a previous day as soon
+      // as the store rehydrates. Runs before React renders — works on web and native.
       onRehydrateStorage: () => (state) => {
         if (!state) return;
         const today = new Date().toISOString().slice(0, 10);
-        if (state.dailyPlan && state.planDate !== today) {
-          state.dailyPlan = null;
-          state.planDate = null;
-          state.confirmedSlots = [];
+        if (state.meals.length > 0 && state.mealsDate !== today) {
+          state.meals = [];
+          state.mealsDate = null;
+          state.seenMeals = [];
           state.selectedRecipes = [];
         }
       },
@@ -245,8 +254,9 @@ export const useAppStore = create<AppState>()(
         profile: state.profile,
         language: state.language,
         hasOnboarded: state.hasOnboarded,
-        dailyPlan: state.dailyPlan,
-        planDate: state.planDate,
+        meals: state.meals,
+        mealsDate: state.mealsDate,
+        seenMeals: state.seenMeals,
         pantry: state.pantry,
         ratings: state.ratings,
         selectedRecipes: state.selectedRecipes,
@@ -254,7 +264,6 @@ export const useAppStore = create<AppState>()(
         recipeLabels: state.recipeLabels,
         servings: state.servings,
         planServings: state.planServings,
-        confirmedSlots: state.confirmedSlots,
       }),
     }
   )

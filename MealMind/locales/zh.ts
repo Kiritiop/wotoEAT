@@ -190,6 +190,7 @@ const zh = {
   recipe_preview: "食谱预览",
   generate_another: "换个菜品",
   add_recipe_url: "通过链接添加食谱",
+  import_from_url: "导入链接",
   no_recipes_title: "暂无保存的食谱",
   no_recipes_body: "粘贴任意食谱链接，AI会为您提取标题、食材和步骤。",
   recipe_count: (n: number) => `已保存 ${n} 个食谱`,
@@ -200,6 +201,7 @@ const zh = {
   parse_invalid_url: "请输入以 https:// 开头的完整链接。",
 
   // ── Expanded meal card ────────────────────────────────────────────────────
+  in_pantry: "已有",
   ingredients_label: "配料",
   steps_label: "烹饪步骤",
   chef_tips_label: "厨师技巧",

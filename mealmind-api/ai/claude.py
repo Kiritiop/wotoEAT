@@ -138,7 +138,7 @@ async def generate_shopping_list(recipes: list, pantry: list, language: str = "e
 # Recipe generation by dish name
 # ---------------------------------------------------------------------------
 
-async def generate_recipe_by_name(dish_name: str, language: str = "en", servings: int = 2, force_refresh: bool = False) -> dict:
+async def generate_recipe_by_name(dish_name: str, language: str = "en", servings: int = 1, force_refresh: bool = False) -> dict:
     cache_data = {"dish": dish_name.lower().strip(), "lang": language, "servings": servings}
     key = _cache_key(cache_data)
     if not force_refresh:
@@ -159,6 +159,8 @@ async def generate_recipe_by_name(dish_name: str, language: str = "en", servings
 # ---------------------------------------------------------------------------
 
 async def generate_meal_plan(filters: dict) -> tuple[dict, bool]:
+    # Note: avoid_meals IS part of the cache key (unlike recent_ratings) so a
+    # growing exclusion list always forces a fresh, non-repeating result.
     key = _cache_key({k: v for k, v in filters.items() if k != "recent_ratings"})
     cached = cache_get(key)
     if cached is not None:
@@ -173,9 +175,13 @@ async def generate_meal_plan(filters: dict) -> tuple[dict, bool]:
     return result, False
 
 
-async def swap_meal(slot: str, current_plan: dict, filters: dict) -> dict:
+async def swap_meal(slot: str, current_plan: dict | None, filters: dict) -> dict:
     language = filters.get("language", "en")
-    avoid = [m["name"] for m in current_plan.get("meals", [])]
+    # Avoid every meal shown today (avoid_meals) plus anything still on the plan.
+    avoid = list(filters.get("avoid_meals") or [])
+    for m in (current_plan or {}).get("meals", []):
+        if m.get("name") and m["name"] not in avoid:
+            avoid.append(m["name"])
     merged_ratings = {name: "down" for name in avoid}
     merged_ratings.update(filters.get("recent_ratings") or {})
     swap_filters = {**filters, "slots": [slot], "recent_ratings": merged_ratings}

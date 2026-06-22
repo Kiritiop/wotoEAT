@@ -94,6 +94,15 @@ CREATE TABLE IF NOT EXISTS meal_history (
     created_at timestamptz DEFAULT now()
 );
 
+-- ─── Shared Items (public, browsable meal/recipe links) ──────────────────────
+CREATE TABLE IF NOT EXISTS shared_items (
+    id         uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    kind       text NOT NULL,                 -- 'recipe' | 'meal'
+    payload    jsonb NOT NULL,
+    user_id    uuid REFERENCES auth.users(id) ON DELETE SET NULL,  -- nullable: anon shares allowed
+    created_at timestamptz DEFAULT now()
+);
+
 -- ─── Row Level Security ───────────────────────────────────────────────────────
 ALTER TABLE pantry           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE saved_recipes    ENABLE ROW LEVEL SECURITY;
@@ -102,6 +111,7 @@ ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_profiles    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE daily_plans      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE meal_history     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE shared_items     ENABLE ROW LEVEL SECURITY;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='pantry'           AND policyname='pantry_own')      THEN CREATE POLICY "pantry_own"      ON pantry           USING (auth.uid() = user_id); END IF;
@@ -111,6 +121,8 @@ DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='user_profiles'    AND policyname='profiles_own')    THEN CREATE POLICY "profiles_own"    ON user_profiles    USING (auth.uid() = user_id); END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='daily_plans'      AND policyname='plans_own')       THEN CREATE POLICY "plans_own"       ON daily_plans      USING (auth.uid() = user_id); END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='meal_history'     AND policyname='history_own')     THEN CREATE POLICY "history_own"     ON meal_history     USING (auth.uid() = user_id); END IF;
+  -- Shared items are public-read (writes happen via the service-role backend, which bypasses RLS).
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='shared_items'     AND policyname='shared_public')   THEN CREATE POLICY "shared_public"   ON shared_items     FOR SELECT USING (true); END IF;
 END $$;
 
 -- ─── Indexes ──────────────────────────────────────────────────────────────────

@@ -200,15 +200,19 @@ def meal_generate_prompt(filters: dict, language: str = "en") -> str:
     serving_word = "person" if servings == 1 else "people"
     slots = filters.get("slots", ["breakfast", "lunch", "dinner"])
 
-    # Extract disliked meals explicitly so the AI knows to avoid them
+    # Extract disliked meals explicitly so the AI knows to avoid them.
+    # avoid_meals = every dish already shown today; merged so nothing repeats.
     recent_ratings = filters.get("recent_ratings") or {}
     disliked = [name for name, rating in recent_ratings.items() if rating == "down"]
+    for name in filters.get("avoid_meals") or []:
+        if name not in disliked:
+            disliked.append(name)
 
     # Extract required tags/ingredients for explicit enforcement
     required = (filters.get("required_ingredients") or "").strip()
 
     _exclude = {"serving_size", "servings", "language", "slots", "recent_ratings",
-                "avoid_meals", "slot", "current_plan"}
+                "avoid_meals", "slot", "current_plan", "pantry"}
     display_filters = {k: v for k, v in filters.items() if k not in _exclude}
 
     # Build the required-tags enforcement block (pre-resolved so outer f-string sees literal braces)
@@ -225,6 +229,19 @@ def meal_generate_prompt(filters: dict, language: str = "en") -> str:
         )
     else:
         required_block = ""
+
+    # Build the pantry-priority block — prefer dishes that reuse what the user has.
+    pantry_items = filters.get("pantry") or []
+    if pantry_items:
+        pantry_block = (
+            "\nPANTRY PRIORITY:\n"
+            f"The user already has these ingredients: {', '.join(pantry_items)}.\n"
+            "Strongly PREFER dishes whose core ingredients are already in this pantry — "
+            "maximize overlap so the user buys as little as possible, WITHOUT violating any "
+            "active filter or required tag. List every matching ingredient in uses_pantry_items.\n"
+        )
+    else:
+        pantry_block = ""
 
     # Build the main-dish style enforcement block
     meal_style = filters.get("meal_style", "full")
@@ -249,7 +266,7 @@ For {servings} {serving_word}. Match ALL active (non-null) filters below.
 {f"DO NOT suggest any of these (disliked): {', '.join(disliked)}" if disliked else ""}
 FILTERS:
 {json.dumps(display_filters, indent=2)}
-{required_block}{style_block}
+{required_block}{pantry_block}{style_block}
 RULES:
 - Only suggest dishes that genuinely exist in culinary traditions. Do NOT invent dishes.
 - Every dish must satisfy ALL active (non-null) filters

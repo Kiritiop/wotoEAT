@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
   TextInput,
-  FlatList,
+  SectionList,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
@@ -26,6 +26,8 @@ import { IngredientRow } from "@/components/IngredientRow";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { usePantryDisplay } from "@/hooks/useDynamicTranslation";
+import { categoryForItem, toCanonicalEnglish, CATEGORY_LABELS, PANTRY_CATEGORIES, PANTRY_OTHER_KEY } from "@/constants/filters";
+import type { PantryItem } from "@/services/api";
 
 export default function PantryScreen() {
   const {
@@ -45,6 +47,23 @@ export default function PantryScreen() {
 
   // Stored names are canonical English; display follows the current language.
   const displayNames = usePantryDisplay(pantry.map((p) => p.name));
+  const displayByName = useMemo(
+    () => new Map(pantry.map((p, i) => [p.name, displayNames[i] ?? p.name])),
+    [pantry, displayNames],
+  );
+
+  // Group the saved pantry by category for an organized list ("Other" last).
+  const sections = useMemo(() => {
+    const groups: Record<string, PantryItem[]> = {};
+    for (const item of pantry) {
+      const key = categoryForItem(toCanonicalEnglish(item.name));
+      (groups[key] ??= []).push(item);
+    }
+    const order = [...PANTRY_CATEGORIES.map((c) => c.key), PANTRY_OTHER_KEY];
+    return order
+      .filter((k) => groups[k]?.length)
+      .map((k) => ({ key: k, data: groups[k] }));
+  }, [pantry]);
 
   // ── Shopping modal state ──────────────────────────────────────────────────
   const [showShopping, setShowShopping] = useState(false);
@@ -146,12 +165,20 @@ export default function PantryScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <FlatList
-        data={pantry}
+      <SectionList
+        sections={sections}
         keyExtractor={(item) => item.name}
+        stickySectionHeadersEnabled={false}
         contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => loadPantry(true)} tintColor={c.primary} />
+        }
+        renderSectionHeader={({ section }) =>
+          pantry.length > 0 ? (
+            <Text style={[styles.sectionHeader, { color: c.textPlaceholder }]}>
+              {language === "zh" ? CATEGORY_LABELS[section.key].zh : CATEGORY_LABELS[section.key].en}
+            </Text>
+          ) : null
         }
         ListHeaderComponent={
           <View>
@@ -204,7 +231,7 @@ export default function PantryScreen() {
             />
           ) : null
         }
-        renderItem={({ item, index }) =>
+        renderItem={({ item }) =>
           item.name === editingName ? (
             <View style={[styles.itemRow, { backgroundColor: c.surface }]}>
               <TextInput
@@ -233,7 +260,7 @@ export default function PantryScreen() {
             </View>
           ) : (
             <View style={[styles.itemRow, { backgroundColor: c.surface }]}>
-              <Text style={[styles.itemName, { color: c.text }]}>{displayNames[index] ?? item.name}</Text>
+              <Text style={[styles.itemName, { color: c.text }]}>{displayByName.get(item.name) ?? item.name}</Text>
               <TouchableOpacity
                 onPress={() => {
                   // Prefill the RAW stored name — prefilling the translated
@@ -375,6 +402,7 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     },
     scanBtnText: { fontSize: 15, fontWeight: "700" },
     countLabel: { fontSize: 13, color: c.textPlaceholder, fontWeight: "600", marginBottom: 8 },
+    sectionHeader: { fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 12, marginBottom: 6 },
     itemRow: {
       flexDirection: "row", alignItems: "center", borderRadius: 10,
       paddingHorizontal: 14, paddingVertical: 10, marginBottom: 6,

@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useTheme } from "@/hooks/useTheme";
+import { PANTRY_CATEGORIES as CATEGORIES } from "@/constants/filters";
 
 interface Props {
   visible: boolean;
@@ -22,80 +23,6 @@ interface Props {
   onSave: (names: string[]) => void;
   language?: string;
 }
-
-interface Category {
-  key: string;
-  label: string;
-  labelZh: string;
-  items: string[];
-  itemsZh: string[];
-}
-
-const CATEGORIES: Category[] = [
-  {
-    key: "meat",
-    label: "Meat & Protein",
-    labelZh: "肉类 & 蛋白质",
-    items:   ["chicken", "beef", "pork", "lamb", "fish", "shrimp", "tofu", "eggs", "turkey", "duck", "salmon", "tuna", "crab", "bacon", "sausage", "ham", "ground beef", "chicken breast", "pork belly", "sardines"],
-    itemsZh: ["鸡肉", "牛肉", "猪肉", "羊肉", "鱼", "虾", "豆腐", "鸡蛋", "火鸡", "鸭肉", "三文鱼", "金枪鱼", "螃蟹", "培根", "香肠", "火腿", "牛肉馅", "鸡胸肉", "五花肉", "沙丁鱼"],
-  },
-  {
-    key: "veg",
-    label: "Vegetables",
-    labelZh: "蔬菜",
-    items:   ["onion", "garlic", "tomato", "potato", "carrot", "broccoli", "spinach", "bell pepper", "mushroom", "cucumber", "zucchini", "eggplant", "celery", "corn", "cabbage", "lettuce", "kale", "green onion", "ginger", "leek"],
-    itemsZh: ["洋葱", "大蒜", "番茄", "土豆", "胡萝卜", "西兰花", "菠菜", "彩椒", "蘑菇", "黄瓜", "西葫芦", "茄子", "芹菜", "玉米", "卷心菜", "生菜", "羽衣甘蓝", "葱", "生姜", "韭葱"],
-  },
-  {
-    key: "grains",
-    label: "Grains & Carbs",
-    labelZh: "谷物 & 主食",
-    items:   ["rice", "pasta", "bread", "noodles", "oats", "quinoa", "flour", "tortilla", "couscous", "barley", "panko", "cornstarch", "sourdough", "ramen", "soba", "udon", "rice noodles", "pita", "oat flour", "breadcrumbs"],
-    itemsZh: ["米饭", "意面", "面包", "面条", "燕麦", "藜麦", "面粉", "玉米饼", "库斯库斯", "大麦", "面包糠", "玉米淀粉", "酸面包", "拉面", "荞麦面", "乌冬面", "米粉", "皮塔饼", "燕麦粉", "面包屑"],
-  },
-  {
-    key: "dairy",
-    label: "Dairy",
-    labelZh: "乳制品",
-    items:   ["milk", "butter", "cheese", "yogurt", "cream", "cream cheese", "sour cream", "mozzarella", "parmesan", "cheddar", "heavy cream", "condensed milk", "whipped cream", "gouda", "brie", "ricotta", "cottage cheese", "kefir", "ghee", "feta"],
-    itemsZh: ["牛奶", "黄油", "奶酪", "酸奶", "奶油", "奶油奶酪", "酸奶油", "马苏里拉", "帕玛森", "切达奶酪", "淡奶油", "炼乳", "打发奶油", "高达奶酪", "布里奶酪", "瑞可塔", "农家奶酪", "开菲尔", "酥油", "菲达奶酪"],
-  },
-  {
-    key: "condiments",
-    label: "Condiments & Sauces",
-    labelZh: "调味品 & 酱料",
-    items:   ["soy sauce", "salt", "sugar", "pepper", "vinegar", "honey", "ketchup", "mustard", "mayo", "hot sauce", "fish sauce", "oyster sauce", "hoisin sauce", "sriracha", "Worcestershire sauce", "coconut milk", "tomato paste", "chicken stock", "baking soda", "baking powder"],
-    itemsZh: ["生抽", "盐", "糖", "胡椒", "醋", "蜂蜜", "番茄酱", "芥末", "蛋黄酱", "辣椒酱", "鱼露", "蚝油", "海鲜酱", "是拉差辣酱", "伍斯特酱", "椰浆", "番茄膏", "鸡汤", "小苏打", "泡打粉"],
-  },
-  {
-    key: "oils",
-    label: "Cooking Oils",
-    labelZh: "烹饪油",
-    items:   ["olive oil", "vegetable oil", "sesame oil", "coconut oil", "canola oil", "sunflower oil", "avocado oil", "peanut oil", "corn oil", "grapeseed oil", "chili oil", "toasted sesame oil", "lard", "shortening", "ghee", "truffle oil", "walnut oil", "flaxseed oil", "garlic oil", "cooking spray"],
-    itemsZh: ["橄榄油", "食用油", "芝麻油", "椰子油", "菜籽油", "葵花籽油", "牛油果油", "花生油", "玉米油", "葡萄籽油", "辣椒油", "熟芝麻油", "猪油", "起酥油", "酥油", "松露油", "核桃油", "亚麻籽油", "蒜油", "烹饪喷雾"],
-  },
-  {
-    key: "fruits",
-    label: "Fruits",
-    labelZh: "水果",
-    items:   ["apple", "banana", "lemon", "lime", "orange", "strawberry", "blueberry", "mango", "avocado", "grapes", "pineapple", "watermelon", "peach", "pear", "raspberry", "cherry", "kiwi", "pomelo", "papaya", "coconut"],
-    itemsZh: ["苹果", "香蕉", "柠檬", "青柠", "橙子", "草莓", "蓝莓", "芒果", "牛油果", "葡萄", "菠萝", "西瓜", "桃子", "梨", "树莓", "樱桃", "猕猴桃", "柚子", "木瓜", "椰子"],
-  },
-  {
-    key: "herbs",
-    label: "Herbs & Spices",
-    labelZh: "香料 & 调味",
-    items:   ["basil", "cilantro", "parsley", "thyme", "rosemary", "cumin", "paprika", "chili powder", "turmeric", "oregano", "bay leaf", "coriander", "cinnamon", "cardamom", "cloves", "nutmeg", "star anise", "dill", "mint", "saffron"],
-    itemsZh: ["罗勒", "香菜", "欧芹", "百里香", "迷迭香", "孜然", "红椒粉", "辣椒粉", "姜黄", "牛至", "月桂叶", "芫荽", "肉桂", "豆蔻", "丁香", "肉豆蔻", "八角", "莳萝", "薄荷", "藏红花"],
-  },
-  {
-    key: "frozen",
-    label: "Frozen & Canned",
-    labelZh: "冷冻 & 罐装",
-    items:   ["frozen peas", "frozen corn", "canned tomatoes", "canned beans", "canned tuna", "canned chickpeas", "frozen edamame", "canned lentils", "canned olives", "frozen spinach", "canned soup", "canned pumpkin", "frozen mixed veg", "canned corn", "frozen shrimp", "frozen fruit", "canned artichokes", "canned sardines", "canned crab", "canned coconut milk"],
-    itemsZh: ["速冻豌豆", "速冻玉米", "番茄罐头", "豆类罐头", "金枪鱼罐头", "鹰嘴豆罐头", "速冻毛豆", "扁豆罐头", "橄榄罐头", "速冻菠菜", "汤罐头", "南瓜罐头", "速冻混合蔬菜", "玉米罐头", "速冻虾", "速冻水果", "洋蓟罐头", "沙丁鱼罐头", "蟹肉罐头", "椰浆罐头"],
-  },
-];
 
 export function PantryTagPicker({ visible, currentPantry, onClose, onSave, language = "en" }: Props) {
   const c = useTheme();

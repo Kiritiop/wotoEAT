@@ -1,0 +1,48 @@
+from fastapi import APIRouter, HTTPException, Depends, Request
+
+from db.models import CreateShareRequest, CreateShareResponse, SharedItem
+from db import supabase_client as db
+from ai.sqlite_cache import rate_limit_check
+from .auth import get_optional_user_id
+
+router = APIRouter(tags=["share"])
+
+_SHARE_MAX = 30
+_SHARE_WINDOW = 3600  # 30 shares / hour / client
+
+
+@router.post("/", response_model=CreateShareResponse)
+async def create_share(
+    body: CreateShareRequest,
+    request: Request,
+    user_id: str | None = Depends(get_optional_user_id),
+):
+    """POST /share — store a meal/recipe payload and return its public id."""
+    if body.kind not in ("recipe", "meal"):
+        raise HTTPException(status_code=422, detail="kind must be 'recipe' or 'meal'.")
+    if not body.payload:
+        raise HTTPException(status_code=422, detail="payload is empty.")
+
+    limit_key = user_id or (request.client.host if request.client else "anon")
+    if not rate_limit_check(limit_key, "share-create", _SHARE_MAX, _SHARE_WINDOW):
+        raise HTTPException(status_code=429, detail="Too many shares. Try again later.")
+
+    try:
+        share_id = db.create_share(body.kind, body.payload, user_id)
+        if not share_id:
+            raise RuntimeError("insert returned no id")
+        return {"id": share_id}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Could not create share: {exc}")
+
+
+@router.get("/{share_id}", response_model=SharedItem)
+async def get_share(share_id: str):
+    """GET /share/{id} — public, no auth. Returns the shared payload."""
+    try:
+        row = db.get_share(share_id)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Could not load share: {exc}")
+    if not row:
+        raise HTTPException(status_code=404, detail="Shared item not found.")
+    return row

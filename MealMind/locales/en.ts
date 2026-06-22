@@ -190,6 +190,7 @@ const en = {
   recipe_preview: "Recipe Preview",
   generate_another: "Try another dish",
   add_recipe_url: "Add recipe from URL",
+  import_from_url: "Import from URL",
   no_recipes_title: "No saved recipes",
   no_recipes_body: "Paste any recipe URL and we'll parse and save it for you.",
   recipe_count: (n: number) => `${n} saved recipe${n !== 1 ? "s" : ""}`,
@@ -200,6 +201,7 @@ const en = {
   parse_invalid_url: "Enter a full URL starting with https://",
 
   // ── Expanded meal card ────────────────────────────────────────────────────
+  in_pantry: "In pantry",
   ingredients_label: "Ingredients",
   steps_label: "Steps",
   chef_tips_label: "Chef's Tips",

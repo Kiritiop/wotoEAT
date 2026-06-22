@@ -3,22 +3,31 @@ Update this document every time changes happen, adapt accordingly
 
 ## Overview
 
-wotoEAT (branded "MealMind") is an AI-powered meal-planning app that answers the daily question **"what should I cook with what I have?"** It generates one meal at a time (per slot) from the user's health profile, pantry contents, and filters, then turns confirmed meals into a shopping list with pantry items semantically subtracted. Users can also save favourite recipes, generate full recipes by dish name, and parse recipes from external URLs.
+wotoEAT (branded "MealMind") is an AI-powered meal-planning app that answers the daily question **"what should I cook with what I have?"** It generates meals one at a time (a growing **meal stream** for the day — there is **no daily plan**) from the user's health profile, pantry contents, and filters, then turns confirmed meals into a shopping list with pantry items semantically subtracted. Meals already shown today are never re-suggested. Users can also save favourite recipes, generate full recipes by dish name, parse recipes from external URLs, and **share meals/recipes via public web links**.
 
 ### The core loop (as implemented)
 
 ```
 health profile (local store; server user_profiles row read once at app startup)
   + pantry names + filters (cuisine, flavour, prep time, required tags, meal style)
-  → POST /meals/generate          (meal_history persisted iff authed && not cached)
-  → user confirms a meal card     [client-only: selectedRecipes + confirmedSlots;
-                                   missing ingredients auto-added to shoppingList store;
-                                   NO backend call]
+  → POST /meals/generate          (avoid_meals = today's seen list, so no repeats;
+                                   meal appended to the store `meals` stream;
+                                   meal_history persisted iff authed && not cached)
+  → user confirms a meal card     [client-only: selectedRecipes; missing ingredients
+                                   auto-added to shoppingList store; NO backend call]
   → POST /shopping/generate       (AI subtracts pantry semantically; "current" list
                                    synced via PUT /shopping/current, debounced)
   → user shops, checks items off  [visual only]
   → pantry                        [inputs: manual entry + receipt scanning]
+
+Sharing (orthogonal): meal/recipe → POST /share → public id → /share/<id> web page.
 ```
+
+**No daily plan.** Each Generate (or per-card swap/"next") appends a meal to the
+day's `meals` stream; the meal-type chips (breakfast/lunch/dinner) are just an
+optional filter telling the AI what kind of dish to make. The stream and its
+`seenMeals` exclusion list reset at the date rollover (store `mealsDate`).
+**Default servings is 1** across meal generation, recipe-by-name, and the new-recipe form.
 
 ### Where the loop is one-directional today
 1. ~~Pantry input is manual-only~~ — **closed by Receipt Scanning** (see section below): photographing a grocery receipt extracts food items and merges them into the pantry additively.
@@ -101,6 +110,8 @@ uvicorn main:app --reload
 | `GET /shopping/history` | `routers/shopping.py` | List saved shopping lists (optional auth; **no frontend caller**) |
 | `PATCH /recipes/{id}/labels` | `routers/recipes.py` | Update recipe labels (favorite, mine, etc.) |
 | `GET /images/search` | `routers/images.py` | Image search — Wikipedia first, Pexels fallback (returns `{url}`) |
+| `POST /share` | `routers/share.py` | Create a public share (`{kind:"recipe"\|"meal", payload}`) → `{id}`; optional auth; rate-limited 30/hr per client |
+| `GET /share/{id}` | `routers/share.py` | **Public, no auth** — fetch a shared meal/recipe payload (404 if missing) |
 
 ### AI Layer (`ai/`)
 
@@ -122,7 +133,7 @@ uvicorn main:app --reload
 - `parse_recipe(html, language)` → `dict`
 - `generate_recipe_by_name(dish_name, language, servings, force_refresh)` → `dict` (cached 7 days; `force_refresh=True` bypasses cache — used by the Regenerate button)
 - `generate_shopping_list(recipes, pantry, language)` → `dict`
-- `swap_meal(slot, current_plan, filters)` → `dict` (filters include cuisine, flavour, max_prep_time_mins, required_ingredients, meal_style)
+- `swap_meal(slot, current_plan, filters)` → `dict` (`current_plan` optional; exclusion is driven by `filters["avoid_meals"]` = today's seen list; filters also include cuisine, flavour, max_prep_time_mins, required_ingredients, meal_style)
 - `translate_texts(texts)` → `list[str]` — legacy, only used by the unused `/recipes/translate`
 - `transcribe_receipt(image_b64)` → `list[str]` — receipt scan stage 1 on `_VISION_MODEL`; raises `ValueError("no_receipt"|"unreadable_receipt")`
 - `normalize_receipt_items(lines, pantry_names, language)` → `list[dict]` — receipt scan stage 2 on the text model; nulls any hallucinated `matches_pantry` not exactly in `pantry_names`; raises `ValueError("no_food_items"|"unreadable_receipt")`
@@ -140,7 +151,9 @@ Internal helpers:
 
 Key models:
 - `HealthProfile` — age, sex, weight_kg, height_cm, activity_level, health_goals, dietary_restrictions, allergies, calorie_goal, protein_goal_g, use_imperial, cuisine_preferences, flavour_preference, preferred_max_prep_mins
-- `MealGenerateRequest` — profile, pantry, cuisine_preference, max_prep_time_mins, language, recent_ratings, servings, slots, flavour_preference, **required_ingredients** (comma-separated tags/ingredients the user requires), meal_style
+- `MealGenerateRequest` — profile, pantry, cuisine_preference, max_prep_time_mins, language, recent_ratings, servings (default **1**), slots, flavour_preference, **required_ingredients** (comma-separated tags/ingredients the user requires), meal_style, **avoid_meals** (names already shown today — never re-suggested; IS part of the meal-plan cache key)
+- `SwapMealRequest` — same swap filters; `current_plan` now **optional** (exclusion is driven by `avoid_meals`)
+- `CreateShareRequest` / `CreateShareResponse` / `SharedItem` — sharing: `{kind:"recipe"|"meal", payload}` in, `{id}` out; `SharedItem` = `{kind, payload}`
 - `GeneratedMeal` — slot, name, cuisine, description, prep_time_mins, calories_per_serving, difficulty, components (vegetable/protein/staple), uses_pantry_items, tags, ingredients, steps, protein_g, carbs_g, fat_g, fiber_g
 - `Recipe` — title, servings, prep_time_mins, calories_per_serving, ingredients (list of `Ingredient`), steps, tags, warnings, source_url, source_name
 - `MealFilter` — legacy model, only used by the dead `/meals/suggest`
@@ -155,6 +168,7 @@ Key models:
 | `user_profiles` | Health profile per user (read once at app startup; generation uses the locally-cached profile sent in the request body) |
 | `user_preferences` | **Dead** — defined in schema.sql only; zero code references |
 | `shopping_lists` | **Partially live**: the `name="current"` row is actively read/written via `GET/PUT /shopping/current`; `POST /shopping/generate` also best-effort inserts history rows that are never read |
+| `shared_items` | Public meal/recipe shares: `(id, kind, payload jsonb, user_id nullable, created_at)`. Written by `POST /share` (service-role); read by `GET /share/{id}` (public; RLS policy `shared_public` allows SELECT). `user_id` nullable — anon shares allowed. |
 
 ---
 
@@ -181,6 +195,7 @@ npx expo start --web  # browser
 | `EXPO_PUBLIC_API_URL` | Backend base URL (e.g. `http://localhost:8000`) |
 | `EXPO_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
+| `EXPO_PUBLIC_WEB_URL` | Public web base for `/share/<id>` links (Vercel URL). Optional on web (falls back to `window.location.origin`); required for native shares. **Add to Vercel too.** |
 
 ### Screen Map
 
@@ -191,15 +206,16 @@ npx expo start --web  # browser
 | `app/auth/sign-in.tsx` | `/auth/sign-in` | Email + password sign-in |
 | `app/auth/sign-up.tsx` | `/auth/sign-up` | Registration |
 | `app/auth/forgot-password.tsx` | `/auth/forgot-password` | Password reset |
-| `app/(tabs)/discover.tsx` | `/(tabs)/discover` | **Main screen** — meal plan generation, filters, meal cards (tab: "Today") |
+| `app/(tabs)/discover.tsx` | `/(tabs)/discover` | **Main screen** — meal generation (growing stream, no daily plan), filters, meal cards (tab: "Today") |
 | `app/(tabs)/recipes.tsx` | `/(tabs)/recipes` | Saved recipes, meal history, AI recipe generation (tab: "My Recipes") |
 | `app/(tabs)/pantry.tsx` | `/(tabs)/pantry` | Pantry management + shopping list generation (tab: "Pantry") |
 | `app/(tabs)/profile.tsx` | `/(tabs)/profile` | Health profile, dietary preferences, language toggle (tab: "Profile") |
 | `app/(tabs)/shopping.tsx` | `/(tabs)/shopping` | Shopping list view — **hidden tab** (`href: null`), opened via the cart icon on Pantry |
 | `app/(tabs)/history.tsx` | `/(tabs)/history` | Past meal history — **hidden tab** (`href: null`), navigated programmatically |
 | `app/meal/[id].tsx` | `/meal/[id]` | Meal detail — registered, but **no internal navigation path** (deep-link/URL only) |
-| `app/recipe/upload.tsx` | `/recipe/upload` | Recipe import from URL — registered, but **no internal navigation path** (deep-link/URL only) |
+| `app/recipe/upload.tsx` | `/recipe/upload` | Recipe import from URL — **reachable via the "Import from URL" button on the Recipes tab** (paste URL → AI parses → save) |
 | `app/pantry/scan.tsx` | `/pantry/scan` | Receipt scanning — capture/pick photo → editable review → merge into pantry (opened from the Pantry tab) |
+| `app/share/[id].tsx` | `/share/<id>` | **Public read-only** shared meal/recipe view (`GET /share/{id}`); opened from a shared link (web primary, native deep link) |
 
 Only 4 tabs are visible in the tab bar: Today, Pantry, My Recipes, Profile.
 
@@ -217,14 +233,15 @@ Persisted to AsyncStorage under key `wotoeat-store`. Fields:
 - `profile` — HealthProfile
 - `language` — `"en" | "zh"`
 - `hasOnboarded` — boolean
-- `dailyPlan` / `planDate` — today's generated meal plan + date (stale detection)
+- `meals` / `mealsDate` — today's **meal stream** (growing list of generated meals) + its date; cleared at date rollover (`onRehydrateStorage`) and on sign-in/out (`_layout` `clearMeals`)
+- `seenMeals` — names of every meal shown today; sent as `avoid_meals` so generation/swap never repeats; reset with `meals`
 - `ratings` — `Record<mealName, "up"|"down">` (used to avoid re-suggesting disliked meals)
-- `selectedRecipes` — recipes confirmed for shopping list generation
+- `selectedRecipes` — recipes confirmed for shopping list generation (confirmation derives from this — no `confirmedSlots`)
 - `pantry` — local cache of pantry items
 - `shoppingList` — current shopping list (grouped)
 - `recipeLabels` — `Record<recipeId, label[]>` for favoriting/tagging saved recipes
-- `servings` / `planServings` — user preferred servings + the servings count the current plan was generated for
-- `confirmedSlots` — which meal slots have been confirmed today
+- `servings` / `planServings` — user preferred servings (**default 1**) + the servings count the current stream was generated for
+- Store actions: `addMeal`, `replaceMeal` (swap, by name), `removeMeal`, `clearMeals`, `addSeenMeals`
 
 ### Services (`services/api.ts`)
 All HTTP via Axios instance with:
@@ -232,7 +249,7 @@ All HTTP via Axios instance with:
 - 401 retry: refreshes session once and retries
 - 429 retry: exponential backoff up to 3 attempts
 
-Key functions: `generateMeals`, `swapMeal`, `getMealHistory`, `parseRecipe`, `generateRecipeByName`, `saveRecipe`, `getSavedRecipes`, `updateRecipe`, `deleteRecipe`, `updateRecipeLabels`, `generateShoppingList`, `getCurrentShoppingList`, `saveCurrentShoppingList`, `getPantry`, `replacePantry`, `deletePantryItem`, `getProfile`, `saveProfile`.
+Key functions: `generateMeals` (now takes `avoid_meals`), `swapMeal` (no `current_plan`; takes `avoid_meals`), `getMealHistory`, `parseRecipe`, `generateRecipeByName`, `saveRecipe`, `getSavedRecipes`, `updateRecipe`, `deleteRecipe`, `updateRecipeLabels`, `generateShoppingList`, `getCurrentShoppingList`, `saveCurrentShoppingList`, `getPantry`, `replacePantry`, `deletePantryItem`, `getProfile`, `saveProfile`, `createShare`, `getShared`, `shareWebUrl`.
 
 Defined but with **zero callers** (legacy): `suggestMeals`, `translateBatch`.
 
@@ -267,19 +284,19 @@ Defined but with **zero callers** (legacy): `suggestMeals`, `translateBatch`.
 1. User taps the generate button (or modifies filters then generates).
 2. `handleGenerate()` in `discover.tsx`:
    - Resolves target slot (always exactly **one**): "Auto" → infers from current hour (5–11 → breakfast, 11–15 → lunch, else dinner); otherwise uses the single selected slot.
-   - Calls `generateMeals(profile, pantry, cuisines, maxTime, language, ratings, servings, [slot], flavour, requiredIngredients+pantryItems, mealStyle)`.
-3. Backend `POST /meals/generate` → `generate_meal_plan(filters)` → Groq (`llama-3.3-70b-versatile`, 6000 token limit).
-4. Response merges the new meal into `dailyPlan` in the store (replaces that slot if it already existed).
-5. Meal cards render with slot colour coding (breakfast=amber, lunch=green, dinner=indigo).
+   - Calls `generateMeals(profile, pantry, cuisines, maxTime, language, ratings, servings, [slot], flavour, requiredIngredients+pantryItems, mealStyle, seenMeals)`.
+3. Backend `POST /meals/generate` → `generate_meal_plan(filters)` → Groq (`llama-3.3-70b-versatile`, 6000 token limit). `avoid_meals` (=`seenMeals`) is in the cache key, so a growing list forces a fresh, non-repeating result.
+4. Each returned meal is **appended** to the `meals` stream (`addMeal`) and its name added to `seenMeals` (`addSeenMeals`) — old cards stay visible.
+5. Meal cards render newest-first; the meal-type chips filter the visible list. Slot colour coding (breakfast=amber, lunch=green, dinner=indigo) still styles each card.
 
-**One meal per generation.** The meal type selector is single-select — tapping a slot deselects any previous choice. Multiple slots in one request are not supported.
+**One meal per generation.** The meal type selector is single-select — tapping a slot deselects any previous choice. Repeated generation/swap accumulates a stream that never repeats a dish within the day.
 
 ### Meal Card Actions
-- **Swap** (thumbs-down): calls `swapMeal` with current plan + all current meal names marked as disliked.
+- **Swap** (thumbs-down / "next"): downvotes + calls `swapMeal` with `avoid_meals = seenMeals`, then `replaceMeal`s that card in-place with a never-before-seen dish (old name stays in `seenMeals`).
 - **Save** (bookmark): calls `saveRecipe` → stores in Supabase `saved_recipes`.
 - **Confirm** (checkmark): adds meal to `selectedRecipes` in store; auto-adds missing ingredients to shopping list.
 - **Tag tap**: adds tag to required filters, opens filter panel.
-- **Detail modal**: tap card body → bottom sheet with macros, full ingredients (scalable by serving stepper), steps, image from Pexels.
+- **Detail modal**: tap card body → bottom sheet with macros, full ingredients (scalable by serving stepper), steps, image from Pexels. Ingredients already in the pantry show a green **"In pantry"** marker (per-ingredient, via `ingInPantry`). Footer has a **Share** action (`createShare("meal", …)` → share sheet with a `/share/<id>` link).
 
 ### Filter Options
 - **Meal type**: Auto (inferred), Breakfast, Lunch, Dinner — **single-select**, one meal generated per tap
@@ -295,12 +312,12 @@ Defined but with **zero callers** (legacy): `suggestMeals`, `translateBatch`.
 ## Localisation (i18n)
 
 - Language toggle: English / 简体中文
-- `language` state in store; changing it clears the daily plan.
+- `language` state in store; changing it clears the meal stream + `seenMeals` + shopping selections.
 - Static strings: `locales/en.ts` and `locales/zh.ts` — accessed via `useTranslation()` hook.
 - Dynamic strings (AI-generated meal names, descriptions, ingredients, steps): translated **client-side** by `useDynamicTranslation.ts` → `services/translate.ts` (Google Translate unofficial endpoint → MyMemory free API fallback → silent passthrough), with in-memory + AsyncStorage caching. The backend `POST /recipes/translate` exists but has no frontend callers (legacy).
 - Tags: always English from AI; translated client-side via `TAG_ZH` lookup.
 - AI prompts: `_LANG_INSTRUCTION` in `prompts.py` switches the AI's output language for meal names/descriptions when `language === "zh"`.
-- Pantry item names: stored canonical English; displayed per-language via `usePantryDisplay` in `hooks/useDynamicTranslation.ts` (curated `TAG_ZH` hit → cached dynamic translation → raw). Used by the Pantry tab list, Discover "From pantry" chips, and scan-review badges.
+- Pantry item names: stored canonical English; displayed per-language via `usePantryDisplay` in `hooks/useDynamicTranslation.ts`. **Language is unified**: names are first normalized to canonical English via the reverse map `TAG_EN`/`toCanonicalEnglish` (`constants/filters.ts`) — so legacy Chinese-stored names show in English under EN mode — then EN passes through / ZH resolves curated `TAG_ZH` hit → cached dynamic translation → raw. Used by the Pantry tab list, Discover "From pantry" chips, and scan-review badges.
 
 ---
 
@@ -317,6 +334,7 @@ Defined but with **zero callers** (legacy): `suggestMeals`, `translateBatch`.
 ## Pantry & Shopping
 
 ### Pantry Tab
+- The saved list is a **`SectionList` grouped by category** (`categoryForItem` → `PANTRY_CATEGORIES` keys, "Other"/其他 bucket last). Categories live in `constants/filters.ts` (`PANTRY_CATEGORIES`, `ITEM_CATEGORY`, `CATEGORY_LABELS`); `PantryTagPicker` imports `PANTRY_CATEGORIES` from there (single source of truth). Display names resolve via a `name → display` map (`displayByName`) since `SectionList` indices are per-section.
 - Add items by **name only** (via `PantryTagPicker` category multi-select with custom entries) — there is no quantity/unit anywhere in the pantry stack.
 - "Scan receipt" button beside the add button → pushes `/pantry/scan` (see Receipt Scanning section).
 - Item names display per-language (`usePantryDisplay`); each row has inline **rename** (pencil → TextInput prefilled with the **raw stored name**, not the translated display; ci-collision against other items shows `pantry_name_exists`; commit = optimistic store write + awaited `replacePantry`, with `loadPantry()` restoring server truth on failure) plus delete.
@@ -331,7 +349,7 @@ Defined but with **zero callers** (legacy): `suggestMeals`, `translateBatch`.
 - Also lets you regenerate from confirmed meals.
 
 ### Shopping List Flow
-- Auto-population: confirming a meal card in Discover auto-adds missing ingredients to the shopping list (by slot-namespaced category so items from different slots don't collide).
+- Auto-population: confirming a meal card in Discover auto-adds missing ingredients to the shopping list (category key is `meal-{meal.name}` — meal names are unique within a day via the seen-meals exclusion).
 - AI generation: pantry tab generates a de-duplicated, category-grouped list from all confirmed recipes, semantically subtracting pantry contents.
 
 ---
@@ -367,6 +385,17 @@ Closes the input side of the pantry loop: photograph a grocery receipt → AI ex
 
 ---
 
+## Sharing (public web links)
+
+Meals and recipes can be shared as browsable links anyone can open.
+
+- **Create**: a Share action (meal detail modal footer in `discover.tsx`; recipe detail modal header in `recipes.tsx`) builds a payload and calls `createShare(kind, payload)` → `POST /share` (`routers/share.py`, optional auth, rate-limited 30/hr per client) → `{id}`. The client then opens the OS share sheet with `shareWebUrl(id)` (= `${EXPO_PUBLIC_WEB_URL || window.location.origin}/share/<id>`).
+- **View**: `app/share/[id].tsx` (registered in `_layout.tsx`) calls `getShared(id)` → `GET /share/{id}` (**public, no auth**) and renders a read-only recipe/meal view (ingredients normalized: structured `Ingredient[]` or raw `string[]`). Web is primary; works as a native deep link too. `vercel.json`'s SPA catch-all makes `/share/<id>` load directly.
+- **Storage**: Supabase `shared_items` table (`id, kind, payload jsonb, user_id nullable, created_at`). Backend writes via service-role; public SELECT via RLS policy `shared_public`. Run the updated `db/schema.sql` to create it. Payloads are immutable snapshots — editing the original recipe does not change a previously-created share.
+- **Models**: `CreateShareRequest` / `CreateShareResponse` / `SharedItem` (`db/models.py`); db helpers `create_share` / `get_share` (`db/supabase_client.py`).
+
+---
+
 ## Auth Flow
 
 - Supabase email+password auth.
@@ -380,8 +409,8 @@ Closes the input side of the pantry loop: photograph a grocery receipt → AI ex
 
 ## Serving Size Scaler
 
-- `servings` in the store is the user's default preference.
-- `planServings` tracks the servings count used when the current plan was generated.
+- `servings` in the store is the user's default preference (**default 1**).
+- `planServings` tracks the servings count used when the current stream was generated.
 - Meal card detail modal has a stepper (`displayServings`) that scales ingredient amounts relative to `planServings`.
 - `scaleIngredientStr()` parses leading numbers in ingredient strings (e.g. "100g chicken") and applies the scale factor; non-numeric quantities get a `~` prefix.
 
@@ -389,31 +418,32 @@ Closes the input side of the pantry loop: photograph a grocery receipt → AI ex
 
 ## Meal Ratings / Dislike
 
-- Rating a meal "down" and swapping calls `swapMeal`, which passes all current plan meals + prior disliked meals to the prompt so none are re-suggested.
+- Rating a meal "down" and swapping calls `swapMeal`, which passes `avoid_meals` (today's `seenMeals`) + prior disliked meals to the prompt so none are re-suggested.
 - Ratings stored in `useAppStore.ratings`; sent as `recent_ratings: Record<name, "up"|"down">` on next generation.
 
 ---
 
-## Stale Plan Detection
+## Meal Stream Reset (replaces Stale Plan Detection)
 
-- `planDate` stored in the store alongside `dailyPlan`.
-- On every app launch, `_layout.tsx` auto-clears the plan if `planDate !== today` (no banner — just cleared immediately).
-- The discover tab also showed a stale-plan banner (still visible within a session if date flips mid-session).
+- `mealsDate` is stored alongside the `meals` stream.
+- On store rehydrate (`onRehydrateStorage`, runs before React renders), if `mealsDate !== today` the stream, `seenMeals`, and `selectedRecipes` are cleared immediately (no banner).
+- `_layout.tsx` also calls `clearMeals()` on sign-in/out/initial-session so a fresh session never shows stale meals.
 
 ---
 
 ## Known Patterns / Conventions
 
 - **Backend error handling**: `ValueError` → HTTP 422; `GroqTransientError` (RateLimitError/APIConnectionError/APIStatusError) → HTTP 503; uncaught exceptions → HTTP 500.
-- **Cache key**: MD5 of sorted JSON of the filters dict (excluding `recent_ratings` for plan cache keys to avoid thrashing).
+- **Cache key**: MD5 of sorted JSON of the filters dict (excluding `recent_ratings` for plan cache keys to avoid thrashing). **`avoid_meals` is NOT excluded** — it must stay in the key so a growing exclusion list forces fresh, non-repeating results.
 - **Token limits**: `generate_meal_plan`, `swap_meal`, `generate_recipe_by_name`, and `parse_recipe` all use 6000 tokens. A single rich meal response is ~4–6k chars — lower limits cause truncated JSON and 422 errors.
 - **CORS**: `main.py` allows `GET, POST, PUT, PATCH, DELETE, OPTIONS`. `PATCH` is required for `/recipes/{id}/labels`.
 - **Pantry replace**: frontend calls `POST /pantry/` (not `/pantry/replace`) with body `{ items: [...] }`.
 - **AI JSON cleaning**: `_clean_json()` strips markdown fences that some models prepend.
 - **Semantic pantry matching**: `_MATCHING_RULES` in `prompts.py` teaches the AI to match ingredient types (e.g. "巴沙鱼" satisfies "white fish").
-- **Shopping list category**: meals use `{slot}-{meal.name}` as the shopping list category key to avoid name collisions between slots.
+- **Shopping list category**: meals use `meal-{meal.name}` as the shopping list category key (names are unique within a day via seen-meals exclusion).
+- **Pantry priority**: `meal_generate_prompt` has a `PANTRY PRIORITY` block instructing the AI to prefer dishes that reuse pantry ingredients and to fill `uses_pantry_items` (without violating other filters). The pantry list is surfaced explicitly (no longer buried in `display_filters`).
 - **Tags always English**: the AI is instructed to return tags in English regardless of response language. Frontend translates via `TAG_ZH` at render time.
-- **Pantry names are canonical English** (same convention as tags): receipt scan returns `name` always-English plus `name_zh` for display; `PantryTagPicker` built-ins already store English (its zh labels are display-only). All pantry-name display goes through `usePantryDisplay` (curated `TAG_ZH` hit → cached dynamic translation → raw). User-typed names (picker custom items, scan edits, renames) are stored literally — user override wins. Legacy zh-stored names display as-is in EN mode (no reverse map).
+- **Pantry names are canonical English** (same convention as tags): receipt scan returns `name` always-English plus `name_zh` for display; `PantryTagPicker` built-ins already store English (its zh labels are display-only). All pantry-name display goes through `usePantryDisplay`, which **first normalizes to canonical English** via `TAG_EN`/`toCanonicalEnglish` (reverse map built from `TAG_ZH` + `PANTRY_CATEGORIES` itemsZh) so the library is single-language — then EN passes through / ZH resolves curated `TAG_ZH` → dynamic translation → raw. User-typed names (picker custom items, scan edits, renames) are stored literally; if not in the reverse map they display as typed.
 - **No calories displayed on card header**: calorie/kcal display is only visible inside the info panel (tap ℹ️ icon). Prep time is still shown in the header.
 - **Swap respects filters**: `handleSwap` passes cuisine, flavour, maxTime, requiredIngredients, and mealStyle to the backend swap endpoint.
 - **Regenerate bypasses cache**: `generateRecipeByName` accepts `force_refresh=True`; the Regenerate button (FindRecipeModal) and history Generate button both pass this flag.

@@ -11,12 +11,13 @@ import {
   Modal,
   ScrollView,
   Pressable,
+  Share,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { getSavedRecipes, deleteRecipe, updateRecipe, saveRecipe, getMealHistory, generateRecipeByName, updateRecipeLabels } from "@/services/api";
+import { getSavedRecipes, deleteRecipe, updateRecipe, saveRecipe, getMealHistory, generateRecipeByName, updateRecipeLabels, createShare, shareWebUrl } from "@/services/api";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useAppStore } from "@/store/useAppStore";
@@ -32,6 +33,7 @@ export default function RecipesScreen() {
   const { authReady, recipeLabels, addRecipeLabel, removeRecipeLabel, setAllRecipeLabels, language, servings: storeServings } = useAppStore();
   const c = useTheme();
   const { t, strings } = useTranslation();
+  const router = useRouter();
 
   const [recipes, setRecipes] = useState<SavedRecipe[]>([]);
   const hasFetchedRef = useRef(false);
@@ -227,6 +229,31 @@ export default function RecipesScreen() {
     updateRecipeLabels(recipeId, newLabels).catch(() => {});
   }
 
+  const [sharingRecipe, setSharingRecipe] = useState(false);
+  async function handleShareRecipe() {
+    if (!selectedRecipe || sharingRecipe) return;
+    setSharingRecipe(true);
+    try {
+      const id = await createShare("recipe", {
+        title: selectedRecipe.title,
+        intro: selectedRecipe.intro,
+        source_name: selectedRecipe.source_name,
+        servings: selectedRecipe.servings,
+        prep_time_mins: selectedRecipe.prep_time_mins,
+        calories_per_serving: selectedRecipe.calories_per_serving,
+        ingredients: selectedRecipe.ingredients ?? [],
+        steps: selectedRecipe.steps ?? [],
+        chef_tips: selectedRecipe.chef_tips ?? [],
+        tags: selectedRecipe.tags ?? [],
+      });
+      await Share.share({ message: `${selectedRecipe.title}\n${shareWebUrl(id)}` });
+    } catch {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setSharingRecipe(false);
+    }
+  }
+
   async function addTagToRecipe(tag: string) {
     if (!selectedRecipe || !tag.trim()) return;
     const trimmed = tag.trim().toLowerCase();
@@ -388,10 +415,19 @@ export default function RecipesScreen() {
         ListHeaderComponent={
           <View>
             {(activeTab === "saved" || activeTab === "mine") && (
-              <TouchableOpacity style={[styles.newRecipeBtn, { backgroundColor: c.surfaceAlt, borderColor: c.border }]} onPress={openNewRecipe}>
-                <Ionicons name="add" size={18} color={c.primary} />
-                <Text style={[styles.newRecipeBtnText, { color: c.primary }]}>{t("new_recipe")}</Text>
-              </TouchableOpacity>
+              <View style={styles.recipeActionRow}>
+                <TouchableOpacity style={[styles.newRecipeBtn, { backgroundColor: c.surfaceAlt, borderColor: c.border, flex: 1, marginBottom: 0 }]} onPress={openNewRecipe}>
+                  <Ionicons name="add" size={18} color={c.primary} />
+                  <Text style={[styles.newRecipeBtnText, { color: c.primary }]}>{t("new_recipe")}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.newRecipeBtn, { backgroundColor: c.surfaceAlt, borderColor: c.border, flex: 1, marginBottom: 0 }]}
+                  onPress={() => { router.push("/recipe/upload"); Haptics.selectionAsync(); }}
+                >
+                  <Ionicons name="link" size={16} color={c.primary} />
+                  <Text style={[styles.newRecipeBtnText, { color: c.primary }]}>{t("import_from_url")}</Text>
+                </TouchableOpacity>
+              </View>
             )}
             {activeTagFilter && (
               <View style={styles.tagFilterPill}>
@@ -615,6 +651,13 @@ export default function RecipesScreen() {
                 </Text>
               )}
               <View style={styles.modalHeaderActions}>
+                {!isEditing && (
+                  <TouchableOpacity onPress={handleShareRecipe} disabled={sharingRecipe} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                    {sharingRecipe
+                      ? <ActivityIndicator size={16} color={c.primary} />
+                      : <Ionicons name="share-outline" size={20} color={c.primary} />}
+                  </TouchableOpacity>
+                )}
                 {!isEditing && (
                   <TouchableOpacity onPress={() => openEditMode(selectedRecipe)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                     <Ionicons name="pencil-outline" size={20} color={c.primary} />
@@ -1085,6 +1128,7 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     editCancelText: { fontSize: 15, fontWeight: "600" },
     editSaveBtn: { flex: 2, borderRadius: 12, paddingVertical: 14, alignItems: "center" },
     editSaveBtnText: { color: "#FFF", fontSize: 15, fontWeight: "700" },
+    recipeActionRow: { flexDirection: "row", gap: 10, marginBottom: 16 },
     newRecipeBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderRadius: 14, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 13, marginBottom: 16 },
     newRecipeBtnText: { fontSize: 15, fontWeight: "700" },
     tagFilterPill: { flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: c.primaryLight, marginBottom: 10 },

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { translateToZh, getTranslatedSync } from "@/services/translate";
-import { TAG_ZH } from "@/constants/filters";
+import { TAG_ZH, toCanonicalEnglish } from "@/constants/filters";
 
 /**
  * Translates an array of strings to Chinese when language === "zh".
@@ -45,12 +45,16 @@ export function useTranslated(text: string): string {
  * Display form of pantry item names for the current language.
  *
  * Pantry names are STORED canonical English (same convention as tags);
- * this hook translates them at render time only.
- * - en: pass-through (legacy zh-stored names display as-is — no reverse map)
+ * this hook translates them at render time only. To keep the pantry library in
+ * ONE language, names are first normalized to canonical English via the reverse
+ * map (legacy Chinese-stored names → English) before display resolves.
+ * - en: canonical English (legacy zh names mapped back to English)
  * - zh: curated TAG_ZH hit (instant) → dynamic translation (cached) → raw
  */
-export function usePantryDisplay(names: string[]): string[] {
+export function usePantryDisplay(rawNames: string[]): string[] {
   const language = useAppStore((s) => s.language);
+  // Unify on canonical English first so display is language-consistent both ways.
+  const names = rawNames.map(toCanonicalEnglish);
   const curated = (n: string) => TAG_ZH[n.trim().toLowerCase()];
   const needsDynamic = language === "zh" ? names.filter((n) => !curated(n)) : [];
   const dynamic = useBatchTranslated(needsDynamic);

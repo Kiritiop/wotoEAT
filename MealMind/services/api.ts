@@ -248,11 +248,12 @@ export async function generateMeals(
   max_prep_time_mins?: number,
   language = "en",
   recent_ratings?: Record<string, "up" | "down">,
-  servings = 2,
+  servings = 1,
   slots?: ("breakfast" | "lunch" | "dinner")[],
   flavour_preference?: string,
   required_ingredients?: string,
   meal_style?: string,
+  avoid_meals?: string[],
 ): Promise<{ plan: DailyMealPlan; cached: boolean }> {
   const res = await api.post("/meals/generate", {
     profile,
@@ -266,13 +267,13 @@ export async function generateMeals(
     flavour_preference,
     required_ingredients,
     meal_style,
+    avoid_meals,
   });
   return res.data;
 }
 
 export async function swapMeal(
   slot: "breakfast" | "lunch" | "dinner",
-  current_plan: DailyMealPlan,
   profile: HealthProfile,
   pantry: PantryItem[],
   language = "en",
@@ -281,10 +282,10 @@ export async function swapMeal(
   max_prep_time_mins?: number,
   required_ingredients?: string,
   meal_style?: string,
+  avoid_meals?: string[],
 ): Promise<DailyPlanMeal> {
   const res = await api.post("/meals/swap", {
     slot,
-    current_plan,
     profile,
     pantry: pantry.map((p) => p.name),
     language,
@@ -293,6 +294,7 @@ export async function swapMeal(
     max_prep_time_mins,
     required_ingredients,
     meal_style,
+    avoid_meals,
   });
   return res.data;
 }
@@ -327,7 +329,7 @@ export async function parseRecipe(url: string): Promise<Recipe> {
 export async function generateRecipeByName(
   dishName: string,
   language = "en",
-  servings = 2,
+  servings = 1,
   forceRefresh = false,
 ): Promise<Recipe> {
   const res = await api.post("/recipes/generate", { dish_name: dishName, language, servings, force_refresh: forceRefresh });
@@ -355,6 +357,37 @@ export async function deleteRecipe(id: string): Promise<void> {
 
 export async function updateRecipeLabels(id: string, labels: string[]): Promise<void> {
   await api.patch(`/recipes/${id}/labels`, { labels });
+}
+
+// ── Sharing (public, browsable meal/recipe links) ──────────────────────────
+export type ShareKind = "recipe" | "meal";
+
+export interface SharedItem {
+  kind: ShareKind;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  payload: any;
+}
+
+/** Stores a meal/recipe payload server-side; returns its public id. */
+export async function createShare(kind: ShareKind, payload: object): Promise<string> {
+  const res = await api.post("/share/", { kind, payload });
+  return res.data.id as string;
+}
+
+/** Public read — fetches a shared meal/recipe by id (no auth required). */
+export async function getShared(id: string): Promise<SharedItem> {
+  const res = await api.get(`/share/${id}`);
+  return res.data as SharedItem;
+}
+
+/** Browsable web URL for a shared item. Prefers EXPO_PUBLIC_WEB_URL; falls
+ *  back to the current web origin when running in a browser. */
+export function shareWebUrl(id: string): string {
+  let base = process.env.EXPO_PUBLIC_WEB_URL?.replace(/\/$/, "") ?? "";
+  if (!base && typeof window !== "undefined" && window.location?.origin) {
+    base = window.location.origin;
+  }
+  return `${base}/share/${id}`;
 }
 
 export async function getCurrentShoppingList(): Promise<ShoppingList | null> {

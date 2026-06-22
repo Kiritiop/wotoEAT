@@ -258,3 +258,27 @@ def get_meal_history(user_id: str, limit: int = 50) -> list:
         .execute()
     )
     return result.data or []
+
+
+# ---------------------------------------------------------------------------
+# Sharing (public, browsable links for meals & recipes)
+# ---------------------------------------------------------------------------
+
+def create_share(kind: str, payload: dict, user_id: str | None = None) -> str:
+    row = {"kind": kind, "payload": payload}
+    if user_id:
+        row["user_id"] = user_id
+    result = get_client().table("shared_items").insert(row).execute()
+    return str(result.data[0]["id"]) if result.data else ""
+
+
+def get_share(share_id: str) -> dict | None:
+    result = (
+        get_client()
+        .table("shared_items")
+        .select("kind, payload")
+        .eq("id", share_id)
+        .limit(1)
+        .execute()
+    )
+    return result.data[0] if result.data else None

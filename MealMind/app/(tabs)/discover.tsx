@@ -18,7 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAppStore } from "@/store/useAppStore";
 import { CUISINES, FLAVOUR_OPTIONS, PREP_TIME_PRESETS, SLOT_COLOUR, SLOT_ICON, DIFFICULTY_COLORS, translateTag, translateCuisine, translateDifficulty } from "@/constants/filters";
-import { generateMeals, swapMeal, saveRecipe, deleteRecipe } from "@/services/api";
+import { generateMeals, swapMeal, saveRecipe, deleteRecipe, createShare, shareWebUrl } from "@/services/api";
 import type { Recipe, Ingredient } from "@/services/api";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useTheme } from "@/hooks/useTheme";
@@ -28,11 +28,9 @@ import { searchMealImage } from "@/services/imageSearch";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import type { Rating } from "@/store/useAppStore";
-import type { DailyMealPlan, DailyPlanMeal } from "@/services/api";
+import type { DailyPlanMeal } from "@/services/api";
 
 type MealTypeTag = "any" | "breakfast" | "lunch" | "dinner";
-
-const SLOT_ORDER: Record<string, number> = { breakfast: 0, lunch: 1, dinner: 2 };
 
 /** Scales the leading number in an ingredient string (e.g. "100g chicken" → "150g chicken").
  *  N-09: non-numeric quantities (e.g. "a handful") get a ~ prefix to signal approximate. */
@@ -70,7 +68,7 @@ function MealSlotCard({
   const isConfirming = useRef(false);
   const c = useTheme();
   const { t, strings } = useTranslation();
-  const { language, servings: storeServings, planServings, pantry, shoppingList, addToShoppingList, removeFromShoppingList, addRecipe, removeRecipe, selectedRecipes, toggleConfirmedSlot } = useAppStore();
+  const { language, servings: storeServings, planServings, pantry, shoppingList, addToShoppingList, removeFromShoppingList, addRecipe, removeRecipe, selectedRecipes } = useAppStore();
   // N-13: derive confirmed from selectedRecipes for bidirectional sync with Shopping/Pantry tab
   const isConfirmed = selectedRecipes.some((r) => r.title === meal.name);
 
@@ -82,10 +80,11 @@ function MealSlotCard({
     name = name.split(/[,(]/)[0];
     return name.trim().toLowerCase();
   }
-  const pantryMatches = (meal.ingredients ?? []).filter((ing) => {
+  const ingInPantry = (ing: string) => {
     const n = ingredientNameFrom(ing);
     return pantry.some((p) => p.name.toLowerCase().includes(n) || n.includes(p.name.toLowerCase()));
-  });
+  };
+  const pantryMatches = (meal.ingredients ?? []).filter(ingInPantry);
   const missingIngredients = (meal.ingredients ?? []).filter((ing) => {
     const n = ingredientNameFrom(ing);
     return !pantry.some((p) => p.name.toLowerCase().includes(n) || n.includes(p.name.toLowerCase()));
@@ -100,7 +99,6 @@ function MealSlotCard({
     if (isConfirming.current) return;
     isConfirming.current = true;
     const willConfirm = !isConfirmed;
-    toggleConfirmedSlot(meal.slot);
     if (willConfirm) {
       // BUG-04: add meal to selectedRecipes so shopping list generation has input
       addRecipe({
@@ -149,8 +147,9 @@ function MealSlotCard({
   const translatedSteps = useBatchTranslated(meal.steps ?? []);
   const translatedChefTips = useBatchTranslated(meal.chef_tips ?? []);
 
-  // BUG-05: slot prefix prevents collision when two meals share the same name
-  const cartCategory = `${meal.slot}-${meal.name}`;
+  // Meal names are unique within a day (the seen-meals exclusion guarantees it),
+  // so a "meal-" prefixed name is a safe, collision-free shopping category key.
+  const cartCategory = `meal-${meal.name}`;
   const cartItems = shoppingList?.groups.find((g) => g.category === cartCategory)?.items ?? [];
   // Normalize both sides so "200g chicken breast" matches cart item "chicken breast"
   const inCart = (ing: string) => {
@@ -183,6 +182,31 @@ function MealSlotCard({
   const [mealImageUrl, setMealImageUrl] = useState<string | null>(null);
   useEffect(() => { searchMealImage(meal.name).then(setMealImageUrl); }, [meal.name]);
 
+  const [sharing, setSharing] = useState(false);
+  async function handleShareMeal() {
+    if (sharing) return;
+    setSharing(true);
+    try {
+      const id = await createShare("meal", {
+        title: meal.name,
+        cuisine: meal.cuisine,
+        intro: meal.intro ?? meal.description,
+        prep_time_mins: meal.prep_time_mins,
+        calories_per_serving: meal.calories_per_serving,
+        ingredients: meal.ingredients ?? [],
+        steps: meal.steps ?? [],
+        chef_tips: meal.chef_tips ?? [],
+        tags: meal.tags ?? [],
+        protein_g: meal.protein_g, carbs_g: meal.carbs_g, fat_g: meal.fat_g, fiber_g: meal.fiber_g,
+      });
+      await Share.share({ message: `${meal.name}\n${shareWebUrl(id)}` });
+    } catch {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setSharing(false);
+    }
+  }
+
   function parseIngredient(s: string): Ingredient {
     // Parses "100g chicken breast" or "2 eggs" → structured ingredient
     // N-01: handles "100g chicken breast", "2 eggs" (no unit), and bare strings
@@ -212,7 +236,7 @@ function MealSlotCard({
     try {
       const recipe: Recipe = {
         title: meal.name,
-        servings: storeServings || 2,
+        servings: storeServings || 1,
         prep_time_mins: meal.prep_time_mins,
         calories_per_serving: meal.calories_per_serving,
         ingredients: (meal.ingredients ?? []).map(parseIngredient),
@@ -513,10 +537,17 @@ function MealSlotCard({
                         const origIng = (meal.ingredients ?? [])[i] ?? ing;
                         const scaledIng = scaleIngredientStr(ing, scaleFactor);
                         const added = inCart(origIng);
+                        const haveIt = ingInPantry(origIng);
                         return (
                           <View key={i} style={cardStyles.ingRow}>
-                            <View style={[cardStyles.ingDot, { backgroundColor: c.primary }]} />
+                            <View style={[cardStyles.ingDot, { backgroundColor: haveIt ? "#16A34A" : c.primary }]} />
                             <Text style={[cardStyles.ingText, { color: c.textSecondary, flex: 1 }]}>{scaledIng}</Text>
+                            {haveIt && (
+                              <View style={[cardStyles.inPantryTag, { backgroundColor: c.successBg }]}>
+                                <Ionicons name="checkmark-circle" size={11} color="#16A34A" />
+                                <Text style={cardStyles.inPantryTagText}>{t("in_pantry")}</Text>
+                              </View>
+                            )}
                             <TouchableOpacity
                               style={[cardStyles.ingCartBtn, { borderColor: added ? c.primary : c.border, backgroundColor: added ? c.primaryLight : "transparent" }]}
                               onPress={() => toggleIngredient(origIng)}
@@ -572,6 +603,15 @@ function MealSlotCard({
 
                   <TouchableOpacity
                     style={[cardStyles.modalActionBtn, { borderColor: c.border }]}
+                    onPress={handleShareMeal}
+                    disabled={sharing}
+                  >
+                    {sharing ? <ActivityIndicator size={14} color={c.textMuted} /> : <Ionicons name="share-outline" size={16} color={c.textMuted} />}
+                    <Text style={[cardStyles.modalActionText, { color: c.textMuted }]}>{t("share")}</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[cardStyles.modalActionBtn, { borderColor: c.border }]}
                     onPress={() => { handleSaveMeal(); }}
                     disabled={savedState === "saving"}
                   >
@@ -610,9 +650,7 @@ function CompChip({ icon, label, color }: {
 }
 
 export default function TodayScreen() {
-  const { profile, pantry, dailyPlan, planDate, setDailyPlan, patchDailyPlan, clearDailyPlan, language, ratings, setRating, servings, setPlanServings, removeRecipe, confirmedSlots, toggleConfirmedSlot, shoppingList, removeFromShoppingList } = useAppStore();
-  const today = new Date().toISOString().slice(0, 10);
-  const planIsStale = !!dailyPlan && !!planDate && planDate !== today;
+  const { profile, pantry, meals, seenMeals, addMeal, replaceMeal, clearMeals, addSeenMeals, language, ratings, setRating, servings, setPlanServings, removeRecipe, shoppingList, removeFromShoppingList } = useAppStore();
   const { t } = useTranslation();
   const c = useTheme();
   // Pantry names are stored canonical English; chips display per-language while
@@ -620,7 +658,7 @@ export default function TodayScreen() {
   const pantryDisplayNames = usePantryDisplay(pantry.map((p) => p.name));
 
   const [loading, setLoading] = useState(false);
-  const [swappingSlot, setSwappingSlot] = useState<string | null>(null);
+  const [swappingName, setSwappingName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filterError, setFilterError] = useState(false);
   const [planCached, setPlanCached] = useState(false);
@@ -653,12 +691,13 @@ export default function TodayScreen() {
     }
   }
 
-  const sortedMeals = (dailyPlan?.meals ?? [])
+  // Newest meals first; the meal-type chips act as a visible-list filter.
+  const sortedMeals = meals
     .slice()
-    .sort((a, b) => (SLOT_ORDER[a.slot] ?? 0) - (SLOT_ORDER[b.slot] ?? 0))
+    .reverse()
     .filter((m) => selectedSlots.includes("any") || selectedSlots.includes(m.slot as MealTypeTag));
 
-  const totalProteinG = dailyPlan?.meals.reduce((s, m) => s + (m.protein_g ?? 0), 0) ?? 0;
+  const totalProteinG = meals.reduce((s, m) => s + (m.protein_g ?? 0), 0);
   const proteinGoal = profile.protein_goal_g;
   const showProtein = totalProteinG > 0 && !!proteinGoal;
 
@@ -688,31 +727,17 @@ export default function TodayScreen() {
         flavour.trim() || undefined,
         [...selectedPantryItems, ...requiredIngredients].join(", ") || undefined,
         mealStyle,
+        seenMeals,
       );
 
       setPlanCached(cached);
-      if (!dailyPlan) {
-        setDailyPlan(plan);
-        setPlanServings(servings);
-      } else {
-        // Clean up stale confirmation state for slots being replaced
-        for (const newMeal of plan.meals) {
-          const old = dailyPlan.meals.find((m) => m.slot === newMeal.slot);
-          if (old) {
-            removeRecipe(old.name);
-            if (confirmedSlots.includes(newMeal.slot)) toggleConfirmedSlot(newMeal.slot);
-          }
-        }
-        // Merge generated meals into the existing plan
-        let merged = [...dailyPlan.meals];
-        for (const newMeal of plan.meals) {
-          merged = merged.filter((m) => m.slot !== newMeal.slot);
-          merged.push(newMeal);
-        }
-        merged.sort((a, b) => (SLOT_ORDER[a.slot] ?? 0) - (SLOT_ORDER[b.slot] ?? 0));
-        const newTotal = merged.reduce((s, m) => s + (m.calories_per_serving ?? 0), 0);
-        patchDailyPlan({ ...dailyPlan, meals: merged, total_calories: newTotal });
+      // Append every returned meal to the growing stream; track names so the
+      // same dish is never suggested again today.
+      for (const newMeal of plan.meals) {
+        addMeal(newMeal);
+        addSeenMeals([newMeal.name]);
       }
+      setPlanServings(servings);
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
@@ -744,15 +769,12 @@ export default function TodayScreen() {
     }
   }
 
-  async function handleSwap(slot: "breakfast" | "lunch" | "dinner") {
-    if (!dailyPlan) return;
-    setSwappingSlot(slot);
+  async function handleSwap(meal: DailyPlanMeal) {
+    setSwappingName(meal.name);
     setError(null);
     try {
-      const oldMeal = dailyPlan.meals.find((m) => m.slot === slot);
       const newMeal = await swapMeal(
-        slot,
-        dailyPlan as DailyMealPlan,
+        meal.slot,
         profile,
         pantry,
         language,
@@ -761,19 +783,16 @@ export default function TodayScreen() {
         maxTime ?? undefined,
         [...selectedPantryItems, ...requiredIngredients].join(", ") || undefined,
         mealStyle,
+        seenMeals,
       );
-      const updatedMeals = dailyPlan.meals.map((m) => m.slot === slot ? newMeal : m);
-      const newTotal = updatedMeals.reduce((sum, m) => sum + (m.calories_per_serving ?? 0), 0);
-      patchDailyPlan({ ...dailyPlan, meals: updatedMeals, total_calories: newTotal });
+      replaceMeal(meal.name, newMeal);
+      addSeenMeals([newMeal.name]);
       // Clear the old meal's confirmation and shopping list entries
-      if (oldMeal) {
-        removeRecipe(oldMeal.name);
-        if (confirmedSlots.includes(slot)) toggleConfirmedSlot(slot);
-        const oldCategory = `${slot}-${oldMeal.name}`;
-        const oldGroup = shoppingList?.groups.find((g) => g.category === oldCategory);
-        if (oldGroup) {
-          oldGroup.items.forEach((item) => removeFromShoppingList(oldCategory, item.name));
-        }
+      removeRecipe(meal.name);
+      const oldCategory = `meal-${meal.name}`;
+      const oldGroup = shoppingList?.groups.find((g) => g.category === oldCategory);
+      if (oldGroup) {
+        oldGroup.items.forEach((item) => removeFromShoppingList(oldCategory, item.name));
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
@@ -793,19 +812,8 @@ export default function TodayScreen() {
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
-      setSwappingSlot(null);
+      setSwappingName(null);
     }
-  }
-
-  async function handleShare() {
-    if (!dailyPlan) return;
-    const slotLabel = (slot: string) =>
-      slot === "breakfast" ? t("breakfast") : slot === "lunch" ? t("lunch") : t("dinner");
-    const lines = dailyPlan.meals.map(
-      (m) => `${slotLabel(m.slot)}: ${m.name} (${m.calories_per_serving} ${t("calories_label")}, ${m.prep_time_mins} ${t("min_label")})`
-    );
-    const text = [t("todays_plan"), "", ...lines].join("\n");
-    try { await Share.share({ message: text }); } catch { /* dismissed */ }
   }
 
   const styles = makeStyles(c);
@@ -818,7 +826,7 @@ export default function TodayScreen() {
         <View style={styles.topBar}>
           <TouchableOpacity
             style={[styles.topBarBtn, { borderColor: c.border, backgroundColor: c.surface }]}
-            onPress={() => { clearDailyPlan(); Haptics.selectionAsync(); }}
+            onPress={() => { clearMeals(); Haptics.selectionAsync(); }}
           >
             <Ionicons name="refresh-outline" size={20} color={c.primary} />
           </TouchableOpacity>
@@ -1050,37 +1058,19 @@ export default function TodayScreen() {
           </TouchableOpacity>
         )}
 
-        {/* ── Plan section ── */}
-        {dailyPlan && (
+        {/* ── Meal stream section ── */}
+        {meals.length > 0 && (
           <View style={styles.planSection}>
-            {/* Stale plan banner */}
-            {planIsStale && (
-              <TouchableOpacity
-                style={[styles.staleBanner, { backgroundColor: c.surface, borderColor: c.border }]}
-                onPress={() => { clearDailyPlan(); Haptics.selectionAsync(); }}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="calendar-outline" size={14} color={c.textMuted} />
-                <Text style={[styles.staleBannerText, { color: c.textMuted }]}>
-                  {language === "zh" ? `这是 ${planDate} 的餐单，点击清除` : `Plan from ${planDate} — tap to clear`}
-                </Text>
-                <Ionicons name="close-circle-outline" size={14} color={c.textMuted} />
-              </TouchableOpacity>
-            )}
-
             {/* Summary row */}
-            <View style={styles.summaryRow}>
-              <View style={styles.summaryActions}>
-                {planCached && (
+            {planCached && (
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryActions}>
                   <Text style={[styles.cachedLabel, { color: c.textMuted }]}>
                     {t("cached_label")}
                   </Text>
-                )}
-                <TouchableOpacity onPress={handleShare} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Ionicons name="share-outline" size={18} color={c.textMuted} />
-                </TouchableOpacity>
+                </View>
               </View>
-            </View>
+            )}
 
 
             {showProtein && (
@@ -1104,11 +1094,11 @@ export default function TodayScreen() {
             {/* Meal cards */}
             {sortedMeals.map((meal) => (
               <MealSlotCard
-                key={meal.slot}
+                key={meal.name}
                 meal={meal}
                 onRate={(r) => setRating(meal.name, r)}
-                onSwap={() => handleSwap(meal.slot as "breakfast" | "lunch" | "dinner")}
-                swapping={swappingSlot === meal.slot}
+                onSwap={() => handleSwap(meal)}
+                swapping={swappingName === meal.name}
                 onTagPress={(tag) => {
                   setShowSettings(true);
                   setRequiredIngredients((prev) => prev.includes(tag) ? prev : [...prev, tag]);
@@ -1190,6 +1180,8 @@ const cardStyles = StyleSheet.create({
   ingDot: { width: 5, height: 5, borderRadius: 3, flexShrink: 0 },
   ingText: { fontSize: 13, lineHeight: 18, flex: 1 },
   ingCartBtn: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  inPantryTag: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, flexShrink: 0 },
+  inPantryTagText: { fontSize: 10, fontWeight: "700", color: "#16A34A" },
   stepRow: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginBottom: 6 },
   stepNum: { width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center", flexShrink: 0 },
   stepNumText: { fontSize: 11, fontWeight: "800", color: "#FFF" },
@@ -1250,8 +1242,6 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     clearFilterText: { fontSize: 13, fontWeight: "600" },
     // Plan
     planSection: { gap: 10 },
-    staleBanner: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1 },
-    staleBannerText: { flex: 1, fontSize: 12 },
     cachedLabel: { fontSize: 11, fontStyle: "italic" },
     summaryRow: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end" },
     summaryActions: { flexDirection: "row", alignItems: "center", gap: 14 },

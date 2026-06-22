@@ -76,7 +76,8 @@ async def swap_meal(
         filters = body.model_dump(exclude_none=True)
         if body.profile:
             filters["profile"] = body.profile.model_dump(exclude_none=True)
-        meal = await ai_swap_meal(body.slot, body.current_plan.model_dump(), filters)
+        current_plan = body.current_plan.model_dump() if body.current_plan else None
+        meal = await ai_swap_meal(body.slot, current_plan, filters)
         if user_id:
             try:
                 db.save_meal_history(user_id, str(_date.today()), [meal])
