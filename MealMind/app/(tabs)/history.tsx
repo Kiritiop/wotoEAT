@@ -90,7 +90,7 @@ export default function HistoryScreen() {
     setGenerating(true);
     setGenBanner(null);
     try {
-      const recipe = await generateRecipeByName(selected.name, language, storeServings || 2, true);
+      const recipe = await generateRecipeByName(selected.name, language, storeServings || 1, true);
       await saveRecipe(recipe);
       setGenBannerIsError(false);
       setGenBanner(t("history_saved_banner"));

@@ -5,6 +5,7 @@ SQLite-backed TTL cache reduces API calls and survives server restarts.
 """
 import json
 import os
+import re
 import hashlib
 import logging
 from groq import AsyncGroq, APIStatusError, APIConnectionError, RateLimitError
@@ -41,13 +42,36 @@ _VISION_MODEL = os.getenv("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e
 _CACHE_TTL = int(os.getenv("CACHE_TTL_SECONDS", "3600"))
 
 
+# Matches a bare arithmetic expression sitting in a JSON *value* position, e.g.
+# `: 523 / 14,` — two numbers joined by * or /. Anchored to a colon/comma/bracket
+# on the left and a comma/brace/newline on the right, with no quotes, so it can
+# never touch a string value like a URL ("https://…") or a unit ("1/2").
+_NUM_EXPR_RE = re.compile(
+    r'([:\[,]\s*)(\d+(?:\.\d+)?)\s*([*/])\s*(\d+(?:\.\d+)?)(\s*[,}\]\n])'
+)
+
+
+def _resolve_num_expr(m: "re.Match") -> str:
+    a, op, b = float(m.group(2)), m.group(3), float(m.group(4))
+    val = a / b if op == "/" else a * b
+    # Round to a clean integer — these expressions are almost always the
+    # per-serving calorie estimate (an int field), and an int is valid for
+    # any numeric field, whereas a fractional float would fail an int field.
+    return f"{m.group(1)}{round(val)}{m.group(5)}"
+
+
 def _clean_json(text: str) -> str:
     text = text.strip()
     if text.startswith("```"):
         text = text.split("\n", 1)[-1]
         if text.endswith("```"):
             text = text[: text.rfind("```")]
-    return text.strip()
+    text = text.strip()
+    # Safety net: models occasionally emit a formula (e.g. "523 / 14") instead of
+    # the computed value, which is invalid JSON. Resolve such expressions so the
+    # parse never 422s on an otherwise-good recipe.
+    text = _NUM_EXPR_RE.sub(_resolve_num_expr, text)
+    return text
 
 
 def _cache_key(data: object) -> str:

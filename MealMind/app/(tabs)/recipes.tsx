@@ -84,7 +84,7 @@ export default function RecipesScreen() {
     setEditTitle("");
     setEditPrepTime("");
     setEditCalories("");
-    setEditServings(String(storeServings || 2));
+    setEditServings(String(storeServings || 1));
     setEditIngredients([{ name: "", amount: "1", unit: "" }]);
     setEditSteps([""]);
     setEditTags([]);
@@ -142,7 +142,7 @@ export default function RecipesScreen() {
         });
       const recipePayload = {
         title: editTitle.trim(),
-        servings: parseInt(editServings) || 2,
+        servings: parseInt(editServings) || 1,
         prep_time_mins: parseInt(editPrepTime) || 0,
         calories_per_serving: editCalories.trim() ? parseInt(editCalories) : undefined,
         ingredients,
@@ -303,7 +303,7 @@ export default function RecipesScreen() {
     setHistoryGenerating(true);
     setHistoryBanner(null);
     try {
-      const recipe = await generateRecipeByName(historySelected.name, language, storeServings || 2, true);
+      const recipe = await generateRecipeByName(historySelected.name, language, storeServings || 1, true);
       await saveRecipe(recipe);
       setHistoryBannerIsError(false);
       setHistoryBanner(t("history_saved_banner"));

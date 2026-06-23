@@ -237,6 +237,18 @@ export const useAppStore = create<AppState>()(
     {
       name: "wotoeat-store",
       storage: createJSONStorage(() => AsyncStorage),
+      // v1: default servings dropped 2 → 1. Existing devices persisted servings:2,
+      // and a changed default never overrides saved state — so force it here.
+      // (setServings has no UI caller, so this can't clobber a user choice.)
+      version: 1,
+      migrate: (persisted: any, version) => {
+        if (!persisted) return persisted;
+        if (version < 1) {
+          persisted.servings = 1;
+          persisted.planServings = 1;
+        }
+        return persisted;
+      },
       // Clear stale meals (and the day's seen-history) from a previous day as soon
       // as the store rehydrates. Runs before React renders — works on web and native.
       onRehydrateStorage: () => (state) => {

@@ -98,6 +98,7 @@ RULES:
 - ingredients must have realistic amounts and units
 - amount must ALWAYS be a decimal number — never a fraction string. Convert: "1/4" → 0.25, "1/2" → 0.5, "3/4" → 0.75, "1/3" → 0.333
 - calories_per_serving is a realistic estimate — do your best or set to null
+- EVERY numeric value must be a single resolved number — NEVER a formula or expression. Do the arithmetic yourself: write "37", not "523 / 14". JSON does not allow math.
 - source_name is the website or author name (e.g. "Jamie Oliver", "Serious Eats") — extract from the page or set to null
 - warnings are allergen notices e.g. ["contains nuts", "contains dairy"]
 - {tag_note}

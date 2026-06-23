@@ -3,4 +3,5 @@ When i try to import a URL, i get errors: Request failed with status code 422
 recipe/upload:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was receivedUnderstand this error
 entry-b42187c9efc332004e3c0c26094ee303.js:904  POST https://mealmind-production-dc38.up.railway.app/recipes/parse 422 (Unprocessable Content)
 
-Default is still 2 people for some reason not 1 person
+Default is still 2 people for some reason not 1 person when i click generate meal, default serving size is 2 for some bs reason FIX IT 
+share should have copy link option
