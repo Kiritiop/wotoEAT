@@ -124,7 +124,7 @@ export default function ScanReceiptScreen() {
   const badgeDisplayNames = usePantryDisplay(rowsResolved.map((r) => r.badgeMatch ?? ""));
 
   function mapScanError(err: unknown): string {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const e = err as any;
     const status = e?.response?.status;
     const detail: string = e?.response?.data?.detail ?? "";

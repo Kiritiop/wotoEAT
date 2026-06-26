@@ -319,8 +319,6 @@ export default function RecipesScreen() {
     }
   }
 
-  const prevTabRef = useRef<RecipeTab>("saved");
-
   // Filter recipes by active tab, tag filter, then search text
   const filteredRecipes = recipes.filter((r) => {
     const labels = recipeLabels[r.id] ?? [];

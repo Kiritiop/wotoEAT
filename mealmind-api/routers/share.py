@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import APIRouter, HTTPException, Depends, Request
 
 from db.models import CreateShareRequest, CreateShareResponse, SharedItem
@@ -39,6 +41,12 @@ async def create_share(
 @router.get("/{share_id}", response_model=SharedItem)
 async def get_share(share_id: str):
     """GET /share/{id} — public, no auth. Returns the shared payload."""
+    # A malformed (non-UUID) id is simply "not found", not a server error —
+    # Postgres would otherwise raise on the uuid cast and surface as a 500.
+    try:
+        UUID(share_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Shared item not found.")
     try:
         row = db.get_share(share_id)
     except Exception as exc:

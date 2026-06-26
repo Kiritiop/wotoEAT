@@ -65,13 +65,13 @@ export default function RootLayout() {
       router.replace("/");
     } else if (session && inAuth) {
       if (!hasOnboarded) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         router.replace("/onboarding" as any);
       } else {
         router.replace("/(tabs)/discover");
       }
     } else if (session && !inAuth && !inOnboarding && !hasOnboarded) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       router.replace("/onboarding" as any);
     }
   }, [session, ready, segments, hasOnboarded]);

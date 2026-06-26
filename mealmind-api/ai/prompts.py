@@ -9,11 +9,21 @@ _LANG_INSTRUCTION = {
 }
 
 
+def _lang(language: str) -> str:
+    """Language instruction line for the given language code."""
+    return _LANG_INSTRUCTION.get(language, _LANG_INSTRUCTION["en"])
+
+
+def _serving_word(n: int) -> str:
+    return "person" if n == 1 else "people"
+
+
 def _tag_note() -> str:
     # Tags are always stored in English regardless of response language.
     # The UI translates them at render time using a local lookup table.
     return (
-        'tags must ALWAYS be in English, regardless of the response language. '
+        'tags must ALWAYS be in English ASCII words, regardless of the response language — '
+        'NEVER use Chinese characters in tags even when every other field is Chinese. '
         'Generate as many tags as the dish genuinely requires — include every one that applies. '
         'Cover ALL of: '
         '(1) every key ingredient as its own tag — use the SPECIFIC cut, part, or form used in the dish, '
@@ -45,10 +55,10 @@ SEMANTIC INGREDIENT MATCHING (critical — read carefully):
 
 
 def meal_suggestion_prompt(filters: dict, language: str = "en") -> str:
-    lang_note = _LANG_INSTRUCTION.get(language, _LANG_INSTRUCTION["en"])
+    lang_note = _lang(language)
     tag_note = _tag_note()
     serving_size = filters.get("serving_size", 1)
-    serving_word = "person" if serving_size == 1 else "people"
+    serving_word = _serving_word(serving_size)
     display_filters = {k: v for k, v in filters.items() if k not in ("serving_size", "language")}
 
     return f"""You are a world-class culinary expert.
@@ -123,7 +133,7 @@ WEBPAGE HTML:
 
 
 def shopping_list_prompt(recipes: list, pantry: list, language: str = "en") -> str:
-    lang_note = _LANG_INSTRUCTION.get(language, _LANG_INSTRUCTION["en"])
+    lang_note = _lang(language)
     pantry_str = "\n".join(f"- {n}" for n in pantry) if pantry else "(empty)"
     return f"""You are a smart shopping list assistant.
 {lang_note}
@@ -158,9 +168,9 @@ Respond with ONLY valid JSON, no markdown:
 
 
 def generate_recipe_prompt(dish_name: str, language: str = "en", servings: int = 1) -> str:
-    lang_note = _LANG_INSTRUCTION.get(language, _LANG_INSTRUCTION["en"])
+    lang_note = _lang(language)
     tag_note = _tag_note()
-    serving_word = "person" if servings == 1 else "people"
+    serving_word = _serving_word(servings)
     return f"""You are a professional chef and recipe writer who writes with warmth and expertise.
 {lang_note}
 
@@ -195,10 +205,10 @@ Respond with ONLY valid JSON, no markdown:
 
 def meal_generate_prompt(filters: dict, language: str = "en") -> str:
     """One rich meal per requested slot (ingredients, steps, macros)."""
-    lang_note = _LANG_INSTRUCTION.get(language, _LANG_INSTRUCTION["en"])
+    lang_note = _lang(language)
     tag_note = _tag_note()
     servings = filters.get("servings", filters.get("serving_size", 1))
-    serving_word = "person" if servings == 1 else "people"
+    serving_word = _serving_word(servings)
     slots = filters.get("slots", ["breakfast", "lunch", "dinner"])
 
     # Extract disliked meals explicitly so the AI knows to avoid them.
@@ -273,10 +283,8 @@ RULES:
 - Every dish must satisfy ALL active (non-null) filters
 - difficulty must be one of: "easy", "medium", "hard"
 - prep_time_mins is realistic total time including cooking
-- intro: 2–3 sentences describing the dish's flavor profile, aroma, and what makes it special — written warmly. Mention the defining taste or texture experience.
+- description: 1–2 sentences capturing the dish's flavor profile and what makes it special — written warmly.
 - ingredients: flat list scaled for {servings} serving(s), e.g. ["300g chicken breast", "2 tbsp soy sauce"]
-- steps: include every step the dish requires — never compress. Write for a beginner cook who has never made this dish before. Each step MUST follow this format exactly: "Step N — [Evocative Title] (≈X min): [Complete instructions with exact quantities repeated where helpful, specific heat levels and timing, and at least one sensory/visual checkpoint the cook can verify — color, texture, aroma, or sound. Where the reason is non-obvious, explain it briefly.]" Example: "Step 2 — Sear (≈5 min): Heat 1 tbsp oil in a wok over high heat until you see faint wisps of smoke — this is the right temperature for a fast sear. Add the chicken in a single layer and leave untouched for 30 seconds until the underside turns golden and releases easily. Toss and stir-fry a further 1–2 minutes until no pink remains; the pieces should feel firm when pressed, not squishy. Remove and set aside."
-- chef_tips: 1–2 short tips covering a key ratio, common mistake to avoid, or the "why" behind a critical technique. Be specific.
 - components.vegetable / .protein / .staple: short component names (e.g. "broccoli", "chicken", "rice")
 - uses_pantry_items: ingredient names that match items in the pantry filter
 - {tag_note}
@@ -293,7 +301,6 @@ Respond with ONLY valid JSON, no markdown:
       "slot": "breakfast|lunch|dinner",
       "name": "string",
       "cuisine": "string",
-      "intro": "string",
       "description": "1-2 sentence description",
       "prep_time_mins": integer,
       "calories_per_serving": integer,
@@ -302,8 +309,6 @@ Respond with ONLY valid JSON, no markdown:
       "uses_pantry_items": ["string"],
       "tags": ["string"],
       "ingredients": ["string"],
-      "steps": ["string"],
-      "chef_tips": ["string"],
       "protein_g": number, "carbs_g": number, "fat_g": number, "fiber_g": number
     }}
   ],

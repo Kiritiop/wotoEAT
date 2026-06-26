@@ -63,5 +63,12 @@ async def fetch_page_html(url: str, max_chars: int = 16_000) -> str:
         follow_redirects=True,
     ) as client:
         response = await client.get(url)
+        # Some big sites (AllRecipes, NYT…) block automated fetches with 402/403/429.
+        # Surface a clear, actionable message instead of a raw HTTP status.
+        if response.status_code in (401, 402, 403, 429):
+            raise ValueError(
+                "This site blocks automated access. Try a different recipe URL "
+                "(most recipe blogs work), or add the recipe manually."
+            )
         response.raise_for_status()
         return extract_recipe_content(response.text, max_chars)

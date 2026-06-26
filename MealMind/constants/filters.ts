@@ -174,7 +174,10 @@ export const TAG_ZH: Record<string, string> = {
 };
 
 export function translateTag(tag: string, language: string): string {
-  if (language !== "zh") return tag;
+  // Tags are meant to be stored English, but the model occasionally returns
+  // Chinese tags in zh mode. In EN mode, normalize any stray Chinese tag back
+  // to canonical English (via TAG_EN) so an English viewer never sees Chinese.
+  if (language !== "zh") return TAG_EN[tag.trim()] ?? tag;
   return TAG_ZH[tag.toLowerCase()] ?? tag;
 }
 

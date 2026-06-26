@@ -206,7 +206,7 @@ export default function PantryScreen() {
                 style={[styles.scanBtn, { borderColor: c.primary }]}
                 onPress={() => {
                   Haptics.selectionAsync();
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                   
                   router.push("/pantry/scan" as any);
                 }}
               >

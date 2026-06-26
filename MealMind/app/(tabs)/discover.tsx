@@ -18,8 +18,8 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAppStore } from "@/store/useAppStore";
 import { CUISINES, FLAVOUR_OPTIONS, PREP_TIME_PRESETS, SLOT_COLOUR, SLOT_ICON, DIFFICULTY_COLORS, translateTag, translateCuisine, translateDifficulty } from "@/constants/filters";
-import { generateMeals, swapMeal, saveRecipe, deleteRecipe, createShare, shareWebUrl } from "@/services/api";
-import type { Recipe, Ingredient } from "@/services/api";
+import { generateMeals, swapMeal, saveRecipe, deleteRecipe, createShare, shareWebUrl, generateRecipeByName } from "@/services/api";
+import type { Recipe, Ingredient , DailyPlanMeal } from "@/services/api";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useTheme } from "@/hooks/useTheme";
 import { useBatchTranslated, useTranslated, usePantryDisplay } from "@/hooks/useDynamicTranslation";
@@ -28,7 +28,6 @@ import { searchMealImage } from "@/services/imageSearch";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import type { Rating } from "@/store/useAppStore";
-import type { DailyPlanMeal } from "@/services/api";
 
 type MealTypeTag = "any" | "breakfast" | "lunch" | "dinner";
 
@@ -68,7 +67,38 @@ function MealSlotCard({
   const isConfirming = useRef(false);
   const c = useTheme();
   const { t, strings } = useTranslation();
-  const { language, servings: storeServings, planServings, pantry, shoppingList, addToShoppingList, removeFromShoppingList, addRecipe, removeRecipe, selectedRecipes } = useAppStore();
+  const { language, servings: storeServings, planServings, pantry, shoppingList, addToShoppingList, removeFromShoppingList, addRecipe, removeRecipe, selectedRecipes, replaceMeal } = useAppStore();
+
+  // Lazy step loading: the meal card is generated light (no steps/chef_tips) to
+  // keep generation fast and under Groq's token-per-minute ceiling. Full steps
+  // are fetched on demand the first time the user needs them (opens detail,
+  // saves, or shares) via the cached /recipes/generate endpoint, then merged
+  // back into the stored meal so they persist and only generate once.
+  const [loadingSteps, setLoadingSteps] = useState(false);
+  const [stepsError, setStepsError] = useState(false);
+  const hasSteps = (meal.steps ?? []).filter(Boolean).length > 0;
+
+  async function ensureSteps(): Promise<{ steps: string[]; chef_tips: string[]; intro?: string | null }> {
+    const current = { steps: meal.steps ?? [], chef_tips: meal.chef_tips ?? [], intro: meal.intro };
+    if (hasSteps || loadingSteps) return current;
+    setLoadingSteps(true);
+    setStepsError(false);
+    try {
+      const full = await generateRecipeByName(meal.name, language, planServings || storeServings || 1);
+      const enriched = {
+        intro: meal.intro || full.intro,
+        steps: full.steps?.length ? full.steps : current.steps,
+        chef_tips: full.chef_tips?.length ? full.chef_tips : current.chef_tips,
+      };
+      replaceMeal(meal.name, { ...meal, ...enriched });
+      return enriched;
+    } catch {
+      setStepsError(true);
+      return current;
+    } finally {
+      setLoadingSteps(false);
+    }
+  }
   // N-13: derive confirmed from selectedRecipes for bidirectional sync with Shopping/Pantry tab
   const isConfirmed = selectedRecipes.some((r) => r.title === meal.name);
 
@@ -141,7 +171,6 @@ function MealSlotCard({
 
   // Dynamic AI translation — kicks in when language="zh" and content is English
   const translatedName = useTranslated(meal.name);
-  const translatedDescription = useTranslated(meal.description);
   const translatedIntro = useTranslated(meal.intro || meal.description);
   const translatedIngredients = useBatchTranslated(meal.ingredients ?? []);
   const translatedSteps = useBatchTranslated(meal.steps ?? []);
@@ -187,15 +216,16 @@ function MealSlotCard({
     if (sharing) return;
     setSharing(true);
     try {
+      const { steps, chef_tips, intro } = await ensureSteps();
       const id = await createShare("meal", {
         title: meal.name,
         cuisine: meal.cuisine,
-        intro: meal.intro ?? meal.description,
+        intro: intro ?? meal.description,
         prep_time_mins: meal.prep_time_mins,
         calories_per_serving: meal.calories_per_serving,
         ingredients: meal.ingredients ?? [],
-        steps: meal.steps ?? [],
-        chef_tips: meal.chef_tips ?? [],
+        steps,
+        chef_tips,
         tags: meal.tags ?? [],
         protein_g: meal.protein_g, carbs_g: meal.carbs_g, fat_g: meal.fat_g, fiber_g: meal.fiber_g,
       });
@@ -234,13 +264,15 @@ function MealSlotCard({
     }
     setSavedState("saving");
     try {
+      const { steps, chef_tips } = await ensureSteps();
       const recipe: Recipe = {
         title: meal.name,
         servings: storeServings || 1,
         prep_time_mins: meal.prep_time_mins,
         calories_per_serving: meal.calories_per_serving,
         ingredients: (meal.ingredients ?? []).map(parseIngredient),
-        steps: meal.steps ?? [],
+        steps,
+        chef_tips,
         tags: meal.tags ?? [],
         warnings: [],
         source_name: "wotoEAT Plan",
@@ -273,7 +305,7 @@ function MealSlotCard({
         </View>
       </View>
 
-      <Pressable style={cardStyles.body} onPress={() => { setShowDetail(true); Haptics.selectionAsync(); }}>
+      <Pressable style={cardStyles.body} onPress={() => { setShowDetail(true); ensureSteps(); Haptics.selectionAsync(); }}>
         <Text style={[cardStyles.name, { color: c.text }]}>{translatedName}</Text>
         <View style={cardStyles.rowMeta}>
           <Text style={[cardStyles.cuisine, { color: c.textMuted }]}>{meal.cuisine}</Text>
@@ -561,20 +593,30 @@ function MealSlotCard({
                     </View>
                   )}
 
-                  {/* Steps */}
-                  {(meal.steps ?? []).filter(Boolean).length > 0 && (
-                    <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
-                      <Text style={[cardStyles.recipeLabel, { color: c.text, marginBottom: 8 }]}>{t("steps_label")}</Text>
-                      {translatedSteps.filter(Boolean).map((step, i) => (
-                        <View key={i} style={cardStyles.stepRow}>
-                          <View style={[cardStyles.stepNum, { backgroundColor: c.primary }]}>
-                            <Text style={cardStyles.stepNumText}>{i + 1}</Text>
-                          </View>
-                          <Text style={[cardStyles.stepText, { color: c.textSecondary }]}>{step}</Text>
+                  {/* Steps — lazily fetched the first time the modal opens */}
+                  <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
+                    <Text style={[cardStyles.recipeLabel, { color: c.text, marginBottom: 8 }]}>{t("steps_label")}</Text>
+                    {loadingSteps && translatedSteps.filter(Boolean).length === 0 && (
+                      <View style={cardStyles.stepRow}>
+                        <ActivityIndicator size="small" color={c.primary} />
+                        <Text style={[cardStyles.stepText, { color: c.textMuted }]}>{t("loading")}</Text>
+                      </View>
+                    )}
+                    {stepsError && translatedSteps.filter(Boolean).length === 0 && (
+                      <TouchableOpacity style={cardStyles.stepRow} onPress={ensureSteps}>
+                        <Ionicons name="refresh" size={16} color={c.primary} />
+                        <Text style={[cardStyles.stepText, { color: c.primary }]}>{t("retry")}</Text>
+                      </TouchableOpacity>
+                    )}
+                    {translatedSteps.filter(Boolean).map((step, i) => (
+                      <View key={i} style={cardStyles.stepRow}>
+                        <View style={[cardStyles.stepNum, { backgroundColor: c.primary }]}>
+                          <Text style={cardStyles.stepNumText}>{i + 1}</Text>
                         </View>
-                      ))}
-                    </View>
-                  )}
+                        <Text style={[cardStyles.stepText, { color: c.textSecondary }]}>{step}</Text>
+                      </View>
+                    ))}
+                  </View>
 
                   {/* Chef's tips */}
                   {translatedChefTips.filter(Boolean).length > 0 && (

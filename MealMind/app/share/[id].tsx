@@ -16,7 +16,7 @@ import { getShared } from "@/services/api";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 function ingredientToText(ing: any): string {
   if (typeof ing === "string") return ing;
   if (ing && typeof ing === "object") {
@@ -33,7 +33,7 @@ export default function SharedItemScreen() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const [payload, setPayload] = useState<any>(null);
 
   useEffect(() => {
