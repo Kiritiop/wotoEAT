@@ -141,6 +141,8 @@ uvicorn main:app --reload
 
 Internal helpers:
 - `_generate(prompt, max_tokens)` — calls Groq with temperature 0.7; used for all JSON-returning functions
+- `_create_with_retry(**kwargs)` — wraps the Groq completion call with a bounded retry (up to 3 attempts) on `RateLimitError`, honouring the `Retry-After` header (skips the wait if >8s so it never outlives the client's 45s timeout). All three `_generate*` helpers route through it. Recovers the bursty 429→503 failures Groq throws when several meal/recipe calls land in the same minute.
+- `_meal_max_tokens(n_slots)` — `min(6000, 1200 + 2400*n_slots)`. Right-sizes the meal generation/swap completion budget so Groq's TPM reservation isn't blown (a single meal needs ~1.5–2k output tokens, not 6000). See Token limits below.
 - `_generate_text(prompt, max_tokens)` — calls Groq with temperature 0.3; used by `translate_texts()` and receipt normalization
 - `_generate_vision(prompt, image_b64, max_tokens)` — calls `_VISION_MODEL` (env `GROQ_VISION_MODEL`, default Llama 4 Scout) with temperature 0.2 and a base64 JPEG data-URL content part
 - `GroqTransientError` — tuple `(RateLimitError, APIConnectionError, APIStatusError)` used by routers to catch transient AI failures and return 503
@@ -285,7 +287,7 @@ Defined but with **zero callers** (legacy): `suggestMeals`, `translateBatch`.
 2. `handleGenerate()` in `discover.tsx`:
    - Resolves target slot (always exactly **one**): "Auto" → infers from current hour (5–11 → breakfast, 11–15 → lunch, else dinner); otherwise uses the single selected slot.
    - Calls `generateMeals(profile, pantry, cuisines, maxTime, language, ratings, servings, [slot], flavour, requiredIngredients+pantryItems, mealStyle, seenMeals)`.
-3. Backend `POST /meals/generate` → `generate_meal_plan(filters)` → Groq (`llama-3.3-70b-versatile`, 6000 token limit). `avoid_meals` (=`seenMeals`) is in the cache key, so a growing list forces a fresh, non-repeating result.
+3. Backend `POST /meals/generate` → `generate_meal_plan(filters)` → Groq (`llama-3.3-70b-versatile`, `_meal_max_tokens(n_slots)` ≈ 3600 for the usual single slot). `avoid_meals` (=`seenMeals`) is in the cache key, so a growing list forces a fresh, non-repeating result.
 4. Each returned meal is **appended** to the `meals` stream (`addMeal`) and its name added to `seenMeals` (`addSeenMeals`) — old cards stay visible.
 5. Meal cards render newest-first; the meal-type chips filter the visible list. Slot colour coding (breakfast=amber, lunch=green, dinner=indigo) still styles each card.
 
@@ -435,7 +437,7 @@ Meals and recipes can be shared as browsable links anyone can open.
 
 - **Backend error handling**: `ValueError` → HTTP 422; `GroqTransientError` (RateLimitError/APIConnectionError/APIStatusError) → HTTP 503; uncaught exceptions → HTTP 500.
 - **Cache key**: MD5 of sorted JSON of the filters dict (excluding `recent_ratings` for plan cache keys to avoid thrashing). **`avoid_meals` is NOT excluded** — it must stay in the key so a growing exclusion list forces fresh, non-repeating results.
-- **Token limits**: `generate_meal_plan`, `swap_meal`, `generate_recipe_by_name`, and `parse_recipe` all use 6000 tokens. A single rich meal response is ~4–6k chars — lower limits cause truncated JSON and 422 errors.
+- **Token limits**: budgets are right-sized to the response so Groq's per-minute token (TPM) reservation — which counts the *requested* `max_tokens`, not just what's generated — isn't blown on every call (the old flat 6000 was a 3-meal-era leftover and caused 429→503 rate-limit storms now that generation is one meal per call). `generate_meal_plan`/`swap_meal` use `_meal_max_tokens(n_slots)` (≈3600 for one slot); `generate_recipe_by_name` uses 4500; `parse_recipe` uses 4000. A single rich meal/recipe response is ~1.5–2k output tokens, so these are comfortably above the truncation threshold. Don't raise them back toward 6000 — that reintroduces the rate-limit storms. If a response ever truncates (→ 422 on JSON parse), bump that one call's budget by ~1000, don't blanket-raise.
 - **CORS**: `main.py` allows `GET, POST, PUT, PATCH, DELETE, OPTIONS`. `PATCH` is required for `/recipes/{id}/labels`.
 - **Pantry replace**: frontend calls `POST /pantry/` (not `/pantry/replace`) with body `{ items: [...] }`.
 - **AI JSON cleaning**: `_clean_json()` strips markdown fences that some models prepend.

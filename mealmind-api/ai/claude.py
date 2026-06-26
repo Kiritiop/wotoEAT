@@ -3,6 +3,7 @@ AI API calls via Groq (fast Llama inference).
 Uses async so FastAPI endpoints stay non-blocking.
 SQLite-backed TTL cache reduces API calls and survives server restarts.
 """
+import asyncio
 import json
 import os
 import re
@@ -84,8 +85,42 @@ def _extract_text(response) -> str:
     return response.choices[0].message.content
 
 
-async def _generate(prompt: str, max_tokens: int = 6000) -> str:
-    response = await _client.chat.completions.create(
+def _retry_after_seconds(exc: RateLimitError, fallback: float) -> float:
+    """Best-effort parse of Groq's Retry-After header (seconds); fallback otherwise."""
+    try:
+        hdr = exc.response.headers.get("retry-after")
+        if hdr:
+            return float(hdr)
+    except Exception:
+        pass
+    return fallback
+
+
+async def _create_with_retry(**kwargs):
+    """
+    Wrap the Groq completion call with a bounded retry on transient rate limits.
+    Groq counts the *reserved* max_tokens against the per-minute token budget, so
+    bursts of requests momentarily 429; a short backoff usually clears it well
+    within the client's 45s timeout. Non-rate-limit errors propagate immediately.
+    """
+    last: RateLimitError | None = None
+    for attempt in range(3):
+        try:
+            return await _client.chat.completions.create(**kwargs)
+        except RateLimitError as exc:
+            last = exc
+            wait = _retry_after_seconds(exc, fallback=1.5 * (attempt + 1))
+            # Don't sit on the request past the client timeout — give up and let
+            # the router surface a 503 the user can retry.
+            if attempt == 2 or wait > 8:
+                raise
+            logger.warning("[ai] Groq rate-limited; retrying in %.1fs (attempt %d)", wait, attempt + 1)
+            await asyncio.sleep(wait)
+    raise last  # pragma: no cover — loop always returns or raises
+
+
+async def _generate(prompt: str, max_tokens: int = 4000) -> str:
+    response = await _create_with_retry(
         model=_MODEL,
         max_tokens=max_tokens,
         temperature=0.7,
@@ -95,7 +130,7 @@ async def _generate(prompt: str, max_tokens: int = 6000) -> str:
 
 
 async def _generate_text(prompt: str, max_tokens: int = 1000) -> str:
-    response = await _client.chat.completions.create(
+    response = await _create_with_retry(
         model=_MODEL,
         max_tokens=max_tokens,
         temperature=0.3,
@@ -105,7 +140,7 @@ async def _generate_text(prompt: str, max_tokens: int = 1000) -> str:
 
 
 async def _generate_vision(prompt: str, image_b64: str, max_tokens: int = 4000) -> str:
-    response = await _client.chat.completions.create(
+    response = await _create_with_retry(
         model=_VISION_MODEL,
         max_tokens=max_tokens,
         temperature=0.2,
@@ -118,6 +153,13 @@ async def _generate_vision(prompt: str, image_b64: str, max_tokens: int = 4000) 
         }],
     )
     return _extract_text(response)
+
+
+# A single rich meal's JSON (intro, verbose steps, macros, tags) runs ~1.5–2k
+# output tokens. Budget per slot + overhead, capped — far below the old flat
+# 6000 so Groq's TPM reservation isn't blown on every call.
+def _meal_max_tokens(n_slots: int) -> int:
+    return min(6000, 1200 + 2400 * max(1, n_slots))
 
 
 # ---------------------------------------------------------------------------
@@ -170,7 +212,7 @@ async def generate_recipe_by_name(dish_name: str, language: str = "en", servings
         if cached is not None:
             return cached
 
-    text = await _generate(generate_recipe_prompt(dish_name, language, servings), max_tokens=6000)
+    text = await _generate(generate_recipe_prompt(dish_name, language, servings), max_tokens=4500)
     result = json.loads(_clean_json(text))
     if "error" in result:
         raise ValueError(result["error"])
@@ -191,7 +233,8 @@ async def generate_meal_plan(filters: dict) -> tuple[dict, bool]:
         return cached, True
 
     language = filters.get("language", "en")
-    text = await _generate(meal_generate_prompt(filters, language), max_tokens=6000)
+    n_slots = len(filters.get("slots") or ["breakfast", "lunch", "dinner"])
+    text = await _generate(meal_generate_prompt(filters, language), max_tokens=_meal_max_tokens(n_slots))
     result = json.loads(_clean_json(text))
     if isinstance(result, dict) and result.get("error") == "no_match":
         raise ValueError(result.get("message", "No dish can satisfy the required tags."))
@@ -209,7 +252,7 @@ async def swap_meal(slot: str, current_plan: dict | None, filters: dict) -> dict
     merged_ratings = {name: "down" for name in avoid}
     merged_ratings.update(filters.get("recent_ratings") or {})
     swap_filters = {**filters, "slots": [slot], "recent_ratings": merged_ratings}
-    text = await _generate(meal_generate_prompt(swap_filters, language), max_tokens=6000)
+    text = await _generate(meal_generate_prompt(swap_filters, language), max_tokens=_meal_max_tokens(1))
     result = json.loads(_clean_json(text))
     if isinstance(result, dict) and result.get("error") == "no_match":
         raise ValueError(result.get("message", "No dish can satisfy the required tags."))
