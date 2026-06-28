@@ -65,8 +65,15 @@ export const PREP_TIME_PRESETS: Array<{ value: number | null; en: string; zh: st
 
 export const SLOT_COLOUR: Record<string, string> = {
   breakfast: "#F59E0B",
-  lunch: "#2E7D32",
+  lunch: "#16A34A",
   dinner: "#6366F1",
+};
+
+/** Two-stop gradient per meal slot — used for the bold card header band. */
+export const SLOT_GRADIENT: Record<string, [string, string]> = {
+  breakfast: ["#FBBF24", "#F59E0B"],
+  lunch: ["#22C55E", "#16A34A"],
+  dinner: ["#818CF8", "#6366F1"],
 };
 
 export const SLOT_ICON: Record<string, string> = {

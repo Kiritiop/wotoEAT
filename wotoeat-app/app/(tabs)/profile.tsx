@@ -10,6 +10,7 @@ import {
   Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAppStore } from "@/store/useAppStore";
@@ -137,9 +138,14 @@ export default function ProfileScreen() {
 
         {/* Avatar */}
         <View style={styles.avatarWrap}>
-          <View style={[styles.avatar, { backgroundColor: c.primaryLight }]}>
-            <Ionicons name="person" size={40} color={c.primary} />
-          </View>
+          <LinearGradient
+            colors={["#22C55E", "#15803D"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.avatar}
+          >
+            <Ionicons name="person" size={40} color="#FFF" />
+          </LinearGradient>
           <Text style={[styles.avatarLabel, { color: c.text }]}>{t("your_profile")}</Text>
           <Text style={[styles.avatarSub, { color: c.textMuted }]}>{t("profile_subtitle")}</Text>
         </View>
@@ -606,18 +612,26 @@ export default function ProfileScreen() {
 
         {/* Save */}
         <TouchableOpacity
-          style={[styles.saveBtn, { backgroundColor: c.primary }, (saving || saved) && { opacity: 0.85 }]}
+          style={(saving || saved) && { opacity: 0.85 }}
           onPress={handleSave}
           disabled={saving}
+          activeOpacity={0.9}
         >
-          {saving ? (
-            <ActivityIndicator color="#FFF" size="small" />
-          ) : (
-            <>
-              <Ionicons name={saved ? "checkmark-circle" : "save-outline"} size={18} color="#FFF" />
-              <Text style={styles.saveBtnText}>{saved ? t("profile_saved") : t("save_profile")}</Text>
-            </>
-          )}
+          <LinearGradient
+            colors={["#22C55E", "#15803D"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.saveBtn}
+          >
+            {saving ? (
+              <ActivityIndicator color="#FFF" size="small" />
+            ) : (
+              <>
+                <Ionicons name={saved ? "checkmark-circle" : "save-outline"} size={18} color="#FFF" />
+                <Text style={styles.saveBtnText}>{saved ? t("profile_saved") : t("save_profile")}</Text>
+              </>
+            )}
+          </LinearGradient>
         </TouchableOpacity>
 
         {/* Sign out */}
@@ -671,8 +685,10 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     completeBannerSub: { fontSize: 12, lineHeight: 17, opacity: 0.85 },
     avatarWrap: { alignItems: "center", marginBottom: 28 },
     avatar: {
-      width: 80, height: 80, borderRadius: 40,
+      width: 84, height: 84, borderRadius: 42,
       alignItems: "center", justifyContent: "center", marginBottom: 12,
+      shadowColor: "#16A34A", shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.3, shadowRadius: 14, elevation: 6,
     },
     avatarLabel: { fontSize: 20, fontWeight: "800" },
     avatarSub: { fontSize: 13, marginTop: 4, textAlign: "center" },

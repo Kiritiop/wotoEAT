@@ -13,6 +13,7 @@ import {
   ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -198,9 +199,11 @@ export default function PantryScreen() {
             </View>
 
             <View style={styles.addRow}>
-              <TouchableOpacity style={styles.addBtn} onPress={() => { setShowTagPicker(true); Haptics.selectionAsync(); }}>
-                <Ionicons name="add" size={20} color="#FFF" />
-                <Text style={styles.addBtnText}>{t("add_ingredient")}</Text>
+              <TouchableOpacity style={{ flex: 1 }} activeOpacity={0.9} onPress={() => { setShowTagPicker(true); Haptics.selectionAsync(); }}>
+                <LinearGradient colors={["#22C55E", "#15803D"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.addBtn}>
+                  <Ionicons name="add" size={20} color="#FFF" />
+                  <Text style={styles.addBtnText}>{t("add_ingredient")}</Text>
+                </LinearGradient>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.scanBtn, { borderColor: c.primary }]}
@@ -322,21 +325,24 @@ export default function PantryScreen() {
 
           <View style={styles.shoppingGenRow}>
             <ErrorBanner message={shoppingError} style={{ marginBottom: 8 }} />
-            <TouchableOpacity
-              style={[styles.generateBtn, shoppingLoading && { backgroundColor: c.disabled }]}
-              onPress={handleGenerateShopping}
-              disabled={shoppingLoading}
-            >
-              {shoppingLoading ? (
-                <ActivityIndicator color="#FFF" size="small" />
-              ) : (
-                <>
-                  <Ionicons name="sparkles" size={16} color="#FFF" />
-                  <Text style={styles.generateBtnText}>
-                    {t("generate_list")} ({selectedRecipes.length})
-                  </Text>
-                </>
-              )}
+            <TouchableOpacity onPress={handleGenerateShopping} disabled={shoppingLoading} activeOpacity={0.9}>
+              <LinearGradient
+                colors={shoppingLoading ? [c.disabled, c.disabled] : ["#22C55E", "#15803D"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.generateBtn}
+              >
+                {shoppingLoading ? (
+                  <ActivityIndicator color="#FFF" size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="sparkles" size={16} color="#FFF" />
+                    <Text style={styles.generateBtnText}>
+                      {t("generate_list")} ({selectedRecipes.length})
+                    </Text>
+                  </>
+                )}
+              </LinearGradient>
             </TouchableOpacity>
           </View>
 

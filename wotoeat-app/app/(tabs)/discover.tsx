@@ -13,11 +13,12 @@ import {
   Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAppStore } from "@/store/useAppStore";
-import { CUISINES, FLAVOUR_OPTIONS, PREP_TIME_PRESETS, SLOT_COLOUR, SLOT_ICON, DIFFICULTY_COLORS, translateTag, translateCuisine, translateDifficulty } from "@/constants/filters";
+import { CUISINES, FLAVOUR_OPTIONS, PREP_TIME_PRESETS, SLOT_COLOUR, SLOT_GRADIENT, SLOT_ICON, DIFFICULTY_COLORS, translateTag, translateCuisine, translateDifficulty } from "@/constants/filters";
 import { generateMeals, swapMeal, saveRecipe, deleteRecipe, createShare, shareWebUrl, generateRecipeByName } from "@/services/api";
 import type { Recipe, Ingredient , DailyPlanMeal } from "@/services/api";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -165,7 +166,8 @@ function MealSlotCard({
   // Serving size scaler — relative to the servings the plan was generated for
   const [displayServings, setDisplayServings] = useState(storeServings || 1);
   const scaleFactor = displayServings / (planServings || storeServings || 1);
-  const accent = SLOT_COLOUR[meal.slot] ?? "#2E7D32";
+  const accent = SLOT_COLOUR[meal.slot] ?? "#16A34A";
+  const grad = (SLOT_GRADIENT[meal.slot] ?? ["#22C55E", "#16A34A"]) as [string, string];
   const icon = (SLOT_ICON[meal.slot] ?? "restaurant") as React.ComponentProps<typeof Ionicons>["name"];
   const hasMacros = meal.protein_g != null || meal.carbs_g != null || meal.fat_g != null;
 
@@ -292,18 +294,23 @@ function MealSlotCard({
 
   return (
     <View style={[cardStyles.card, { backgroundColor: c.surface }]}>
-      <View style={[cardStyles.slotHeader, { backgroundColor: accent + "18" }]}>
-        <View style={[cardStyles.slotIconWrap, { backgroundColor: accent }]}>
+      <LinearGradient
+        colors={grad}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={cardStyles.slotHeader}
+      >
+        <View style={[cardStyles.slotIconWrap, { backgroundColor: "rgba(255,255,255,0.25)" }]}>
           <Ionicons name={icon} size={16} color="#FFF" />
         </View>
-        <Text style={[cardStyles.slotLabel, { color: accent }]}>
+        <Text style={[cardStyles.slotLabel, { color: "#FFF" }]}>
           {meal.slot === "breakfast" ? t("breakfast") : meal.slot === "lunch" ? t("lunch") : t("dinner")}
         </Text>
-        <View style={cardStyles.slotMeta}>
-          <Ionicons name="time-outline" size={13} color={c.textMuted} />
-          <Text style={[cardStyles.metaText, { color: c.textMuted }]}>{meal.prep_time_mins} {t("min_label")}</Text>
+        <View style={[cardStyles.slotMeta, { backgroundColor: "rgba(255,255,255,0.22)" }]}>
+          <Ionicons name="time-outline" size={13} color="#FFF" />
+          <Text style={[cardStyles.metaText, { color: "#FFF" }]}>{meal.prep_time_mins} {t("min_label")}</Text>
         </View>
-      </View>
+      </LinearGradient>
 
       <Pressable style={cardStyles.body} onPress={() => { setShowDetail(true); ensureSteps(); Haptics.selectionAsync(); }}>
         <Text style={[cardStyles.name, { color: c.text }]}>{translatedName}</Text>
@@ -870,16 +877,21 @@ export default function TodayScreen() {
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
-        {/* ── Branded greeting header ── */}
-        <View style={styles.greetHeader}>
+        {/* ── Branded greeting hero ── */}
+        <LinearGradient
+          colors={["#22C55E", "#15803D"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.greetHero}
+        >
           <View style={{ flex: 1 }}>
-            <Text style={[styles.greetText, { color: c.textMuted }]}>{greeting}</Text>
-            <Text style={[styles.greetSub, { color: c.text }]}>{subGreeting}</Text>
+            <Text style={styles.greetText}>{greeting}</Text>
+            <Text style={styles.greetSub}>{subGreeting}</Text>
           </View>
-          <View style={[styles.greetBadge, { backgroundColor: c.primaryLight }]}>
-            <Ionicons name="leaf" size={22} color={c.primary} />
+          <View style={styles.greetBadge}>
+            <Ionicons name="leaf" size={24} color="#FFF" />
           </View>
-        </View>
+        </LinearGradient>
 
         {/* ── Top bar: refresh + search + filters ── */}
         <View style={styles.topBar}>
@@ -1083,23 +1095,25 @@ export default function TodayScreen() {
         <FindRecipeModal visible={showFindRecipe} onClose={() => setShowFindRecipe(false)} />
 
         {/* ── Big generate CTA ── */}
-        <TouchableOpacity
-          style={[styles.generateBtnLarge, { backgroundColor: loading ? c.disabled : c.primary }]}
-          onPress={handleGenerate}
-          disabled={loading}
-          activeOpacity={0.85}
-        >
-          {loading ? (
-            <ActivityIndicator color="#FFF" size="small" />
-          ) : (
-            <>
-              <Ionicons name="sparkles" size={28} color="#FFF" />
-              <Text style={styles.generateBtnLargeText}>{t("generate_cta")}</Text>
-              <Text style={styles.generateBtnLargeSub}>
-                {language === "zh" ? "根据你的食材和健康目标" : "Tailored to your pantry & goals"}
-              </Text>
-            </>
-          )}
+        <TouchableOpacity onPress={handleGenerate} disabled={loading} activeOpacity={0.9}>
+          <LinearGradient
+            colors={loading ? [c.disabled, c.disabled] : ["#22C55E", "#15803D"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.generateBtnLarge}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFF" size="small" />
+            ) : (
+              <>
+                <Ionicons name="sparkles" size={28} color="#FFF" />
+                <Text style={styles.generateBtnLargeText}>{t("generate_cta")}</Text>
+                <Text style={styles.generateBtnLargeSub}>
+                  {language === "zh" ? "根据你的食材和健康目标" : "Tailored to your pantry & goals"}
+                </Text>
+              </>
+            )}
+          </LinearGradient>
         </TouchableOpacity>
 
         <ErrorBanner message={error} />
@@ -1192,10 +1206,10 @@ const cardStyles = StyleSheet.create({
     shadowColor: "#2A2118", shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.07, shadowRadius: 14, elevation: 3,
   },
-  slotHeader: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 10, gap: 8 },
-  slotIconWrap: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  slotLabel: { fontSize: 13, fontWeight: "800", letterSpacing: 0.3 },
-  slotMeta: { flexDirection: "row", alignItems: "center", marginLeft: "auto", gap: 3 },
+  slotHeader: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 12, gap: 9 },
+  slotIconWrap: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
+  slotLabel: { fontSize: 13, fontWeight: "800", letterSpacing: 0.4, textTransform: "uppercase" },
+  slotMeta: { flexDirection: "row", alignItems: "center", marginLeft: "auto", gap: 4, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999 },
   metaText: { fontSize: 12, fontWeight: "600" },
   body: { padding: 14, paddingTop: 8, gap: 8 },
   name: { fontSize: 17, fontWeight: "800" },
@@ -1273,10 +1287,15 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.bg },
     content: { padding: 16, paddingBottom: 48, gap: 10 },
-    greetHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 4, marginBottom: 2 },
-    greetText: { fontSize: 14, fontWeight: "600" },
-    greetSub: { fontSize: 22, fontWeight: "800", letterSpacing: -0.3, marginTop: 2 },
-    greetBadge: { width: 48, height: 48, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+    greetHero: {
+      flexDirection: "row", alignItems: "center", gap: 12,
+      borderRadius: 24, paddingHorizontal: 20, paddingVertical: 20, marginTop: 4,
+      shadowColor: "#16A34A", shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.28, shadowRadius: 16, elevation: 6,
+    },
+    greetText: { fontSize: 14, fontWeight: "700", color: "rgba(255,255,255,0.88)" },
+    greetSub: { fontSize: 23, fontWeight: "800", letterSpacing: -0.3, marginTop: 2, color: "#FFF" },
+    greetBadge: { width: 50, height: 50, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.22)" },
     // Top bar
     topBar: { flexDirection: "row", alignItems: "center", gap: 8 },
     topBarBtn: {

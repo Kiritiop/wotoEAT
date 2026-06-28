@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { IngredientRow } from "@/components/IngredientRow";
@@ -83,21 +84,24 @@ export default function ShoppingScreen() {
 
       {/* Action bar */}
       <View style={styles.actionBar}>
-        <TouchableOpacity
-          style={[styles.generateBtn, loading && { backgroundColor: c.disabled }]}
-          onPress={handleGenerate}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#FFF" size="small" />
-          ) : (
-            <>
-              <Ionicons name="sparkles" size={16} color="#FFF" />
-              <Text style={styles.generateBtnText}>
-                {t("generate_list")} ({selectedRecipes.length})
-              </Text>
-            </>
-          )}
+        <TouchableOpacity style={{ flex: 1 }} onPress={handleGenerate} disabled={loading} activeOpacity={0.9}>
+          <LinearGradient
+            colors={loading ? [c.disabled, c.disabled] : ["#22C55E", "#15803D"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.generateBtn}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFF" size="small" />
+            ) : (
+              <>
+                <Ionicons name="sparkles" size={16} color="#FFF" />
+                <Text style={styles.generateBtnText}>
+                  {t("generate_list")} ({selectedRecipes.length})
+                </Text>
+              </>
+            )}
+          </LinearGradient>
         </TouchableOpacity>
 
         {shoppingList && (
