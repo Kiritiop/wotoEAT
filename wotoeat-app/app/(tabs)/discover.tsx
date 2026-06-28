@@ -27,7 +27,6 @@ import { useBatchTranslated, useTranslated, usePantryDisplay } from "@/hooks/use
 import FindRecipeModal from "@/components/FindRecipeModal";
 import { searchMealImage } from "@/services/imageSearch";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
-import { EmptyState } from "@/components/ui/EmptyState";
 import type { Rating } from "@/store/useAppStore";
 
 type MealTypeTag = "any" | "breakfast" | "lunch" | "dinner";
@@ -871,7 +870,7 @@ export default function TodayScreen() {
     language === "zh"
       ? hour < 12 ? "早上好" : hour < 18 ? "下午好" : "晚上好"
       : hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-  const subGreeting = language === "zh" ? "今天想做点什么菜？" : "What should we cook today?";
+  const subGreeting = language === "zh" ? "用现有食材，做真正的好菜" : "Real dishes from what you've got";
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -1187,12 +1186,30 @@ export default function TodayScreen() {
         )}
 
         {sortedMeals.length === 0 && !loading && (
-          <EmptyState
-            icon="restaurant-outline"
-            iconSize={48}
-            title={t("no_plan_title")}
-            body={t("no_plan_body")}
-          />
+          <View style={styles.welcomeWrap}>
+            <Text style={[styles.welcomeTitle, { color: c.text }]}>{t("no_plan_title")}</Text>
+            <Text style={[styles.welcomeBody, { color: c.textMuted }]}>{t("no_plan_body")}</Text>
+            <View style={[styles.stepsCard, { backgroundColor: c.surface, borderColor: c.border }]}>
+              {([
+                { icon: "basket", grad: ["#FBBF24", "#F59E0B"], text: t("welcome_step1") },
+                { icon: "sparkles", grad: ["#22C55E", "#15803D"], text: t("welcome_step2") },
+                { icon: "cart", grad: ["#818CF8", "#6366F1"], text: t("welcome_step3") },
+              ] as const).map((s, i) => (
+                <View
+                  key={s.icon}
+                  style={[
+                    styles.stepRowW,
+                    i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.borderLight },
+                  ]}
+                >
+                  <LinearGradient colors={s.grad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.stepBadge}>
+                    <Ionicons name={s.icon as any} size={18} color="#FFF" />
+                  </LinearGradient>
+                  <Text style={[styles.stepTextW, { color: c.textSecondary }]}>{s.text}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -1296,6 +1313,17 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     greetText: { fontSize: 14, fontWeight: "700", color: "rgba(255,255,255,0.88)" },
     greetSub: { fontSize: 23, fontWeight: "800", letterSpacing: -0.3, marginTop: 2, color: "#FFF" },
     greetBadge: { width: 50, height: 50, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.22)" },
+    welcomeWrap: { paddingTop: 16, paddingBottom: 8, gap: 10, alignItems: "center" },
+    welcomeTitle: { fontSize: 22, fontWeight: "800", textAlign: "center", letterSpacing: -0.3 },
+    welcomeBody: { fontSize: 14, lineHeight: 21, textAlign: "center", paddingHorizontal: 4 },
+    stepsCard: {
+      width: "100%", borderRadius: 20, borderWidth: 1, paddingHorizontal: 16, marginTop: 6,
+      shadowColor: c.shadow, shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.05, shadowRadius: 12, elevation: 1,
+    },
+    stepRowW: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 15 },
+    stepBadge: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+    stepTextW: { flex: 1, fontSize: 14, fontWeight: "600", lineHeight: 19 },
     // Top bar
     topBar: { flexDirection: "row", alignItems: "center", gap: 8 },
     topBarBtn: {
