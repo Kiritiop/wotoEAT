@@ -876,21 +876,11 @@ export default function TodayScreen() {
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
-        {/* ── Branded greeting hero ── */}
-        <LinearGradient
-          colors={["#22C55E", "#15803D"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.greetHero}
-        >
-          <View style={{ flex: 1 }}>
-            <Text style={styles.greetText}>{greeting}</Text>
-            <Text style={styles.greetSub}>{subGreeting}</Text>
-          </View>
-          <View style={styles.greetBadge}>
-            <Ionicons name="leaf" size={24} color="#FFF" />
-          </View>
-        </LinearGradient>
+        {/* ── Greeting ── */}
+        <View style={styles.greetHero}>
+          <Text style={[styles.greetText, { color: c.textMuted }]}>{greeting}</Text>
+          <Text style={[styles.greetSub, { color: c.text }]}>{subGreeting}</Text>
+        </View>
 
         {/* ── Top bar: refresh + search + filters ── */}
         <View style={styles.topBar}>
@@ -1107,9 +1097,7 @@ export default function TodayScreen() {
               <>
                 <Ionicons name="sparkles" size={28} color="#FFF" />
                 <Text style={styles.generateBtnLargeText}>{t("generate_cta")}</Text>
-                <Text style={styles.generateBtnLargeSub}>
-                  {language === "zh" ? "根据你的食材和健康目标" : "Tailored to your pantry & goals"}
-                </Text>
+                <Text style={styles.generateBtnLargeSub}>{t("no_plan_body")}</Text>
               </>
             )}
           </LinearGradient>
@@ -1187,8 +1175,6 @@ export default function TodayScreen() {
 
         {sortedMeals.length === 0 && !loading && (
           <View style={styles.welcomeWrap}>
-            <Text style={[styles.welcomeTitle, { color: c.text }]}>{t("no_plan_title")}</Text>
-            <Text style={[styles.welcomeBody, { color: c.textMuted }]}>{t("no_plan_body")}</Text>
             <View style={[styles.stepsCard, { backgroundColor: c.surface, borderColor: c.border }]}>
               {([
                 { icon: "basket", grad: ["#FBBF24", "#F59E0B"], text: t("welcome_step1") },
@@ -1304,18 +1290,10 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.bg },
     content: { padding: 16, paddingBottom: 48, gap: 10 },
-    greetHero: {
-      flexDirection: "row", alignItems: "center", gap: 12,
-      borderRadius: 24, paddingHorizontal: 20, paddingVertical: 20, marginTop: 4,
-      shadowColor: "#16A34A", shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.28, shadowRadius: 16, elevation: 6,
-    },
-    greetText: { fontSize: 14, fontWeight: "700", color: "rgba(255,255,255,0.88)" },
-    greetSub: { fontSize: 23, fontWeight: "800", letterSpacing: -0.3, marginTop: 2, color: "#FFF" },
-    greetBadge: { width: 50, height: 50, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.22)" },
-    welcomeWrap: { paddingTop: 16, paddingBottom: 8, gap: 10, alignItems: "center" },
-    welcomeTitle: { fontSize: 22, fontWeight: "800", textAlign: "center", letterSpacing: -0.3 },
-    welcomeBody: { fontSize: 14, lineHeight: 21, textAlign: "center", paddingHorizontal: 4 },
+    greetHero: { marginTop: 2, paddingVertical: 2 },
+    greetText: { fontSize: 13, fontWeight: "600" },
+    greetSub: { fontSize: 18, fontWeight: "800", letterSpacing: -0.2, marginTop: 1 },
+    welcomeWrap: { paddingTop: 8, paddingBottom: 8, gap: 10, alignItems: "center" },
     stepsCard: {
       width: "100%", borderRadius: 20, borderWidth: 1, paddingHorizontal: 16, marginTop: 6,
       shadowColor: c.shadow, shadowOffset: { width: 0, height: 4 },
@@ -1343,7 +1321,7 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
       shadowOpacity: 0.35, shadowRadius: 10, elevation: 6,
     },
     generateBtnLargeText: { color: "#FFF", fontSize: 22, fontWeight: "800", letterSpacing: 0.3 },
-    generateBtnLargeSub: { color: "rgba(255,255,255,0.85)", fontSize: 13, fontWeight: "600", marginTop: -2 },
+    generateBtnLargeSub: { color: "rgba(255,255,255,0.9)", fontSize: 13, fontWeight: "600", textAlign: "center", paddingHorizontal: 16, lineHeight: 18 },
     ingSearchRow: { flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8 },
     ingSearchInput: { flex: 1, fontSize: 13, paddingVertical: 0 },
     // Filters panel

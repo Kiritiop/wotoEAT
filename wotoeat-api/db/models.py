@@ -140,6 +140,7 @@ class TranslateRequest(BaseModel):
 
 class PantryItem(BaseModel):
     name: str
+    category: Optional[str] = None  # display category override; null → derived from name
 
 
 class PantryItemDB(PantryItem):

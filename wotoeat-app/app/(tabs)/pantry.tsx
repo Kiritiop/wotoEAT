@@ -45,6 +45,12 @@ export default function PantryScreen() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [editingName, setEditingName] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [editCategory, setEditCategory] = useState<string>(PANTRY_OTHER_KEY);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const categoryKeys = useMemo(
+    () => [...PANTRY_CATEGORIES.map((cat) => cat.key), PANTRY_OTHER_KEY],
+    [],
+  );
 
   // Stored names are canonical English; display follows the current language.
   const displayNames = usePantryDisplay(pantry.map((p) => p.name));
@@ -55,16 +61,19 @@ export default function PantryScreen() {
 
   // Group the saved pantry by category for an organized list ("Other" last).
   const sections = useMemo(() => {
+    const valid = new Set(categoryKeys);
     const groups: Record<string, PantryItem[]> = {};
     for (const item of pantry) {
-      const key = categoryForItem(toCanonicalEnglish(item.name));
+      // Prefer the stored category override; fall back to name-derived lookup.
+      const key = item.category && valid.has(item.category)
+        ? item.category
+        : categoryForItem(toCanonicalEnglish(item.name));
       (groups[key] ??= []).push(item);
     }
-    const order = [...PANTRY_CATEGORIES.map((c) => c.key), PANTRY_OTHER_KEY];
-    return order
+    return categoryKeys
       .filter((k) => groups[k]?.length)
-      .map((k) => ({ key: k, data: groups[k] }));
-  }, [pantry]);
+      .map((k) => ({ key: k, count: groups[k].length, data: collapsed[k] ? [] : groups[k] }));
+  }, [pantry, collapsed, categoryKeys]);
 
   // ── Shopping modal state ──────────────────────────────────────────────────
   const [showShopping, setShowShopping] = useState(false);
@@ -109,27 +118,35 @@ export default function PantryScreen() {
   }
 
   async function commitRename(oldName: string) {
-    const newName = draft.trim();
-    if (!newName || newName === oldName) {
+    const newName = draft.trim() || oldName;
+    const oldItem = pantry.find((p) => p.name === oldName);
+    const oldCategory = oldItem?.category ?? categoryForItem(toCanonicalEnglish(oldName));
+    const nameChanged = newName !== oldName;
+    const categoryChanged = editCategory !== oldCategory;
+    if (!nameChanged && !categoryChanged) {
       setEditingName(null);
       return;
     }
-    const collision = pantry.some(
-      (p) => p.name !== oldName && p.name.trim().toLowerCase() === newName.toLowerCase(),
-    );
-    if (collision) {
-      setDeleteError(t("pantry_name_exists"));
-      return; // keep edit mode open so the user can adjust
+    if (nameChanged) {
+      const collision = pantry.some(
+        (p) => p.name !== oldName && p.name.trim().toLowerCase() === newName.toLowerCase(),
+      );
+      if (collision) {
+        setDeleteError(t("pantry_name_exists"));
+        return; // keep edit mode open so the user can adjust
+      }
     }
-    const renamed = pantry.map((p) => (p.name === oldName ? { name: newName } : p));
+    const updated = pantry.map((p) =>
+      p.name === oldName ? { name: newName, category: editCategory } : p,
+    );
     setEditingName(null);
     setDeleteError(null);
-    setPantry(renamed);
+    setPantry(updated);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     try {
-      await replacePantry(renamed);
+      await replacePantry(updated);
     } catch (err: unknown) {
-      setDeleteError(err instanceof Error ? err.message : "Could not rename.");
+      setDeleteError(err instanceof Error ? err.message : "Could not save.");
       loadPantry(); // restore server truth
     }
   }
@@ -176,9 +193,23 @@ export default function PantryScreen() {
         }
         renderSectionHeader={({ section }) =>
           pantry.length > 0 ? (
-            <Text style={[styles.sectionHeader, { color: c.textPlaceholder }]}>
-              {language === "zh" ? CATEGORY_LABELS[section.key].zh : CATEGORY_LABELS[section.key].en}
-            </Text>
+            <TouchableOpacity
+              style={styles.sectionHeaderRow}
+              activeOpacity={0.7}
+              onPress={() => {
+                setCollapsed((p) => ({ ...p, [section.key]: !p[section.key] }));
+                Haptics.selectionAsync();
+              }}
+            >
+              <Text style={[styles.sectionHeader, { color: c.textPlaceholder }]}>
+                {(language === "zh" ? CATEGORY_LABELS[section.key].zh : CATEGORY_LABELS[section.key].en) + `  (${section.count})`}
+              </Text>
+              <Ionicons
+                name={collapsed[section.key] ? "chevron-forward" : "chevron-down"}
+                size={16}
+                color={c.textPlaceholder}
+              />
+            </TouchableOpacity>
           ) : null
         }
         ListHeaderComponent={
@@ -236,30 +267,51 @@ export default function PantryScreen() {
         }
         renderItem={({ item }) =>
           item.name === editingName ? (
-            <View style={[styles.itemRow, { backgroundColor: c.surface }]}>
-              <TextInput
-                style={[styles.itemEditInput, { color: c.text }]}
-                value={draft}
-                onChangeText={setDraft}
-                autoFocus
-                returnKeyType="done"
-                onSubmitEditing={() => commitRename(item.name)}
-                placeholder={t("ingredient_name")}
-                placeholderTextColor={c.textPlaceholder}
-              />
-              <TouchableOpacity
-                onPress={() => commitRename(item.name)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="checkmark-circle" size={22} color={c.primary} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => { setEditingName(null); setDeleteError(null); }}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                style={{ marginLeft: 12 }}
-              >
-                <Ionicons name="close-circle" size={20} color={c.textMuted} />
-              </TouchableOpacity>
+            <View style={[styles.editCard, { backgroundColor: c.surface }]}>
+              <View style={styles.editTopRow}>
+                <TextInput
+                  style={[styles.itemEditInput, { color: c.text }]}
+                  value={draft}
+                  onChangeText={setDraft}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={() => commitRename(item.name)}
+                  placeholder={t("ingredient_name")}
+                  placeholderTextColor={c.textPlaceholder}
+                />
+                <TouchableOpacity
+                  onPress={() => commitRename(item.name)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="checkmark-circle" size={22} color={c.primary} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => { setEditingName(null); setDeleteError(null); }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  style={{ marginLeft: 12 }}
+                >
+                  <Ionicons name="close-circle" size={20} color={c.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <Text style={[styles.editCatLabel, { color: c.textMuted }]}>
+                {language === "zh" ? "分类" : "Category"}
+              </Text>
+              <View style={styles.editCatRow}>
+                {categoryKeys.map((k) => {
+                  const active = editCategory === k;
+                  return (
+                    <TouchableOpacity
+                      key={k}
+                      onPress={() => { setEditCategory(k); Haptics.selectionAsync(); }}
+                      style={[styles.catChip, { backgroundColor: active ? c.primary : c.surfaceAlt, borderColor: active ? c.primary : c.border }]}
+                    >
+                      <Text style={[styles.catChipText, { color: active ? "#FFF" : c.textSecondary }]}>
+                        {language === "zh" ? CATEGORY_LABELS[k].zh : CATEGORY_LABELS[k].en}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
           ) : (
             <View style={[styles.itemRow, { backgroundColor: c.surface }]}>
@@ -270,6 +322,7 @@ export default function PantryScreen() {
                   // display would rewrite storage on a no-op save.
                   setEditingName(item.name);
                   setDraft(item.name);
+                  setEditCategory(item.category ?? categoryForItem(toCanonicalEnglish(item.name)));
                   Haptics.selectionAsync();
                 }}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -408,7 +461,17 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     },
     scanBtnText: { fontSize: 15, fontWeight: "700" },
     countLabel: { fontSize: 13, color: c.textPlaceholder, fontWeight: "600", marginBottom: 8 },
-    sectionHeader: { fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 12, marginBottom: 6 },
+    sectionHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 12, marginBottom: 6 },
+    sectionHeader: { fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
+    editCard: {
+      borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 8, gap: 10,
+      shadowColor: c.shadow, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 1,
+    },
+    editTopRow: { flexDirection: "row", alignItems: "center" },
+    editCatLabel: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.4 },
+    editCatRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+    catChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1 },
+    catChipText: { fontSize: 12, fontWeight: "600" },
     itemRow: {
       flexDirection: "row", alignItems: "center", borderRadius: 16,
       paddingHorizontal: 14, paddingVertical: 12, marginBottom: 8,

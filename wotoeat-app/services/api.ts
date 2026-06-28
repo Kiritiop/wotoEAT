@@ -219,6 +219,7 @@ export interface SavedRecipe {
 
 export interface PantryItem {
   name: string;
+  category?: string;
 }
 
 // ─── Shopping List ───────────────────────────────────────────────────────────

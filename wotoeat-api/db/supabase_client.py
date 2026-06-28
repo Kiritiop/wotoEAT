@@ -50,7 +50,10 @@ def replace_pantry(user_id: str, items: list[dict]) -> list[Any]:
     client.table("pantry").delete().eq("user_id", user_id).execute()
     if not items:
         return []
-    rows = [{"user_id": user_id, "name": item["name"]} for item in items]
+    rows = [
+        {"user_id": user_id, "name": item["name"], "category": item.get("category")}
+        for item in items
+    ]
     result = client.table("pantry").insert(rows).execute()
     return result.data or []
 

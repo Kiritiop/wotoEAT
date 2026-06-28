@@ -10,9 +10,12 @@ CREATE TABLE IF NOT EXISTS pantry (
     id          uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id     uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     name        text NOT NULL,
+    category    text,
     updated_at  timestamptz DEFAULT now(),
     UNIQUE (user_id, name)
 );
+-- Migration for existing deployments (CREATE TABLE IF NOT EXISTS won't add a column):
+ALTER TABLE pantry ADD COLUMN IF NOT EXISTS category text;
 
 -- ─── Saved Recipes ────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS saved_recipes (
