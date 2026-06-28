@@ -21,7 +21,7 @@ const FEATURES: {
   subKey: "landing_f1_sub" | "landing_f2_sub" | "landing_f3_sub";
   color: string;
 }[] = [
-  { icon: "sparkles", titleKey: "landing_f1_title", subKey: "landing_f1_sub", color: "#2E7D32" },
+  { icon: "sparkles", titleKey: "landing_f1_title", subKey: "landing_f1_sub", color: "#16A34A" },
   { icon: "leaf-outline", titleKey: "landing_f2_title", subKey: "landing_f2_sub", color: "#0369A1" },
   { icon: "bookmark-outline", titleKey: "landing_f3_title", subKey: "landing_f3_sub", color: "#7C3AED" },
 ];
@@ -47,7 +47,6 @@ export default function LandingScreen() {
         {/* ── Hero ── */}
         <View style={styles.hero}>
           <Image source={require("@/assets/logo.png")} style={styles.logoRing} resizeMode="contain" />
-          <Text style={[styles.appName, { color: c.text }]}>wotoEAT</Text>
           <Text style={[styles.heroTitle, { color: c.text }]}>{t("landing_hero_title")}</Text>
           <Text style={[styles.heroSub, { color: c.textMuted }]}>{t("landing_hero_sub")}</Text>
         </View>
@@ -121,38 +120,37 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.bg },
     topBar: { alignItems: "flex-end", paddingHorizontal: 20, paddingTop: 4 },
-    content: { paddingHorizontal: 24, paddingBottom: 40 },
+    content: { flexGrow: 1, justifyContent: "space-between", paddingHorizontal: 24, paddingTop: 4, paddingBottom: 14 },
 
     // Hero
-    hero: { alignItems: "center", paddingTop: 24, paddingBottom: 32, gap: 10 },
+    hero: { alignItems: "center", paddingTop: 8, gap: 8 },
     logoRing: {
-      width: 120, height: 120, marginBottom: 8, alignSelf: "center",
+      width: 96, height: 96, marginBottom: 2, alignSelf: "center",
     },
-    appName: { fontSize: 36, fontWeight: "900", letterSpacing: -0.5 },
-    heroTitle: { fontSize: 22, fontWeight: "800", textAlign: "center", lineHeight: 28 },
-    heroSub: { fontSize: 15, textAlign: "center", lineHeight: 22, maxWidth: 320 },
+    heroTitle: { fontSize: 22, fontWeight: "800", textAlign: "center", lineHeight: 27 },
+    heroSub: { fontSize: 14, textAlign: "center", lineHeight: 20, maxWidth: 320 },
 
     // Features
-    features: { gap: 12, marginBottom: 32 },
+    features: { gap: 10 },
     featureCard: {
-      flexDirection: "row", alignItems: "center", gap: 14,
-      borderRadius: 16, borderWidth: 1, padding: 16,
-      shadowColor: "#000", shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.04, shadowRadius: 4, elevation: 2,
+      flexDirection: "row", alignItems: "center", gap: 13,
+      borderRadius: 16, borderWidth: 1, paddingVertical: 12, paddingHorizontal: 14,
+      shadowColor: "#2A2118", shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.05, shadowRadius: 10, elevation: 2,
     },
     featureIcon: {
-      width: 46, height: 46, borderRadius: 14,
+      width: 42, height: 42, borderRadius: 13,
       alignItems: "center", justifyContent: "center", flexShrink: 0,
     },
     featureText: { flex: 1 },
-    featureTitle: { fontSize: 15, fontWeight: "700", marginBottom: 2 },
-    featureSub: { fontSize: 13, lineHeight: 18 },
+    featureTitle: { fontSize: 15, fontWeight: "700", marginBottom: 1 },
+    featureSub: { fontSize: 12.5, lineHeight: 17 },
 
     // CTAs
-    ctaSection: { gap: 14, alignItems: "center" },
+    ctaSection: { gap: 10, alignItems: "center" },
     ctaPrimary: {
       width: "100%", flexDirection: "row", alignItems: "center", justifyContent: "center",
-      gap: 10, borderRadius: 18, paddingVertical: 18,
+      gap: 10, borderRadius: 16, paddingVertical: 16,
       shadowColor: c.primary, shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.3, shadowRadius: 10, elevation: 6,
     },
@@ -161,7 +159,7 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     signinLabel: { fontSize: 14 },
     signinLink: { fontSize: 14, fontWeight: "700" },
     finePrint: { fontSize: 12, textAlign: "center", marginTop: 4 },
-    creatorFooter: { alignItems: "center", gap: 4, marginTop: 20 },
+    creatorFooter: { alignItems: "center", gap: 4, marginTop: 8 },
     creatorText: { fontSize: 11 },
     creatorLinks: { flexDirection: "row", alignItems: "center", gap: 6 },
     creatorLink: { fontSize: 11, fontWeight: "600" },
