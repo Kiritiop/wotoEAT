@@ -8,7 +8,7 @@ import sqlite3
 import time
 import threading
 
-_DB_PATH = os.getenv("CACHE_DB", "/tmp/mealmind_cache.db")
+_DB_PATH = os.getenv("CACHE_DB", "/tmp/wotoeat_cache.db")
 _local = threading.local()
 
 

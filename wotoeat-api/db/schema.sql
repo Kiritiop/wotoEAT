@@ -1,4 +1,4 @@
--- MealMind Database Schema
+-- wotoEAT Database Schema
 -- Run this in your Supabase project at:
 -- https://app.supabase.com → your project → SQL Editor → New query
 --

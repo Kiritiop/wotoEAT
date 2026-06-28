@@ -1,5 +1,5 @@
 """
-Supabase client + CRUD helpers for all MealMind tables.
+Supabase client + CRUD helpers for all wotoEAT tables.
 
 The backend uses the service_role key so it can bypass Row Level Security
 and filter by user_id in Python instead. This keeps the auth logic in one

@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from routers import meals, recipes, shopping, pantry, profile, images, share
 
 app = FastAPI(
-    title="MealMind API",
+    title="wotoEAT API",
     version="1.0",
     description="AI-powered meal discovery, recipe parsing, and shopping list engine.",
 )
@@ -39,4 +39,4 @@ app.include_router(share.router,    prefix="/share")
 
 @app.get("/")
 def root():
-    return {"status": "MealMind API is running", "docs": "/docs"}
+    return {"status": "wotoEAT API is running", "docs": "/docs"}

@@ -455,7 +455,7 @@ export async function scanReceipt(imageBase64: string, language = "en"): Promise
 
 // ─── Dynamic content translation ─────────────────────────────────────────────
 //
-// Backend endpoint to add (FastAPI, calls the local Ollama mealmind-translator):
+// Backend endpoint to add (FastAPI, calls the local Ollama wotoeat-translator):
 //
 //   @app.post("/translate")
 //   async def translate_texts(body: dict):
@@ -463,7 +463,7 @@ export async function scanReceipt(imageBase64: string, language = "en"): Promise
 //       translations = []
 //       for text in texts:
 //           r = requests.post("http://localhost:11434/api/chat", json={
-//               "model": "mealmind-translator",
+//               "model": "wotoeat-translator",
 //               "stream": False,
 //               "messages": [{"role": "user", "content": f"Translate: {text}"}]
 //           })

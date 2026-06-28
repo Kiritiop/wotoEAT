@@ -3,7 +3,7 @@ Update this document every time changes happen, adapt accordingly
 
 ## Overview
 
-wotoEAT (branded "MealMind") is an AI-powered meal-planning app that answers the daily question **"what should I cook with what I have?"** It generates meals one at a time (a growing **meal stream** for the day — there is **no daily plan**) from the user's health profile, pantry contents, and filters, then turns confirmed meals into a shopping list with pantry items semantically subtracted. Meals already shown today are never re-suggested. Users can also save favourite recipes, generate full recipes by dish name, parse recipes from external URLs, and **share meals/recipes via public web links**.
+wotoEAT is an AI-powered meal-planning app that answers the daily question **"what should I cook with what I have?"** It generates meals one at a time (a growing **meal stream** for the day — there is **no daily plan**) from the user's health profile, pantry contents, and filters, then turns confirmed meals into a shopping list with pantry items semantically subtracted. Meals already shown today are never re-suggested. Users can also save favourite recipes, generate full recipes by dish name, parse recipes from external URLs, and **share meals/recipes via public web links**.
 
 ### The core loop (as implemented)
 
@@ -42,19 +42,19 @@ optional filter telling the AI what kind of dish to make. The stream and its
 
 ```
 wotoEAT/
-├── MealMind/          # Expo React Native frontend (iOS, Android, Web)
-└── mealmind-api/      # FastAPI Python backend
+├── wotoeat-app/          # Expo React Native frontend (iOS, Android, Web)
+└── wotoeat-api/      # FastAPI Python backend
 ```
 
 ## Deployment
 
-- **Backend → Railway** (`mealmind-api/`, Procfile: uvicorn). Backend env vars live in the Railway service settings. `SUPABASE_KEY` there must be the **service-role** key — the anon key makes pantry writes fail with RLS errors (silently, in the fire-and-forget paths).
-- **Web frontend → Vercel** (`MealMind/`, build = `vercel-build` script → `expo export --platform web`). Vercel needs only `EXPO_PUBLIC_API_URL` (Railway backend URL), `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`. **Never add the service-role key to Vercel** — all `EXPO_PUBLIC_*` values are baked into the public JS bundle.
+- **Backend → Railway** (`wotoeat-api/`, Procfile: uvicorn). Backend env vars live in the Railway service settings. `SUPABASE_KEY` there must be the **service-role** key — the anon key makes pantry writes fail with RLS errors (silently, in the fire-and-forget paths).
+- **Web frontend → Vercel** (`wotoeat-app/`, build = `vercel-build` script → `expo export --platform web`). Vercel needs only `EXPO_PUBLIC_API_URL` (Railway backend URL), `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`. **Never add the service-role key to Vercel** — all `EXPO_PUBLIC_*` values are baked into the public JS bundle.
 - **Native builds → EAS** (`build:ios` / `build:android` scripts). Changes to native permissions in app.json (e.g. camera for receipt scanning) only take effect in a fresh EAS build; Expo Go and web are unaffected.
 
 ---
 
-## Backend — `mealmind-api/`
+## Backend — `wotoeat-api/`
 
 ### Stack
 - **Python 3.12+**, FastAPI, Uvicorn
@@ -65,12 +65,12 @@ wotoEAT/
 
 ### Running
 ```bash
-cd mealmind-api
+cd wotoeat-api
 uvicorn main:app --reload
 # or via Procfile: web: uvicorn main:app --host 0.0.0.0 --port $PORT
 ```
 
-### Environment Variables (`mealmind-api/.env`)
+### Environment Variables (`wotoeat-api/.env`)
 | Variable | Purpose |
 |---|---|
 | `GROQ_API_KEY` | Groq API key (llama-3.3-70b-versatile) |
@@ -174,7 +174,7 @@ Key models:
 
 ---
 
-## Frontend — `MealMind/`
+## Frontend — `wotoeat-app/`
 
 ### Stack
 - **Expo SDK 54**, React Native 0.81, React 19
@@ -185,13 +185,13 @@ Key models:
 
 ### Running
 ```bash
-cd MealMind
+cd wotoeat-app
 npx expo start        # Metro dev server
 npx expo start --ios  # iOS simulator
 npx expo start --web  # browser
 ```
 
-### Environment Variables (`MealMind/.env`)
+### Environment Variables (`wotoeat-app/.env`)
 | Variable | Purpose |
 |---|---|
 | `EXPO_PUBLIC_API_URL` | Backend base URL (e.g. `http://localhost:8000`) |
@@ -362,7 +362,7 @@ Closes the input side of the pantry loop: photograph a grocery receipt → AI ex
 
 ### Pipeline (two-stage, both on Groq)
 1. **Stage 1 — vision transcription** (`transcribe_receipt`, model `_VISION_MODEL` = Llama 4 Scout, temp 0.2): the photo is transcribed verbatim into raw text lines. No interpretation. Isolated and swappable — if Groq deprecates Scout (it's preview; Maverick was killed Feb 2026), set env `GROQ_VISION_MODEL` or replace this one function (e.g. with AWS Textract).
-2. **Stage 2 — text normalization** (`normalize_receipt_items`, existing `llama-3.3-70b-versatile`, temp 0.3): raw lines + the user's current pantry (fetched server-side) → items with `name` (**always canonical English** regardless of receipt/user language — same convention as tags; abbreviations expanded: "ORG BNLS CKN BRST" → "chicken breast"; brands stripped; foreign lines translated), `name_zh` (Simplified Chinese display name, always provided), `raw_text`, `is_food` (paper towels/detergent → false), display-only `quantity`, and `matches_pantry` (semantic cross-language match against an existing pantry item, e.g. scanned 鸡蛋 ↔ existing "eggs"; guarded server-side against hallucinated values). The `language` request param is intentionally unused by this prompt. Tax/totals/coupons/deposits/payment lines are omitted entirely. Contract test: `mealmind-api/tests/test_receipt_normalize.py` (live-LLM, crossed-language fixtures — run from `mealmind-api/` with `.venv/bin/python tests/test_receipt_normalize.py`).
+2. **Stage 2 — text normalization** (`normalize_receipt_items`, existing `llama-3.3-70b-versatile`, temp 0.3): raw lines + the user's current pantry (fetched server-side) → items with `name` (**always canonical English** regardless of receipt/user language — same convention as tags; abbreviations expanded: "ORG BNLS CKN BRST" → "chicken breast"; brands stripped; foreign lines translated), `name_zh` (Simplified Chinese display name, always provided), `raw_text`, `is_food` (paper towels/detergent → false), display-only `quantity`, and `matches_pantry` (semantic cross-language match against an existing pantry item, e.g. scanned 鸡蛋 ↔ existing "eggs"; guarded server-side against hallucinated values). The `language` request param is intentionally unused by this prompt. Tax/totals/coupons/deposits/payment lines are omitted entirely. Contract test: `wotoeat-api/tests/test_receipt_normalize.py` (live-LLM, crossed-language fixtures — run from `wotoeat-api/` with `venv/bin/python tests/test_receipt_normalize.py`).
 
 ### Endpoint
 `POST /pantry/scan-receipt` — body `{image_base64, language}`; `require_user_id`; rate-limited 10/hr per user (`receipt-scan`); **no caching**; **annotate-only** (writes nothing). Errors: oversized/invalid image and AI error tokens (`no_receipt`, `no_food_items`, `unreadable_receipt`) → 422 (client localizes the tokens); `GroqTransientError` → 503; generic → 500.
@@ -449,5 +449,5 @@ Meals and recipes can be shared as browsable links anyone can open.
 - **No calories displayed on card header**: calorie/kcal display is only visible inside the info panel (tap ℹ️ icon). Prep time is still shown in the header.
 - **Swap respects filters**: `handleSwap` passes cuisine, flavour, maxTime, requiredIngredients, and mealStyle to the backend swap endpoint.
 - **Regenerate bypasses cache**: `generateRecipeByName` accepts `force_refresh=True`; the Regenerate button (FindRecipeModal) and history Generate button both pass this flag.
-- **Web SPA routing**: `MealMind/vercel.json` includes a catch-all rewrite to `index.html` so direct URL loads (e.g. `/discover`) work without a 404.
+- **Web SPA routing**: `wotoeat-app/vercel.json` includes a catch-all rewrite to `index.html` so direct URL loads (e.g. `/discover`) work without a 404.
 - **useTranslation type cast**: `locales` map is cast `as any` because `zh` has different string literals than `typeof en`; both files have identical keys.

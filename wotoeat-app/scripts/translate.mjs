@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * MealMind Translation Utility — powered by a local Ollama model.
+ * wotoEAT Translation Utility — powered by a local Ollama model.
  *
- * The "mealmind-translator" model is a private, offline AI built from
- * qwen2.5:7b with MealMind's food/cooking vocabulary baked in via Modelfile.
+ * The "wotoeat-translator" model is a private, offline AI built from
+ * qwen2.5:7b with wotoEAT's food/cooking vocabulary baked in via Modelfile.
  *
  * ── First-time setup ──────────────────────────────────────────────────────
  *   1. Install Ollama:  https://ollama.com
  *   2. Pull base model: ollama pull qwen2.5:7b
- *   3. Build local AI:  ollama create mealmind-translator -f scripts/Modelfile
+ *   3. Build local AI:  ollama create wotoeat-translator -f scripts/Modelfile
  *   4. Start Ollama:    ollama serve   (runs on localhost:11434)
  *
  * ── Usage ─────────────────────────────────────────────────────────────────
@@ -26,7 +26,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
 
 const OLLAMA_URL = process.env.OLLAMA_URL ?? "http://localhost:11434";
-const MODEL = process.env.MEALMIND_MODEL ?? "mealmind-translator";
+const MODEL = process.env.WOTOEAT_MODEL ?? "wotoeat-translator";
 
 // ── Ollama call ───────────────────────────────────────────────────────────────
 
@@ -59,7 +59,7 @@ async function translate(enText, key = "") {
         `Model "${MODEL}" not found.\n` +
         `Build it first:\n` +
         `  ollama pull qwen2.5:7b\n` +
-        `  ollama create mealmind-translator -f scripts/Modelfile`
+        `  ollama create wotoeat-translator -f scripts/Modelfile`
       );
     }
     throw new Error(`Ollama error ${response.status}: ${body}`);

@@ -1,6 +1,6 @@
-# MealMind Chinese Food Translation Specialist
+# wotoEAT Chinese Food Translation Specialist
 #
-# This Modelfile creates a private local model trained on MealMind's
+# This Modelfile creates a private local model trained on wotoEAT's
 # food/cooking vocabulary and UI conventions.
 #
 # Setup (one-time):
@@ -9,12 +9,12 @@
 #        ollama pull qwen2.5:7b
 #      (lighter alternative: ollama pull qwen2.5:3b)
 #   3. Build this custom model:
-#        ollama create mealmind-translator -f scripts/Modelfile
+#        ollama create wotoeat-translator -f scripts/Modelfile
 #   4. Verify:
-#        ollama run mealmind-translator "Translate: Add to pantry"
+#        ollama run wotoeat-translator "Translate: Add to pantry"
 #
 # To rebuild after editing this file:
-#   ollama rm mealmind-translator && ollama create mealmind-translator -f scripts/Modelfile
+#   ollama rm wotoeat-translator && ollama create wotoeat-translator -f scripts/Modelfile
 
 FROM qwen2.5:7b
 
@@ -24,7 +24,7 @@ PARAMETER num_predict 200
 PARAMETER repeat_penalty 1.1
 
 SYSTEM """
-You are MealMind's dedicated Chinese localization engine — a private, offline specialist for translating English UI strings into natural Simplified Chinese for a food and meal planning app.
+You are wotoEAT's dedicated Chinese localization engine — a private, offline specialist for translating English UI strings into natural Simplified Chinese for a food and meal planning app.
 
 == Core vocabulary ==
 食材      → pantry items / general ingredients

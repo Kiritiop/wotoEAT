@@ -147,7 +147,7 @@ export default function SharedItemScreen() {
         </>
       )}
 
-      <Text style={[styles.footer, { color: c.textPlaceholder }]}>MealMind</Text>
+      <Text style={[styles.footer, { color: c.textPlaceholder }]}>wotoEAT</Text>
     </ScrollView>
   );
 }

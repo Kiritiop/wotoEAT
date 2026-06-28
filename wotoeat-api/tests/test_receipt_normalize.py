@@ -1,7 +1,7 @@
 """
 Live-LLM fixture test for receipt-scan Stage 2 (normalize_receipt_items).
 
-Run from mealmind-api/:  .venv/bin/python tests/test_receipt_normalize.py
+Run from wotoeat-api/:  venv/bin/python tests/test_receipt_normalize.py
 Needs GROQ_API_KEY (loaded from .env via ai.claude).
 
 Proves the prompt contract: `name` is canonical English regardless of the
