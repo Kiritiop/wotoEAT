@@ -141,7 +141,7 @@ uvicorn main:app --reload
 - `scan_receipt(image_b64, pantry_names, language)` → `{"items": [...]}` — orchestrates both stages; **never cached** (receipts are unique)
 
 Internal helpers:
-- `_generate(prompt, max_tokens)` — calls Groq with temperature 0.7; used for all JSON-returning functions
+- `_generate(prompt, max_tokens, temperature=0.7)` — calls Groq; used for all JSON-returning functions. **Meal generation + swap pass `temperature=0.5`** (lower than the 0.7 default) so the model returns conventional, real dishes instead of inventing "creative" ones. `meal_generate_prompt` also has an **AUTHENTICITY block** forbidding invented/fusion/filler-named dishes and generic non-dishes ("Grilled Chicken with Vegetables").
 - `_create_with_retry(**kwargs)` — wraps the Groq completion call with a bounded retry (up to 3 attempts) on `RateLimitError`, honouring the `Retry-After` header (skips the wait if >8s so it never outlives the client's 45s timeout). All three `_generate*` helpers route through it. Recovers the bursty 429→503 failures Groq throws when several meal/recipe calls land in the same minute.
 - `_meal_max_tokens(n_slots)` — `min(6000, 1200 + 2400*n_slots)`. Right-sizes the meal generation/swap completion budget so Groq's TPM reservation isn't blown (a single meal needs ~1.5–2k output tokens, not 6000). See Token limits below.
 - `_generate_text(prompt, max_tokens)` — calls Groq with temperature 0.3; used by `translate_texts()` and receipt normalization

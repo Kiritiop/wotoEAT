@@ -119,11 +119,11 @@ async def _create_with_retry(**kwargs):
     raise last  # pragma: no cover — loop always returns or raises
 
 
-async def _generate(prompt: str, max_tokens: int = 4000) -> str:
+async def _generate(prompt: str, max_tokens: int = 4000, temperature: float = 0.7) -> str:
     response = await _create_with_retry(
         model=_MODEL,
         max_tokens=max_tokens,
-        temperature=0.7,
+        temperature=temperature,
         messages=[{"role": "user", "content": prompt}],
     )
     return _extract_text(response)
@@ -234,7 +234,9 @@ async def generate_meal_plan(filters: dict) -> tuple[dict, bool]:
 
     language = filters.get("language", "en")
     n_slots = len(filters.get("slots") or ["breakfast", "lunch", "dinner"])
-    text = await _generate(meal_generate_prompt(filters, language), max_tokens=_meal_max_tokens(n_slots))
+    # Lower temperature than the 0.7 default — meal generation should return
+    # conventional, real dishes, not "creative" invented ones.
+    text = await _generate(meal_generate_prompt(filters, language), max_tokens=_meal_max_tokens(n_slots), temperature=0.5)
     result = json.loads(_clean_json(text))
     if isinstance(result, dict) and result.get("error") == "no_match":
         raise ValueError(result.get("message", "No dish can satisfy the required tags."))
@@ -252,7 +254,7 @@ async def swap_meal(slot: str, current_plan: dict | None, filters: dict) -> dict
     merged_ratings = {name: "down" for name in avoid}
     merged_ratings.update(filters.get("recent_ratings") or {})
     swap_filters = {**filters, "slots": [slot], "recent_ratings": merged_ratings}
-    text = await _generate(meal_generate_prompt(swap_filters, language), max_tokens=_meal_max_tokens(1))
+    text = await _generate(meal_generate_prompt(swap_filters, language), max_tokens=_meal_max_tokens(1), temperature=0.5)
     result = json.loads(_clean_json(text))
     if isinstance(result, dict) and result.get("error") == "no_match":
         raise ValueError(result.get("message", "No dish can satisfy the required tags."))

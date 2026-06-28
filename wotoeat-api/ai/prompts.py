@@ -278,6 +278,18 @@ For {servings} {serving_word}. Match ALL active (non-null) filters below.
 FILTERS:
 {json.dumps(display_filters, indent=2)}
 {required_block}{pantry_block}{style_block}
+AUTHENTICITY — THIS IS THE MOST IMPORTANT RULE:
+- Every dish MUST be a REAL, established dish that people actually cook — something you would
+  find on a restaurant menu or in a published cookbook, with many recipes findable online.
+- Use the dish's REAL, conventional name, e.g. "Chicken Tikka Masala", "Pad Thai",
+  "Beef Bourguignon", "Shakshuka", "Bibimbap", "Margherita Pizza", "Pho Bo", "Coq au Vin".
+- NEVER invent dishes, fusion mash-ups, or made-up names. NEVER use filler/marketing words
+  like "Surprise", "Delight", "Medley", "Supreme", "Fusion", "Power Bowl", "Zest", "Explosion".
+- A generic description is NOT a dish name. "Grilled Chicken with Vegetables", "Protein Bowl",
+  "Chicken and Rice", "Veggie Stir-Fry" are NOT acceptable — name the actual, specific dish.
+- Strongly prefer classic, iconic dishes of the requested cuisine.
+- If the pantry / required filters cannot be satisfied by a real dish, pick the CLOSEST real,
+  authentic dish — do NOT invent one to force-fit the constraints.
 RULES:
 - Only suggest dishes that genuinely exist in culinary traditions. Do NOT invent dishes.
 - Every dish must satisfy ALL active (non-null) filters
