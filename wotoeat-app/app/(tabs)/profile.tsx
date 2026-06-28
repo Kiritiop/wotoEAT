@@ -52,7 +52,7 @@ export default function ProfileScreen() {
   // Inline validation errors for numeric fields (M1, M2)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({});
 
-  // BUG-08: local display states prevent float drift from repeated kg↔lbs round-trips
+  // BUG-08: local display states prevent float drift from repeated kg/lbs round-trips
   const toDisplay = (kg: number | undefined, imperial: boolean, factor: number) =>
     kg != null ? (imperial ? (kg * factor).toFixed(1) : kg.toString()) : "";
   const [weightDisplay, setWeightDisplay] = useState(() => toDisplay(profile.weight_kg, !!profile.use_imperial, 2.20462));

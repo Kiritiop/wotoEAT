@@ -2,8 +2,8 @@ import type { ShoppingList } from "@/services/api";
 
 /** Formats a shopping list into a share-friendly plain-text string. */
 export function formatShoppingListText(list: ShoppingList, language = "en"): string {
-  const checked = language === "zh" ? "✓" : "✓";
-  const unchecked = language === "zh" ? "○" : "○";
+  const checked = "[x]";
+  const unchecked = "[ ]";
   const title = language === "zh" ? "wotoEAT 购物清单" : "wotoEAT Shopping List";
   const lines: string[] = [title];
   for (const group of list.groups) {
