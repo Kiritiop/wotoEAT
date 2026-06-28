@@ -115,10 +115,10 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     title: { fontSize: 32, fontWeight: "800", textAlign: "center" },
     subtitle: { fontSize: 16, textAlign: "center", marginBottom: 24 },
     input: {
-      borderWidth: 1, borderRadius: 14,
+      borderWidth: 1, borderRadius: 16,
       paddingHorizontal: 16, paddingVertical: 14, fontSize: 16,
     },
-    btn: { borderRadius: 14, paddingVertical: 16, alignItems: "center", marginTop: 8 },
+    btn: { borderRadius: 16, paddingVertical: 16, alignItems: "center", marginTop: 8 },
     btnText: { color: "#FFF", fontSize: 16, fontWeight: "700" },
     link: { alignItems: "center", marginTop: 8 },
     linkText: { fontSize: 14 },

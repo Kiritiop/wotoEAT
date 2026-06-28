@@ -171,11 +171,11 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     actionBar: { flexDirection: "row", alignItems: "center", padding: 16, gap: 10 },
     generateBtn: {
       flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
-      backgroundColor: c.primary, borderRadius: 14, paddingVertical: 13, gap: 8,
+      backgroundColor: c.primary, borderRadius: 16, paddingVertical: 14, gap: 8,
     },
     generateBtnText: { color: "#FFF", fontSize: 14, fontWeight: "700" },
     iconBtn: {
-      width: 46, height: 46, borderRadius: 14,
+      width: 46, height: 46, borderRadius: 16,
       alignItems: "center", justifyContent: "center",
     },
     errorBanner: { marginHorizontal: 16, marginTop: 4 },

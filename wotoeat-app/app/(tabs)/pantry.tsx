@@ -383,7 +383,7 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     content: { padding: 16, paddingBottom: 40 },
     headerRow: { flexDirection: "row", alignItems: "center", marginBottom: 12, gap: 10 },
     intro: { fontSize: 13, color: c.textMuted, lineHeight: 19 },
-    cartBtn: { width: 42, height: 42, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+    cartBtn: { width: 44, height: 44, borderRadius: 16, alignItems: "center", justifyContent: "center" },
     cartBadge: {
       position: "absolute", top: -4, right: -4,
       width: 16, height: 16, borderRadius: 8,
@@ -393,20 +393,20 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     addRow: { flexDirection: "row", gap: 10, marginBottom: 16 },
     addBtn: {
       flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
-      backgroundColor: c.primary, borderRadius: 14, paddingVertical: 13, gap: 8,
+      backgroundColor: c.primary, borderRadius: 16, paddingVertical: 14, gap: 8,
     },
     addBtnText: { color: "#FFF", fontSize: 15, fontWeight: "700" },
     scanBtn: {
       flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
-      borderRadius: 14, paddingVertical: 13, gap: 8, borderWidth: 1.5,
+      borderRadius: 16, paddingVertical: 14, gap: 8, borderWidth: 1.5,
     },
     scanBtnText: { fontSize: 15, fontWeight: "700" },
     countLabel: { fontSize: 13, color: c.textPlaceholder, fontWeight: "600", marginBottom: 8 },
     sectionHeader: { fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 12, marginBottom: 6 },
     itemRow: {
-      flexDirection: "row", alignItems: "center", borderRadius: 10,
-      paddingHorizontal: 14, paddingVertical: 10, marginBottom: 6,
-      shadowColor: c.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
+      flexDirection: "row", alignItems: "center", borderRadius: 16,
+      paddingHorizontal: 14, paddingVertical: 12, marginBottom: 8,
+      shadowColor: c.shadow, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 1,
     },
     itemName: { flex: 1, fontSize: 15, fontWeight: "500", textTransform: "capitalize" },
     itemEditInput: { flex: 1, fontSize: 15, fontWeight: "500", paddingVertical: 0, marginRight: 12 },
@@ -421,7 +421,7 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     shoppingGenRow: { paddingHorizontal: 16, paddingTop: 12 },
     generateBtn: {
       flexDirection: "row", alignItems: "center", justifyContent: "center",
-      backgroundColor: c.primary, borderRadius: 14, paddingVertical: 13, gap: 8,
+      backgroundColor: c.primary, borderRadius: 16, paddingVertical: 14, gap: 8,
     },
     generateBtnText: { color: "#FFF", fontSize: 14, fontWeight: "700" },
     shoppingContent: { paddingHorizontal: 16, paddingBottom: 40 },

@@ -401,12 +401,12 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     intro: { fontSize: 14, lineHeight: 20, marginBottom: 16 },
     bigBtn: {
       flexDirection: "row", alignItems: "center", justifyContent: "center",
-      borderRadius: 14, paddingVertical: 15, gap: 8, marginBottom: 12,
+      borderRadius: 16, paddingVertical: 16, gap: 8, marginBottom: 12,
     },
     bigBtnText: { color: "#FFF", fontSize: 15, fontWeight: "700" },
     bigBtnOutline: {
       flexDirection: "row", alignItems: "center", justifyContent: "center",
-      borderRadius: 14, paddingVertical: 15, gap: 8, borderWidth: 1.5,
+      borderRadius: 16, paddingVertical: 16, gap: 8, borderWidth: 1.5,
     },
     bigBtnOutlineText: { fontSize: 15, fontWeight: "700" },
     // Review
@@ -419,8 +419,8 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     editHint: { fontSize: 12, marginBottom: 12 },
     row: {
       flexDirection: "row", alignItems: "flex-start", gap: 12,
-      borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 8,
-      shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
+      borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 8,
+      shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 1,
     },
     rowBody: { flex: 1 },
     nameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
@@ -428,7 +428,7 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     rawText: { fontSize: 12, marginTop: 2 },
     badge: {
       flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start",
-      borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, marginTop: 6,
+      borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3, marginTop: 6,
     },
     badgeText: { fontSize: 11, fontWeight: "600" },
     bottomBar: {
@@ -438,7 +438,7 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     noChecked: { fontSize: 12, textAlign: "center", marginBottom: 8 },
     confirmBtn: {
       flexDirection: "row", alignItems: "center", justifyContent: "center",
-      borderRadius: 14, paddingVertical: 14, gap: 8,
+      borderRadius: 16, paddingVertical: 15, gap: 8,
     },
     confirmBtnText: { color: "#FFF", fontSize: 15, fontWeight: "700" },
   });

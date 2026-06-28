@@ -665,7 +665,7 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     content: { padding: 20, paddingBottom: 48 },
     completeBanner: {
       flexDirection: "row", alignItems: "flex-start", gap: 10,
-      borderRadius: 14, borderWidth: 1, padding: 14, marginBottom: 16,
+      borderRadius: 18, borderWidth: 1, padding: 14, marginBottom: 16,
     },
     completeBannerTitle: { fontSize: 14, fontWeight: "700", marginBottom: 2 },
     completeBannerSub: { fontSize: 12, lineHeight: 17, opacity: 0.85 },
@@ -677,10 +677,10 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     avatarLabel: { fontSize: 20, fontWeight: "800" },
     avatarSub: { fontSize: 13, marginTop: 4, textAlign: "center" },
     section: {
-      borderRadius: 16, padding: 16, marginBottom: 12,
+      borderRadius: 20, padding: 16, marginBottom: 12,
       borderWidth: 1,
-      shadowColor: c.shadow, shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
+      shadowColor: c.shadow, shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.06, shadowRadius: 12, elevation: 2,
     },
     sectionTitle: {
       fontSize: 14, fontWeight: "700", textTransform: "uppercase",
@@ -704,8 +704,8 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     fieldLabel: { fontSize: 12, fontWeight: "600", marginBottom: 6 },
     fieldHint: { fontSize: 12, marginBottom: 6 },
     input: {
-      borderWidth: 1, borderRadius: 10,
-      paddingHorizontal: 12, paddingVertical: 10,
+      borderWidth: 1, borderRadius: 12,
+      paddingHorizontal: 14, paddingVertical: 11,
       fontSize: 14,
     },
     fieldError: { fontSize: 11, marginTop: 3 },
@@ -724,12 +724,12 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     chipText: { fontSize: 13 },
     saveBtn: {
       flexDirection: "row", alignItems: "center", justifyContent: "center",
-      borderRadius: 14, paddingVertical: 15, gap: 8, marginTop: 8,
+      borderRadius: 16, paddingVertical: 16, gap: 8, marginTop: 8,
     },
     saveBtnText: { color: "#FFF", fontSize: 16, fontWeight: "700" },
     signOutBtn: {
       flexDirection: "row", alignItems: "center", justifyContent: "center",
-      borderRadius: 14, paddingVertical: 13, gap: 8, marginTop: 10,
+      borderRadius: 16, paddingVertical: 14, gap: 8, marginTop: 10,
     },
     signOutText: { fontSize: 15, fontWeight: "600" },
     aiNote: { fontSize: 11, fontStyle: "italic", marginTop: 6 },

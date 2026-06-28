@@ -1168,9 +1168,9 @@ export default function TodayScreen() {
 // ── Shared card styles ────────────────────────────────────────────────────────
 const cardStyles = StyleSheet.create({
   card: {
-    borderRadius: 16, overflow: "hidden",
-    shadowColor: "#000", shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06, shadowRadius: 6, elevation: 3,
+    borderRadius: 22, overflow: "hidden",
+    shadowColor: "#2A2118", shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.07, shadowRadius: 14, elevation: 3,
   },
   slotHeader: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 10, gap: 8 },
   slotIconWrap: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
@@ -1189,11 +1189,11 @@ const cardStyles = StyleSheet.create({
   pantryRow: { flexDirection: "row", alignItems: "flex-start", gap: 5, borderRadius: 8, padding: 8 },
   pantryText: { fontSize: 12, color: "#166534", flex: 1, lineHeight: 17 },
   ratingRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  dislikeBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, borderWidth: 1 },
+  dislikeBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1 },
   dislikeText: { fontSize: 12, fontWeight: "600" },
-  infoIconBtn: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, alignItems: "center", justifyContent: "center" },
-  saveIconBtn: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, alignItems: "center", justifyContent: "center" },
-  confirmIconBtn: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  infoIconBtn: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  saveIconBtn: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  confirmIconBtn: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   cartBanner: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginTop: 6 },
   cartBannerText: { fontSize: 12, fontWeight: "600" },
   infoPanel: { borderRadius: 12, borderWidth: 1, padding: 12, gap: 8, marginTop: 2 },
@@ -1231,14 +1231,14 @@ const cardStyles = StyleSheet.create({
   tipRow: { flexDirection: "row", alignItems: "flex-start", gap: 8, borderRadius: 10, padding: 10, marginBottom: 6 },
   tipText: { fontSize: 13, lineHeight: 18, flex: 1 },
   tags: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  tag: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 3 },
+  tag: { borderRadius: 999, paddingHorizontal: 11, paddingVertical: 4 },
   tagText: { fontSize: 12 },
   findBtn: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8 },
   findBtnText: { fontSize: 13, fontWeight: "600", flex: 1 },
   tapHint: { fontSize: 11, marginTop: 4, marginBottom: 2 },
   // Detail modal
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" },
-  modalSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "90%", overflow: "hidden" },
+  modalSheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: "90%", overflow: "hidden" },
   modalHandle: { width: 36, height: 4, borderRadius: 2, alignSelf: "center", marginTop: 10, marginBottom: 12 },
   modalSlotBadge: { flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 20, marginBottom: 10, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, alignSelf: "flex-start" },
   modalTitle: { fontSize: 22, fontWeight: "800", marginHorizontal: 20, marginBottom: 6 },
@@ -1256,18 +1256,18 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     // Top bar
     topBar: { flexDirection: "row", alignItems: "center", gap: 8 },
     topBarBtn: {
-      width: 44, height: 44, borderRadius: 12, borderWidth: 1,
+      width: 48, height: 48, borderRadius: 16, borderWidth: 1,
       alignItems: "center", justifyContent: "center", flexShrink: 0,
     },
     searchBarBtn: {
-      flex: 1, height: 44, flexDirection: "row", alignItems: "center",
-      gap: 8, borderRadius: 12, borderWidth: 1, paddingHorizontal: 14,
+      flex: 1, height: 48, flexDirection: "row", alignItems: "center",
+      gap: 8, borderRadius: 16, borderWidth: 1, paddingHorizontal: 16,
     },
     searchBarText: { fontSize: 14, flex: 1 },
     // Generate CTA
     generateBtnLarge: {
       alignItems: "center", justifyContent: "center",
-      borderRadius: 20, paddingVertical: 28, gap: 8,
+      borderRadius: 26, paddingVertical: 26, gap: 8,
       shadowColor: c.primary, shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.35, shadowRadius: 10, elevation: 6,
     },
@@ -1275,7 +1275,7 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     ingSearchRow: { flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8 },
     ingSearchInput: { flex: 1, fontSize: 13, paddingVertical: 0 },
     // Filters panel
-    settingsPanel: { borderRadius: 14, borderWidth: 1, padding: 14 },
+    settingsPanel: { borderRadius: 20, borderWidth: 1, padding: 16 },
     filterLabel: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 6 },
     filterChipRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
     filterChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
@@ -1288,10 +1288,10 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     summaryRow: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end" },
     summaryActions: { flexDirection: "row", alignItems: "center", gap: 14 },
     // Nutrition note
-    noteCard: { flexDirection: "row", alignItems: "flex-start", gap: 8, borderRadius: 12, padding: 12, borderWidth: 1 },
+    noteCard: { flexDirection: "row", alignItems: "flex-start", gap: 8, borderRadius: 18, padding: 14, borderWidth: 1 },
     noteText: { fontSize: 13, color: c.textSecondary, lineHeight: 18, flex: 1 },
     // Protein tracker
-    proteinCard: { borderRadius: 12, padding: 12, borderWidth: 1, gap: 8 },
+    proteinCard: { borderRadius: 18, padding: 14, borderWidth: 1, gap: 8 },
     proteinRow: { flexDirection: "row", alignItems: "center", gap: 6 },
     proteinLabel: { fontSize: 13, fontWeight: "600", flex: 1 },
     proteinValue: { fontSize: 13, fontWeight: "700" },

@@ -119,7 +119,7 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     bullets: { width: "100%", gap: 12, marginTop: 8 },
     bullet: { flexDirection: "row", alignItems: "center", gap: 12 },
     bulletIcon: {
-      width: 36, height: 36, borderRadius: 10,
+      width: 40, height: 40, borderRadius: 12,
       alignItems: "center", justifyContent: "center", flexShrink: 0,
     },
     bulletText: { fontSize: 14, lineHeight: 20, flex: 1 },

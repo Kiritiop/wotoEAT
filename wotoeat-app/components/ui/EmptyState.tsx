@@ -16,8 +16,8 @@ export function EmptyState({ icon, title, body, iconSize = 44, style }: Props) {
   const c = useTheme();
   return (
     <View style={[styles.wrap, style]}>
-      <View style={[styles.iconWrap, { backgroundColor: c.successBg }]}>
-        <Ionicons name={icon} size={iconSize} color={c.primaryLight} />
+      <View style={[styles.iconWrap, { backgroundColor: c.primaryLight }]}>
+        <Ionicons name={icon} size={iconSize} color={c.primary} />
       </View>
       <Text style={[styles.title, { color: c.text }]}>{title}</Text>
       {body ? <Text style={[styles.body, { color: c.textMuted }]}>{body}</Text> : null}

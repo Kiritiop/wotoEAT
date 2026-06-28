@@ -1032,9 +1032,9 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     retryBtnText: { fontSize: 13, fontWeight: "600" },
     card: {
       flexDirection: "row", alignItems: "flex-start",
-      borderRadius: 14, padding: 14, marginBottom: 10,
-      shadowColor: c.shadow, shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05, shadowRadius: 4, elevation: 2, gap: 12,
+      borderRadius: 20, padding: 16, marginBottom: 12,
+      shadowColor: c.shadow, shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.07, shadowRadius: 14, elevation: 2, gap: 12,
     },
     cardInfo: { flex: 1 },
     cardTitle: { fontSize: 15, fontWeight: "700", marginBottom: 2 },
@@ -1044,10 +1044,10 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     metaText: { fontSize: 12 },
     labelRow: { flexDirection: "row", flexWrap: "wrap", gap: 5, marginBottom: 6 },
     tags: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 },
-    tag: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+    tag: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
     tagText: { fontSize: 11 },
     cardActions: { flexDirection: "column", gap: 6, alignItems: "center" },
-    actionBtn: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+    actionBtn: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
     // Detail modal
     modalHeader: {
       flexDirection: "row", alignItems: "center", justifyContent: "space-between",

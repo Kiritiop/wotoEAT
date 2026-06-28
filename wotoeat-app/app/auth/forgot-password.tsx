@@ -116,15 +116,15 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     title: { fontSize: 28, fontWeight: "800", textAlign: "center" },
     subtitle: { fontSize: 15, textAlign: "center", marginBottom: 16, lineHeight: 22 },
     input: {
-      borderWidth: 1, borderRadius: 14,
+      borderWidth: 1, borderRadius: 16,
       paddingHorizontal: 16, paddingVertical: 14, fontSize: 16,
     },
-    btn: { borderRadius: 14, paddingVertical: 16, alignItems: "center", marginTop: 8 },
+    btn: { borderRadius: 16, paddingVertical: 16, alignItems: "center", marginTop: 8 },
     btnText: { color: "#FFF", fontSize: 16, fontWeight: "700" },
     errorText: { fontSize: 14, textAlign: "center" },
     successBox: {
       flexDirection: "row", alignItems: "center", gap: 10,
-      borderRadius: 14, padding: 16,
+      borderRadius: 18, padding: 16,
     },
     successText: { fontSize: 15, fontWeight: "600", flex: 1 },
   });

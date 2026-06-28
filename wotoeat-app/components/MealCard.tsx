@@ -77,8 +77,8 @@ export function MealCard({ meal, onPress }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16, padding: 16, marginBottom: 12,
-    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8,
+    borderRadius: 20, padding: 16, marginBottom: 12,
+    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.07, shadowRadius: 14,
     elevation: 3,
   },
   header: {
@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start", marginBottom: 4,
   },
   name: { flex: 1, fontSize: 17, fontWeight: "700", marginRight: 8 },
-  diffBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  diffBadge: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999 },
   diffText: { fontSize: 11, fontWeight: "600" },
   cuisine: {
     fontSize: 13, fontWeight: "600", marginBottom: 6,
@@ -98,6 +98,6 @@ const styles = StyleSheet.create({
   metaText: { fontSize: 13 },
   arrow: { marginLeft: "auto" },
   tags: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10 },
-  tag: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  tag: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
   tagText: { fontSize: 11 },
 });

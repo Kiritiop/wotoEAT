@@ -1,6 +1,6 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { useTheme } from "@/hooks/useTheme";
+import { useTheme, shadows } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 
 type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
@@ -22,20 +22,24 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: c.surface },
-        headerTitleStyle: { fontWeight: "700", color: c.text },
+        headerStyle: { backgroundColor: c.bg },
+        headerTitleStyle: { fontWeight: "800", color: c.text, fontSize: 19 },
         headerShadowVisible: false,
         tabBarActiveTintColor: c.primary,
         tabBarInactiveTintColor: c.textPlaceholder,
         tabBarStyle: {
           backgroundColor: c.tabBar,
-          borderTopWidth: 1,
-          borderTopColor: c.tabBorder,
-          paddingTop: 6,
-          height: 72,
-          paddingBottom: 10,
+          borderTopWidth: 0,
+          paddingTop: 10,
+          height: 80,
+          paddingBottom: 14,
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          ...shadows.float,
+          shadowOffset: { width: 0, height: -4 },
         },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
+        tabBarItemStyle: { paddingTop: 2 },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: "700", marginTop: 2 },
       }}
     >
       <Tabs.Screen
