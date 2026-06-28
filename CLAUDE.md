@@ -78,7 +78,8 @@ uvicorn main:app --reload
 | `SUPABASE_KEY` | Supabase service-role key |
 | `ALLOWED_ORIGINS` | CORS origins, comma-separated |
 | `CACHE_TTL_SECONDS` | AI response cache TTL (default 3600) |
-| `PEXELS_API_KEY` | Pexels image search API key (optional) |
+| `PEXELS_API_KEY` | Pexels image search API key (image-cascade fallback; set in Railway) |
+| `UNSPLASH_ACCESS_KEY` | Unsplash access key (optional last-resort image fallback) |
 | `GROQ_VISION_MODEL` | Optional override of the receipt-scan vision model (default `meta-llama/llama-4-scout-17b-16e-instruct`; swap here if Groq deprecates it) |
 
 ### Router/Endpoint Map
@@ -109,7 +110,7 @@ uvicorn main:app --reload
 | `PUT /shopping/current` | `routers/shopping.py` | Upsert the "current" shopping list (requires auth; debounced save from Shopping tab) |
 | `GET /shopping/history` | `routers/shopping.py` | List saved shopping lists (optional auth; **no frontend caller**) |
 | `PATCH /recipes/{id}/labels` | `routers/recipes.py` | Update recipe labels (favorite, mine, etc.) |
-| `GET /images/search` | `routers/images.py` | Image search — Wikipedia first, Pexels fallback (returns `{url}`) |
+| `GET /images/search` | `routers/images.py` | Food image cascade — TheMealDB → Pexels → Unsplash (returns `{url}`) |
 | `POST /share` | `routers/share.py` | Create a public share (`{kind:"recipe"\|"meal", payload}`) → `{id}`; optional auth; rate-limited 30/hr per client |
 | `GET /share/{id}` | `routers/share.py` | **Public, no auth** — fetch a shared meal/recipe payload (404 if missing) |
 
@@ -382,7 +383,8 @@ Closes the input side of the pantry loop: photograph a grocery receipt → AI ex
 ## Image Search
 
 - `services/imageSearch.ts` → calls `GET /images/search?q=<meal name>`.
-- Backend tries Wikipedia (MediaWiki thumbnail) first, falls back to Pexels; returns `{url}` or `{url: null}`.
+- Backend runs a **food-specific cascade** (`routers/images.py`): **TheMealDB** (real photographed dish when the name matches a known recipe — free, no key) → **Pexels** (food-tuned stock query; needs `PEXELS_API_KEY`) → **Unsplash** (optional, needs `UNSPLASH_ACCESS_KEY`). Returns `{url}` or `{url: null}`.
+- **Wikipedia was removed** — its loose title-matching returned unrelated images ("random stuff"). Returning `{url: null}` (→ placeholder) is preferred over a wrong image.
 - Images shown as hero in the meal detail modal.
 
 ---
