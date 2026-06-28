@@ -2,12 +2,22 @@ import { useEffect, useState } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StatusBar } from "expo-status-bar";
+import {
+  useFonts,
+  Nunito_400Regular,
+  Nunito_500Medium,
+  Nunito_600SemiBold,
+  Nunito_700Bold,
+  Nunito_800ExtraBold,
+  Nunito_900Black,
+} from "@expo-google-fonts/nunito";
 import { supabase } from "@/lib/supabase";
 import { useAppStore } from "@/store/useAppStore";
 import { getProfile, setAuthToken, getCurrentShoppingList } from "@/services/api";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { NetworkBanner } from "@/components/NetworkBanner";
 import { useTheme } from "@/hooks/useTheme";
+import { applyBrandFont } from "@/lib/fonts";
 import type { Session } from "@supabase/supabase-js";
 
 export default function RootLayout() {
@@ -17,6 +27,16 @@ export default function RootLayout() {
   const segments = useSegments();
   const { setProfile, setHasOnboarded, hasOnboarded, setAuthReady, setShoppingList, clearMeals } = useAppStore();
   const theme = useTheme();
+  const [fontsLoaded] = useFonts({
+    Nunito_400Regular,
+    Nunito_500Medium,
+    Nunito_600SemiBold,
+    Nunito_700Bold,
+    Nunito_800ExtraBold,
+    Nunito_900Black,
+  });
+  // Apply the brand font globally once the weights are available (idempotent).
+  if (fontsLoaded) applyBrandFont();
 
   useEffect(() => {
     // onAuthStateChange fires INITIAL_SESSION once storage is read — use it as

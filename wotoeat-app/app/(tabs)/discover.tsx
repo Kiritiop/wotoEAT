@@ -859,10 +859,27 @@ export default function TodayScreen() {
   }
 
   const styles = makeStyles(c);
+  const hour = new Date().getHours();
+  const greeting =
+    language === "zh"
+      ? hour < 12 ? "早上好" : hour < 18 ? "下午好" : "晚上好"
+      : hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const subGreeting = language === "zh" ? "今天想做点什么菜？" : "What should we cook today?";
 
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+
+        {/* ── Branded greeting header ── */}
+        <View style={styles.greetHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.greetText, { color: c.textMuted }]}>{greeting}</Text>
+            <Text style={[styles.greetSub, { color: c.text }]}>{subGreeting}</Text>
+          </View>
+          <View style={[styles.greetBadge, { backgroundColor: c.primaryLight }]}>
+            <Ionicons name="leaf" size={22} color={c.primary} />
+          </View>
+        </View>
 
         {/* ── Top bar: refresh + search + filters ── */}
         <View style={styles.topBar}>
@@ -1078,6 +1095,9 @@ export default function TodayScreen() {
             <>
               <Ionicons name="sparkles" size={28} color="#FFF" />
               <Text style={styles.generateBtnLargeText}>{t("generate_cta")}</Text>
+              <Text style={styles.generateBtnLargeSub}>
+                {language === "zh" ? "根据你的食材和健康目标" : "Tailored to your pantry & goals"}
+              </Text>
             </>
           )}
         </TouchableOpacity>
@@ -1253,6 +1273,10 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.bg },
     content: { padding: 16, paddingBottom: 48, gap: 10 },
+    greetHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 4, marginBottom: 2 },
+    greetText: { fontSize: 14, fontWeight: "600" },
+    greetSub: { fontSize: 22, fontWeight: "800", letterSpacing: -0.3, marginTop: 2 },
+    greetBadge: { width: 48, height: 48, borderRadius: 16, alignItems: "center", justifyContent: "center" },
     // Top bar
     topBar: { flexDirection: "row", alignItems: "center", gap: 8 },
     topBarBtn: {
@@ -1272,6 +1296,7 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
       shadowOpacity: 0.35, shadowRadius: 10, elevation: 6,
     },
     generateBtnLargeText: { color: "#FFF", fontSize: 22, fontWeight: "800", letterSpacing: 0.3 },
+    generateBtnLargeSub: { color: "rgba(255,255,255,0.85)", fontSize: 13, fontWeight: "600", marginTop: -2 },
     ingSearchRow: { flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8 },
     ingSearchInput: { flex: 1, fontSize: 13, paddingVertical: 0 },
     // Filters panel
