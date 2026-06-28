@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/hooks/useTheme";
 import type { ViewStyle } from "react-native";
@@ -16,9 +17,14 @@ export function EmptyState({ icon, title, body, iconSize = 44, style }: Props) {
   const c = useTheme();
   return (
     <View style={[styles.wrap, style]}>
-      <View style={[styles.iconWrap, { backgroundColor: c.primaryLight }]}>
-        <Ionicons name={icon} size={iconSize} color={c.primary} />
-      </View>
+      <LinearGradient
+        colors={["#22C55E", "#15803D"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.iconWrap}
+      >
+        <Ionicons name={icon} size={iconSize} color="#FFF" />
+      </LinearGradient>
       <Text style={[styles.title, { color: c.text }]}>{title}</Text>
       {body ? <Text style={[styles.body, { color: c.textMuted }]}>{body}</Text> : null}
     </View>
@@ -33,12 +39,17 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   iconWrap: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+    width: 92,
+    height: 92,
+    borderRadius: 46,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 4,
+    marginBottom: 8,
+    shadowColor: "#16A34A",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    elevation: 6,
   },
   title: { fontSize: 18, fontWeight: "700", textAlign: "center" },
   body: { fontSize: 14, textAlign: "center", lineHeight: 20, paddingHorizontal: 8 },
