@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -10,15 +10,13 @@ import {
   Share,
   Modal,
   Pressable,
-  Image,
 } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
-
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAppStore } from "@/store/useAppStore";
-import { CUISINES, FLAVOUR_OPTIONS, PREP_TIME_PRESETS, SLOT_COLOUR, SLOT_GRADIENT, SLOT_ICON, DIFFICULTY_COLORS, translateTag, translateCuisine, translateDifficulty } from "@/constants/filters";
+import { CUISINES, FLAVOUR_OPTIONS, PREP_TIME_PRESETS, SLOT_COLOUR, SLOT_ICON, DIFFICULTY_COLORS, translateTag, translateCuisine, translateDifficulty } from "@/constants/filters";
 import { generateMeals, swapMeal, saveRecipe, deleteRecipe, createShare, shareWebUrl, generateRecipeByName } from "@/services/api";
 import type { Recipe, Ingredient , DailyPlanMeal } from "@/services/api";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -166,7 +164,6 @@ function MealSlotCard({
   const [displayServings, setDisplayServings] = useState(storeServings || 1);
   const scaleFactor = displayServings / (planServings || storeServings || 1);
   const accent = SLOT_COLOUR[meal.slot] ?? "#16A34A";
-  const grad = (SLOT_GRADIENT[meal.slot] ?? ["#22C55E", "#16A34A"]) as [string, string];
   const icon = (SLOT_ICON[meal.slot] ?? "restaurant") as React.ComponentProps<typeof Ionicons>["name"];
   const hasMacros = meal.protein_g != null || meal.carbs_g != null || meal.fat_g != null;
 
@@ -210,7 +207,17 @@ function MealSlotCard({
   const [savedId, setSavedId] = useState<string | null>(null);
 
   const [mealImageUrl, setMealImageUrl] = useState<string | null>(null);
-  useEffect(() => { searchMealImage(meal.name).then(setMealImageUrl); }, [meal.name]);
+  const fetchedImageFor = useRef<string | null>(null);
+  // Fetch the hero image lazily — only once the detail modal is opened, since
+  // that is the sole place it renders. Avoids firing an image search per card
+  // up-front for the whole meal stream.
+  useEffect(() => {
+    if (!showDetail || fetchedImageFor.current === meal.name) return;
+    fetchedImageFor.current = meal.name;
+    let active = true;
+    searchMealImage(meal.name).then((url) => { if (active) setMealImageUrl(url); });
+    return () => { active = false; };
+  }, [showDetail, meal.name]);
 
   const [sharing, setSharing] = useState(false);
   async function handleShareMeal() {
@@ -293,12 +300,7 @@ function MealSlotCard({
 
   return (
     <View style={[cardStyles.card, { backgroundColor: c.surface }]}>
-      <LinearGradient
-        colors={grad}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={cardStyles.slotHeader}
-      >
+      <View style={[cardStyles.slotHeader, { backgroundColor: accent }]}>
         <View style={[cardStyles.slotIconWrap, { backgroundColor: "rgba(255,255,255,0.25)" }]}>
           <Ionicons name={icon} size={16} color="#FFF" />
         </View>
@@ -309,7 +311,7 @@ function MealSlotCard({
           <Ionicons name="time-outline" size={13} color="#FFF" />
           <Text style={[cardStyles.metaText, { color: "#FFF" }]}>{meal.prep_time_mins} {t("min_label")}</Text>
         </View>
-      </LinearGradient>
+      </View>
 
       <Pressable style={cardStyles.body} onPress={() => { setShowDetail(true); ensureSteps(); Haptics.selectionAsync(); }}>
         <Text style={[cardStyles.name, { color: c.text }]}>{translatedName}</Text>
@@ -486,7 +488,9 @@ function MealSlotCard({
                     <Image
                       source={{ uri: mealImageUrl }}
                       style={cardStyles.modalHeroImage}
-                      resizeMode="cover"
+                      contentFit="cover"
+                      transition={200}
+                      cachePolicy="memory-disk"
                     />
                   )}
 
@@ -864,7 +868,7 @@ export default function TodayScreen() {
     }
   }
 
-  const styles = makeStyles(c);
+  const styles = useMemo(() => makeStyles(c), [c]);
   const hour = new Date().getHours();
   const greeting =
     language === "zh"
@@ -1085,12 +1089,7 @@ export default function TodayScreen() {
 
         {/* ── Big generate CTA ── */}
         <TouchableOpacity onPress={handleGenerate} disabled={loading} activeOpacity={0.9}>
-          <LinearGradient
-            colors={loading ? [c.disabled, c.disabled] : ["#22C55E", "#15803D"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.generateBtnLarge}
-          >
+          <View style={[styles.generateBtnLarge, { backgroundColor: loading ? c.disabled : c.primary }]}>
             {loading ? (
               <ActivityIndicator color="#FFF" size="small" />
             ) : (
@@ -1100,7 +1099,7 @@ export default function TodayScreen() {
                 <Text style={styles.generateBtnLargeSub}>{t("no_plan_body")}</Text>
               </>
             )}
-          </LinearGradient>
+          </View>
         </TouchableOpacity>
 
         <ErrorBanner message={error} />
@@ -1177,9 +1176,9 @@ export default function TodayScreen() {
           <View style={styles.welcomeWrap}>
             <View style={[styles.stepsCard, { backgroundColor: c.surface, borderColor: c.border }]}>
               {([
-                { icon: "basket", grad: ["#FBBF24", "#F59E0B"], text: t("welcome_step1") },
-                { icon: "sparkles", grad: ["#22C55E", "#15803D"], text: t("welcome_step2") },
-                { icon: "cart", grad: ["#818CF8", "#6366F1"], text: t("welcome_step3") },
+                { icon: "basket", color: "#F59E0B", text: t("welcome_step1") },
+                { icon: "sparkles", color: "#16A34A", text: t("welcome_step2") },
+                { icon: "cart", color: "#6366F1", text: t("welcome_step3") },
               ] as const).map((s, i) => (
                 <View
                   key={s.icon}
@@ -1188,9 +1187,9 @@ export default function TodayScreen() {
                     i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.borderLight },
                   ]}
                 >
-                  <LinearGradient colors={s.grad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.stepBadge}>
+                  <View style={[styles.stepBadge, { backgroundColor: s.color }]}>
                     <Ionicons name={s.icon as any} size={18} color="#FFF" />
-                  </LinearGradient>
+                  </View>
                   <Text style={[styles.stepTextW, { color: c.textSecondary }]}>{s.text}</Text>
                 </View>
               ))}

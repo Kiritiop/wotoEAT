@@ -14,12 +14,10 @@ from dotenv import load_dotenv
 
 from ai.sqlite_cache import cache_get, cache_set
 from ai.prompts import (
-    meal_suggestion_prompt,
     meal_generate_prompt,
     recipe_parse_prompt,
     shopping_list_prompt,
     generate_recipe_prompt,
-    translate_prompt,
     receipt_transcribe_prompt,
     receipt_normalize_prompt,
 )
@@ -163,23 +161,6 @@ def _meal_max_tokens(n_slots: int) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Meal suggestions
-# ---------------------------------------------------------------------------
-
-async def suggest_meals(filters: dict) -> tuple[list, bool]:
-    key = _cache_key(filters)
-    cached = cache_get(key)
-    if cached is not None:
-        return cached, True
-
-    language = filters.get("language", "en")
-    text = await _generate(meal_suggestion_prompt(filters, language), max_tokens=2000)
-    meals = json.loads(_clean_json(text))
-    cache_set(key, meals, _CACHE_TTL)
-    return meals, False
-
-
-# ---------------------------------------------------------------------------
 # Recipe parsing
 # ---------------------------------------------------------------------------
 
@@ -260,25 +241,6 @@ async def swap_meal(slot: str, current_plan: dict | None, filters: dict) -> dict
         raise ValueError(result.get("message", "No dish can satisfy the required tags."))
     meals = result.get("meals", [result])
     return meals[0] if meals else result
-
-
-# ---------------------------------------------------------------------------
-# Batch text translation
-# ---------------------------------------------------------------------------
-
-async def translate_texts(texts: list[str]) -> list[str]:
-    if not texts:
-        return []
-    raw = await _generate_text(translate_prompt(texts), max_tokens=1000)
-    raw = raw.strip()
-    translations = []
-    for line in raw.splitlines():
-        line = line.strip()
-        if line and line[0].isdigit() and ". " in line:
-            translations.append(line.split(". ", 1)[1].strip())
-    while len(translations) < len(texts):
-        translations.append(texts[len(translations)])
-    return translations[:len(texts)]
 
 
 # ---------------------------------------------------------------------------

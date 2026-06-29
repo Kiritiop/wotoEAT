@@ -1,5 +1,4 @@
 import { View, Text, StyleSheet } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/hooks/useTheme";
 import type { ViewStyle } from "react-native";
@@ -17,14 +16,9 @@ export function EmptyState({ icon, title, body, iconSize = 44, style }: Props) {
   const c = useTheme();
   return (
     <View style={[styles.wrap, style]}>
-      <LinearGradient
-        colors={["#22C55E", "#15803D"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.iconWrap}
-      >
+      <View style={[styles.iconWrap, { backgroundColor: c.primary }]}>
         <Ionicons name={icon} size={iconSize} color="#FFF" />
-      </LinearGradient>
+      </View>
       <Text style={[styles.title, { color: c.text }]}>{title}</Text>
       {body ? <Text style={[styles.body, { color: c.textMuted }]}>{body}</Text> : null}
     </View>

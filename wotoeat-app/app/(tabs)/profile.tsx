@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -10,7 +10,6 @@ import {
   Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAppStore } from "@/store/useAppStore";
@@ -119,7 +118,7 @@ export default function ProfileScreen() {
     useAppStore.getState().resetAll();
   }
 
-  const styles = makeStyles(c);
+  const styles = useMemo(() => makeStyles(c), [c]);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -138,14 +137,9 @@ export default function ProfileScreen() {
 
         {/* Avatar */}
         <View style={styles.avatarWrap}>
-          <LinearGradient
-            colors={["#22C55E", "#15803D"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.avatar}
-          >
+          <View style={[styles.avatar, { backgroundColor: c.primary }]}>
             <Ionicons name="person" size={40} color="#FFF" />
-          </LinearGradient>
+          </View>
           <Text style={[styles.avatarLabel, { color: c.text }]}>{t("your_profile")}</Text>
           <Text style={[styles.avatarSub, { color: c.textMuted }]}>{t("profile_subtitle")}</Text>
         </View>
@@ -617,12 +611,7 @@ export default function ProfileScreen() {
           disabled={saving}
           activeOpacity={0.9}
         >
-          <LinearGradient
-            colors={["#22C55E", "#15803D"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.saveBtn}
-          >
+          <View style={[styles.saveBtn, { backgroundColor: saving ? c.disabled : c.primary }]}>
             {saving ? (
               <ActivityIndicator color="#FFF" size="small" />
             ) : (
@@ -631,7 +620,7 @@ export default function ProfileScreen() {
                 <Text style={styles.saveBtnText}>{saved ? t("profile_saved") : t("save_profile")}</Text>
               </>
             )}
-          </LinearGradient>
+          </View>
         </TouchableOpacity>
 
         {/* Sign out */}

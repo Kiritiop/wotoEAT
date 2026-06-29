@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -14,7 +14,6 @@ import {
   Share,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -341,7 +340,7 @@ export default function RecipesScreen() {
     { key: "history", label: t("tab_history"), icon: "time" },
   ];
 
-  const styles = makeStyles(c);
+  const styles = useMemo(() => makeStyles(c), [c]);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -612,17 +611,12 @@ export default function RecipesScreen() {
                   disabled={historyGenerating}
                   activeOpacity={0.9}
                 >
-                  <LinearGradient
-                    colors={historyGenerating ? [c.disabled, c.disabled] : ["#22C55E", "#15803D"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.histGenBtn}
-                  >
+                  <View style={[styles.histGenBtn, { backgroundColor: historyGenerating ? c.disabled : c.primary }]}>
                     {historyGenerating
                       ? <ActivityIndicator color="#FFF" size="small" />
                       : <><Ionicons name="document-text-outline" size={18} color="#FFF" /><Text style={styles.histGenBtnText}>{t("history_generate_save")}</Text></>
                     }
-                  </LinearGradient>
+                  </View>
                 </TouchableOpacity>
                 {historyBanner && (
                   <View style={[styles.histBanner, { backgroundColor: historyBannerIsError ? c.errorBg : c.successBg }]}>
@@ -802,17 +796,12 @@ export default function RecipesScreen() {
                       disabled={editSaving}
                       activeOpacity={0.9}
                     >
-                      <LinearGradient
-                        colors={editSaving ? [c.disabled, c.disabled] : ["#22C55E", "#15803D"]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.editSaveBtn}
-                      >
+                      <View style={[styles.editSaveBtn, { backgroundColor: editSaving ? c.disabled : c.primary }]}>
                         {editSaving
                           ? <ActivityIndicator size="small" color="#FFF" />
                           : <Text style={styles.editSaveBtnText}>{selectedRecipe?.source_name === "__mine__" ? t("save") : t("save_to_mine")}</Text>
                         }
-                      </LinearGradient>
+                      </View>
                     </TouchableOpacity>
                   </View>
                 </>

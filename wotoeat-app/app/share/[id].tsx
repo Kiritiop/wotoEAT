@@ -2,7 +2,7 @@
  * Shared recipe/meal — read-only public view opened from a /share/<id> link.
  * Works on web (primary) and as a native deep link. No auth required.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -45,7 +45,7 @@ export default function SharedItemScreen() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  const styles = makeStyles(c);
+  const styles = useMemo(() => makeStyles(c), [c]);
 
   if (loading) {
     return (

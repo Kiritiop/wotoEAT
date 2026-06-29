@@ -359,7 +359,7 @@ const en = {
   onboarding_save_error: "Could not save your profile. Please check your connection and try again.",
 
   // ── Landing page ──────────────────────────────────────────────────────────
-  landing_hero_title: "wotoEAT gets every meal",
+  landing_hero_title: "Every meal, figured out.",
   landing_hero_sub: "AI-personalised meal plans. Generate today's recipes in one tap — from your health goals, the ingredients you have, and your taste.",
   landing_f1_title: "Meal plans, decided for you",
   landing_f1_sub: "End the \"what's for dinner?\" dilemma — AI tailors your breakfast, lunch, and dinner.",
@@ -370,6 +370,7 @@ const en = {
   landing_cta_start: "Start your free meal plan",
   landing_cta_signin: "Already have an account?",
   landing_fine_print: "No credit card required · Free to use",
+  landing_learn_more: "Learn more",
 } as const;
 
 export type TranslationKey = keyof typeof en;

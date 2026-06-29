@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { IngredientRow } from "@/components/IngredientRow";
@@ -76,7 +75,7 @@ export default function ShoppingScreen() {
     ? countShoppingItems(shoppingList)
     : { total: 0, checked: 0 };
 
-  const styles = makeStyles(c);
+  const styles = useMemo(() => makeStyles(c), [c]);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -85,12 +84,7 @@ export default function ShoppingScreen() {
       {/* Action bar */}
       <View style={styles.actionBar}>
         <TouchableOpacity style={{ flex: 1 }} onPress={handleGenerate} disabled={loading} activeOpacity={0.9}>
-          <LinearGradient
-            colors={loading ? [c.disabled, c.disabled] : ["#22C55E", "#15803D"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.generateBtn}
-          >
+          <View style={[styles.generateBtn, { backgroundColor: loading ? c.disabled : c.primary }]}>
             {loading ? (
               <ActivityIndicator color="#FFF" size="small" />
             ) : (
@@ -101,7 +95,7 @@ export default function ShoppingScreen() {
                 </Text>
               </>
             )}
-          </LinearGradient>
+          </View>
         </TouchableOpacity>
 
         {shoppingList && (

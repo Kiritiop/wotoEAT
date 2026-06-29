@@ -87,13 +87,11 @@ uvicorn main:app --reload
 | Prefix | File | Description |
 |---|---|---|
 | `GET /` | `main.py` | Health check |
-| `POST /meals/suggest` | `routers/meals.py` | **Legacy — dead from the app** (zero frontend callers); 6-meal suggestions, no ingredients/steps |
 | `POST /meals/generate` | `routers/meals.py` | **Primary**: slot-aware rich meal plan (ingredients, steps, macros, tags) |
 | `POST /meals/swap` | `routers/meals.py` | Swap one slot in an existing plan |
 | `GET /meals/history` | `routers/meals.py` | User's past meal history (requires auth) |
 | `POST /recipes/parse` | `routers/recipes.py` | Parse recipe from URL (rate-limited 20/hr per IP) |
 | `POST /recipes/generate` | `routers/recipes.py` | Generate full recipe for a named dish (rate-limited 30/hr per user) |
-| `POST /recipes/translate` | `routers/recipes.py` | **Legacy — unused by the app** (dynamic translation is client-side; see Localisation) |
 | `POST /recipes/save` | `routers/recipes.py` | Save recipe to user account |
 | `GET /recipes/saved` | `routers/recipes.py` | List user's saved recipes |
 | `GET /recipes/{id}` | `routers/recipes.py` | Get single saved recipe |
@@ -117,25 +115,21 @@ uvicorn main:app --reload
 ### AI Layer (`ai/`)
 
 **`ai/prompts.py`** — All prompt templates:
-- `meal_suggestion_prompt(filters, language)` — legacy 6-meal suggestions
 - `meal_generate_prompt(filters, language)` — rich slot-based plan; handles `required_ingredients` enforcement (see Tag Filtering section below)
 - `generate_recipe_prompt(dish_name, language, servings)` — full recipe by dish name
 - `recipe_parse_prompt(html)` — extract recipe from scraped HTML
 - `shopping_list_prompt(recipes, pantry, language)` — de-duplicated shopping list with pantry subtraction
-- `translate_prompt(texts)` — batch English→Chinese translation
 - `receipt_transcribe_prompt()` — receipt scan stage 1: vision model transcribes the photo verbatim into `{"lines": [...]}`
 - `receipt_normalize_prompt(lines, pantry, language)` — receipt scan stage 2: raw lines → normalized food items (`name` always canonical English + `name_zh` Chinese display name; `language` param intentionally unused); uses `_RECEIPT_MATCHING_RULES` (semantic cross-language matching examples adapted from `_MATCHING_RULES`, without its shopping-list action bullets)
 
 **`_tag_note()`** — Injected into every prompt that returns recipes. Instructs AI to produce **as many English tags as needed** (no upper limit) covering: key ingredients (each as its own tag), dietary labels, flavour profile, cooking style, occasion/lifestyle. Tags are always English; the frontend translates them via `TAG_ZH` lookup table in `constants/filters.ts`.
 
 **`ai/claude.py`** — Async wrappers around the Groq client (`llama-3.3-70b-versatile`):
-- `suggest_meals(filters)` → `(list, cached_bool)` — legacy, only used by the dead `/meals/suggest`
 - `generate_meal_plan(filters)` → `(dict, cached_bool)` — raises `ValueError` if AI returns `{"error": "no_match", ...}` (unsatisfiable required tags)
 - `parse_recipe(html, language)` → `dict`
 - `generate_recipe_by_name(dish_name, language, servings, force_refresh)` → `dict` (cached 7 days; `force_refresh=True` bypasses cache — used by the Regenerate button)
 - `generate_shopping_list(recipes, pantry, language)` → `dict`
 - `swap_meal(slot, current_plan, filters)` → `dict` (`current_plan` optional; exclusion is driven by `filters["avoid_meals"]` = today's seen list; filters also include cuisine, flavour, max_prep_time_mins, required_ingredients, meal_style)
-- `translate_texts(texts)` → `list[str]` — legacy, only used by the unused `/recipes/translate`
 - `transcribe_receipt(image_b64)` → `list[str]` — receipt scan stage 1 on `_VISION_MODEL`; raises `ValueError("no_receipt"|"unreadable_receipt")`
 - `normalize_receipt_items(lines, pantry_names, language)` → `list[dict]` — receipt scan stage 2 on the text model; nulls any hallucinated `matches_pantry` not exactly in `pantry_names`; raises `ValueError("no_food_items"|"unreadable_receipt")`
 - `scan_receipt(image_b64, pantry_names, language)` → `{"items": [...]}` — orchestrates both stages; **never cached** (receipts are unique)
@@ -144,7 +138,7 @@ Internal helpers:
 - `_generate(prompt, max_tokens, temperature=0.7)` — calls Groq; used for all JSON-returning functions. **Meal generation + swap pass `temperature=0.5`** (lower than the 0.7 default) so the model returns conventional, real dishes instead of inventing "creative" ones. `meal_generate_prompt` also has an **AUTHENTICITY block** forbidding invented/fusion/filler-named dishes and generic non-dishes ("Grilled Chicken with Vegetables").
 - `_create_with_retry(**kwargs)` — wraps the Groq completion call with a bounded retry (up to 3 attempts) on `RateLimitError`, honouring the `Retry-After` header (skips the wait if >8s so it never outlives the client's 45s timeout). All three `_generate*` helpers route through it. Recovers the bursty 429→503 failures Groq throws when several meal/recipe calls land in the same minute.
 - `_meal_max_tokens(n_slots)` — `min(6000, 1200 + 2400*n_slots)`. Right-sizes the meal generation/swap completion budget so Groq's TPM reservation isn't blown (a single meal needs ~1.5–2k output tokens, not 6000). See Token limits below.
-- `_generate_text(prompt, max_tokens)` — calls Groq with temperature 0.3; used by `translate_texts()` and receipt normalization
+- `_generate_text(prompt, max_tokens)` — calls Groq with temperature 0.3; used by receipt normalization
 - `_generate_vision(prompt, image_b64, max_tokens)` — calls `_VISION_MODEL` (env `GROQ_VISION_MODEL`, default Llama 4 Scout) with temperature 0.2 and a base64 JPEG data-URL content part
 - `GroqTransientError` — tuple `(RateLimitError, APIConnectionError, APIStatusError)` used by routers to catch transient AI failures and return 503
 
@@ -159,7 +153,6 @@ Key models:
 - `CreateShareRequest` / `CreateShareResponse` / `SharedItem` — sharing: `{kind:"recipe"|"meal", payload}` in, `{id}` out; `SharedItem` = `{kind, payload}`
 - `GeneratedMeal` — slot, name, cuisine, description, prep_time_mins, calories_per_serving, difficulty, components (vegetable/protein/staple), uses_pantry_items, tags, ingredients, steps, protein_g, carbs_g, fat_g, fiber_g
 - `Recipe` — title, servings, prep_time_mins, calories_per_serving, ingredients (list of `Ingredient`), steps, tags, warnings, source_url, source_name
-- `MealFilter` — legacy model, only used by the dead `/meals/suggest`
 - `ScanReceiptRequest` / `ScannedItem` / `ScanReceiptResponse` — receipt scanning. `ScannedItem.name` is canonical English (what gets stored); `name_zh` is the Simplified Chinese display name (display-only); `quantity` is display-only (never persisted — pantry is name-only); `matches_pantry` is the verbatim existing pantry item the scanned item duplicates, or null.
 
 ### Database Tables (Supabase)
@@ -254,8 +247,6 @@ All HTTP via Axios instance with:
 
 Key functions: `generateMeals` (now takes `avoid_meals`), `swapMeal` (no `current_plan`; takes `avoid_meals`), `getMealHistory`, `parseRecipe`, `generateRecipeByName`, `saveRecipe`, `getSavedRecipes`, `updateRecipe`, `deleteRecipe`, `updateRecipeLabels`, `generateShoppingList`, `getCurrentShoppingList`, `saveCurrentShoppingList`, `getPantry`, `replacePantry`, `deletePantryItem`, `getProfile`, `saveProfile`, `createShare`, `getShared`, `shareWebUrl`.
 
-Defined but with **zero callers** (legacy): `suggestMeals`, `translateBatch`.
-
 ---
 
 ## Tag System
@@ -317,7 +308,7 @@ Defined but with **zero callers** (legacy): `suggestMeals`, `translateBatch`.
 - Language toggle: English / 简体中文
 - `language` state in store; changing it clears the meal stream + `seenMeals` + shopping selections.
 - Static strings: `locales/en.ts` and `locales/zh.ts` — accessed via `useTranslation()` hook.
-- Dynamic strings (AI-generated meal names, descriptions, ingredients, steps): translated **client-side** by `useDynamicTranslation.ts` → `services/translate.ts` (Google Translate unofficial endpoint → MyMemory free API fallback → silent passthrough), with in-memory + AsyncStorage caching. The backend `POST /recipes/translate` exists but has no frontend callers (legacy).
+- Dynamic strings (AI-generated meal names, descriptions, ingredients, steps): translated **client-side** by `useDynamicTranslation.ts` → `services/translate.ts` (Google Translate unofficial endpoint → MyMemory free API fallback → silent passthrough), with in-memory + AsyncStorage caching.
 - Tags: always English from AI; translated client-side via `TAG_ZH` lookup.
 - AI prompts: `_LANG_INSTRUCTION` in `prompts.py` switches the AI's output language for meal names/descriptions when `language === "zh"`.
 - Pantry item names: stored canonical English; displayed per-language via `usePantryDisplay` in `hooks/useDynamicTranslation.ts`. **Language is unified**: names are first normalized to canonical English via the reverse map `TAG_EN`/`toCanonicalEnglish` (`constants/filters.ts`) — so legacy Chinese-stored names show in English under EN mode — then EN passes through / ZH resolves curated `TAG_ZH` hit → cached dynamic translation → raw. Used by the Pantry tab list, Discover "From pantry" chips, and scan-review badges.
@@ -385,7 +376,8 @@ Closes the input side of the pantry loop: photograph a grocery receipt → AI ex
 - `services/imageSearch.ts` → calls `GET /images/search?q=<meal name>`.
 - Backend runs a **food-specific cascade** (`routers/images.py`): **TheMealDB** (real photographed dish when the name matches a known recipe — free, no key) → **Pexels** (food-tuned stock query; needs `PEXELS_API_KEY`) → **Unsplash** (optional, needs `UNSPLASH_ACCESS_KEY`). Returns `{url}` or `{url: null}`.
 - **Wikipedia was removed** — its loose title-matching returned unrelated images ("random stuff"). Returning `{url: null}` (→ placeholder) is preferred over a wrong image.
-- Images shown as hero in the meal detail modal.
+- Images shown as hero in the meal detail modal, rendered via **`expo-image`** (`contentFit="cover"`, `cachePolicy="memory-disk"`, 200ms fade) for memory+disk caching.
+- **Fetched lazily**: each `MealSlotCard` only calls `searchMealImage` once its detail modal is first opened (guarded by a `fetchedImageFor` ref keyed on `meal.name`), not on card mount — so the growing meal stream no longer fires an image search per card up-front.
 
 ---
 
@@ -449,6 +441,8 @@ Meals and recipes can be shared as browsable links anyone can open.
 - **Tags always English**: the AI is instructed to return tags in English regardless of response language. Frontend translates via `TAG_ZH` at render time.
 - **Pantry names are canonical English** (same convention as tags): receipt scan returns `name` always-English plus `name_zh` for display; `PantryTagPicker` built-ins already store English (its zh labels are display-only). All pantry-name display goes through `usePantryDisplay`, which **first normalizes to canonical English** via `TAG_EN`/`toCanonicalEnglish` (reverse map built from `TAG_ZH` + `PANTRY_CATEGORIES` itemsZh) so the library is single-language — then EN passes through / ZH resolves curated `TAG_ZH` → dynamic translation → raw. User-typed names (picker custom items, scan edits, renames) are stored literally; if not in the reverse map they display as typed.
 - **No calories displayed on card header**: calorie/kcal display is only visible inside the info panel (tap ℹ️ icon). Prep time is still shown in the header.
+- **Solid button colours (no gradients)**: buttons/badges/avatars use flat theme colours (`c.primary` green for actions, `SLOT_COLOUR[slot]` for meal-card headers) instead of `LinearGradient`. `expo-linear-gradient` has been **removed** from dependencies — do not reintroduce it; use solid `backgroundColor` from the `useTheme()` palette.
+- **Memoized styles**: every screen builds its stylesheet via `const styles = useMemo(() => makeStyles(c), [c])` (not a bare `makeStyles(c)` per render). `useTheme()` returns a stable module-level palette object, so the memo only recomputes on light/dark switch.
 - **Swap respects filters**: `handleSwap` passes cuisine, flavour, maxTime, requiredIngredients, and mealStyle to the backend swap endpoint.
 - **Regenerate bypasses cache**: `generateRecipeByName` accepts `force_refresh=True`; the Regenerate button (FindRecipeModal) and history Generate button both pass this flag.
 - **Web SPA routing**: `wotoeat-app/vercel.json` includes a catch-all rewrite to `index.html` so direct URL loads (e.g. `/discover`) work without a 404.

@@ -54,45 +54,6 @@ SEMANTIC INGREDIENT MATCHING (critical — read carefully):
 """
 
 
-def meal_suggestion_prompt(filters: dict, language: str = "en") -> str:
-    lang_note = _lang(language)
-    tag_note = _tag_note()
-    serving_size = filters.get("serving_size", 1)
-    serving_word = _serving_word(serving_size)
-    display_filters = {k: v for k, v in filters.items() if k not in ("serving_size", "language")}
-
-    return f"""You are a world-class culinary expert.
-{lang_note}
-Suggest exactly 6 real, well-known dishes that match ALL of the following user filters.
-If a filter value is null or an empty list, treat it as "no restriction".
-These recipes are intended for {serving_size} {serving_word}.
-
-USER FILTERS:
-{json.dumps(display_filters, indent=2)}
-
-RULES:
-- Only suggest dishes that genuinely exist in culinary traditions and have established recipes online. Do NOT invent dishes or arbitrarily combine ingredients.
-- Include a mix of cuisines and cooking styles — do not default only to Western or globally famous dishes; include regional and local cuisines where relevant
-- Every dish must satisfy ALL active (non-null) filters
-- difficulty must be one of: "easy", "medium", "hard"
-- prep_time_mins is realistic total time including cooking
-- {tag_note}
-
-Respond with ONLY a valid JSON array. No explanation, no markdown fences.
-Each element must have exactly these keys:
-[
-  {{
-    "name": "string",
-    "cuisine": "string",
-    "prep_time_mins": integer,
-    "calories_per_serving": integer,
-    "description": "1-2 sentence description",
-    "difficulty": "easy|medium|hard",
-    "tags": ["string"]
-  }}
-]"""
-
-
 def recipe_parse_prompt(html: str) -> str:
     tag_note = _tag_note()
     return f"""You are a recipe extraction specialist.
@@ -328,19 +289,6 @@ Respond with ONLY valid JSON, no markdown:
   "total_calories": integer,
   "nutrition_note": "string"
 }}"""
-
-
-def translate_prompt(texts: list[str]) -> str:
-    numbered = "\n".join(f"{i+1}. {t}" for i, t in enumerate(texts))
-    return f"""You are a Chinese food and cooking translation specialist for a meal planning app.
-
-Translate each numbered item below into natural Simplified Chinese.
-Use authentic food vocabulary: 食材 (ingredients), 菜系 (cuisine), 份量 (servings), 备餐时间 (prep time).
-Keep translations concise — this is a mobile UI.
-
-{numbered}
-
-Respond with ONLY the numbered translations in the same format. No explanation."""
 
 
 # Like _MATCHING_RULES but for receipt→pantry matching: same semantic examples,

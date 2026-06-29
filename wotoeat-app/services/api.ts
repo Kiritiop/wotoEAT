@@ -93,18 +93,6 @@ export async function saveProfile(profile: HealthProfile): Promise<HealthProfile
   return res.data;
 }
 
-// ─── Meal Filters (legacy) ───────────────────────────────────────────────────
-
-export interface MealFilter {
-  cuisine?: string;
-  max_prep_time_mins?: number;
-  max_calories?: number;
-  dietary_goals?: string[];
-  dietary_restrictions?: string[];
-  flavour_profile?: string;
-  serving_size?: number;
-}
-
 // ─── Meal Suggestions ───────────────────────────────────────────────────────
 
 export interface MealSuggestion {
@@ -300,13 +288,6 @@ export async function swapMeal(
   return res.data;
 }
 
-export async function suggestMeals(
-  filters: MealFilter
-): Promise<{ meals: MealSuggestion[]; cached: boolean }> {
-  const res = await api.post("/meals/suggest", filters);
-  return res.data;
-}
-
 export async function getMealHistory(limit = 50): Promise<MealHistoryEntry[]> {
   const res = await api.get(`/meals/history?limit=${limit}`);
   return res.data;
@@ -453,32 +434,4 @@ export async function scanReceipt(imageBase64: string, language = "en"): Promise
   );
   return res.data.items as ScannedItem[];
 }
-
-// ─── Dynamic content translation ─────────────────────────────────────────────
-//
-// Backend endpoint to add (FastAPI, calls the local Ollama wotoeat-translator):
-//
-//   @app.post("/translate")
-//   async def translate_texts(body: dict):
-//       texts = body.get("texts", [])
-//       translations = []
-//       for text in texts:
-//           r = requests.post("http://localhost:11434/api/chat", json={
-//               "model": "wotoeat-translator",
-//               "stream": False,
-//               "messages": [{"role": "user", "content": f"Translate: {text}"}]
-//           })
-//           translations.append(r.json()["message"]["content"].strip())
-//       return {"translations": translations}
-//
-export async function translateBatch(texts: string[]): Promise<string[]> {
-  if (texts.length === 0) return [];
-  try {
-    const res = await api.post("/recipes/translate", { texts, target: "zh" });
-    return res.data.translations ?? texts;
-  } catch {
-    return texts; // Graceful fallback — show original if backend unavailable
-  }
-}
-
 

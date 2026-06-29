@@ -248,7 +248,7 @@ export default function ScanReceiptScreen() {
   const checkedCount = rowsResolved.filter((r) => r.checked && r.name.trim()).length;
   const breakdown = strings.scan_breakdown(matchedCount, nonFoodCount);
 
-  const styles = makeStyles(c);
+  const styles = useMemo(() => makeStyles(c), [c]);
 
   if (phase === "processing") {
     return (

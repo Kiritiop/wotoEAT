@@ -359,7 +359,7 @@ const zh = {
   onboarding_save_error: "无法保存您的信息，请检查网络连接后重试。",
 
   // ── Landing page ──────────────────────────────────────────────────────────
-  landing_hero_title: "wotoEAT 懂你的每一餐",
+  landing_hero_title: "每一餐，都帮你想好。",
   landing_hero_sub: "AI 专属定制饮食方案。根据你的健康目标、手头食材与口味偏好，一键生成今日食谱。",
   landing_f1_title: "不纠结的专属餐单",
   landing_f1_sub: "告别“今天吃什么”的终极难题，AI 为你量身精配一日三餐。",
@@ -370,6 +370,7 @@ const zh = {
   landing_cta_start: "开启你的免费饮食计划",
   landing_cta_signin: "已有账号？",
   landing_fine_print: "无需信用卡 · 免费使用",
+  landing_learn_more: "了解更多",
 } as const;
 
 export default zh;

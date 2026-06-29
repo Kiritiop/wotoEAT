@@ -69,13 +69,6 @@ export const SLOT_COLOUR: Record<string, string> = {
   dinner: "#6366F1",
 };
 
-/** Two-stop gradient per meal slot — used for the bold card header band. */
-export const SLOT_GRADIENT: Record<string, [string, string]> = {
-  breakfast: ["#FBBF24", "#F59E0B"],
-  lunch: ["#22C55E", "#16A34A"],
-  dinner: ["#818CF8", "#6366F1"],
-};
-
 export const SLOT_ICON: Record<string, string> = {
   breakfast: "sunny",
   lunch: "partly-sunny",

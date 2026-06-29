@@ -5,7 +5,7 @@
  * Shows the meal info and lets the user parse recipes from any URL.
  * Parsed recipes appear as RecipeSource cards — tap to expand, add to list.
  */
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -95,7 +95,7 @@ export default function MealDetailScreen() {
     }
   }
 
-  const styles = makeStyles(c);
+  const styles = useMemo(() => makeStyles(c), [c]);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>

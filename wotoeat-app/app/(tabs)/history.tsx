@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -106,7 +106,7 @@ export default function HistoryScreen() {
     }
   }
 
-  const styles = makeStyles(c);
+  const styles = useMemo(() => makeStyles(c), [c]);
 
   return (
     <SafeAreaView style={styles.safe}>

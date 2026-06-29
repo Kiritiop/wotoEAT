@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 from ai.claude import GroqTransientError
-from db.models import ParseRecipeRequest, Recipe, SaveRecipeRequest, GenerateRecipeRequest, TranslateRequest, UpdateRecipeRequest, UpdateLabelsRequest
-from ai.claude import parse_recipe, generate_recipe_by_name, translate_texts
+from db.models import ParseRecipeRequest, Recipe, SaveRecipeRequest, GenerateRecipeRequest, UpdateRecipeRequest, UpdateLabelsRequest
+from ai.claude import parse_recipe, generate_recipe_by_name
 from ai.sqlite_cache import rate_limit_check
 from utils.scraper import fetch_page_html
 from db import supabase_client as db
@@ -62,21 +62,6 @@ async def generate(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"AI generation error: {exc}")
     return Recipe(**recipe_dict)
-
-
-@router.post("/translate", response_model=dict)
-async def translate(req: TranslateRequest):
-    """
-    POST /recipes/translate  { "texts": ["Ingredients", "Steps"], "target": "zh" }
-    Translates a batch of strings using the AI — used by the app for dynamic content.
-    """
-    if req.target != "zh" or not req.texts:
-        return {"translations": req.texts}
-    try:
-        translated = await translate_texts(req.texts)
-        return {"translations": translated}
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Translation error: {exc}")
 
 
 @router.post("/save", response_model=dict)

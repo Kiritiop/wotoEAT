@@ -2,7 +2,7 @@
  * Upload Recipe screen — paste a URL, preview the parsed result, save it.
  * Accessible from the Recipes tab.
  */
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -80,7 +80,7 @@ export default function UploadRecipeScreen() {
     }
   }
 
-  const styles = makeStyles(c);
+  const styles = useMemo(() => makeStyles(c), [c]);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>

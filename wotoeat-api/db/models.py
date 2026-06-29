@@ -57,36 +57,6 @@ class HealthProfile(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Meal suggestions (legacy 6-meal mode)
-# ---------------------------------------------------------------------------
-
-class MealFilter(BaseModel):
-    cuisine: Optional[str] = None
-    max_prep_time_mins: Optional[int] = None
-    max_calories: Optional[int] = None
-    dietary_goals: list[str] = Field(default_factory=list)
-    dietary_restrictions: list[str] = Field(default_factory=list)
-    flavour_profile: Optional[str] = None
-    serving_size: int = 2
-    language: str = "en"
-
-
-class MealSuggestion(BaseModel):
-    name: str
-    cuisine: str
-    prep_time_mins: int
-    calories_per_serving: int
-    description: str
-    difficulty: str
-    tags: list[str] = Field(default_factory=list)
-
-
-class MealSuggestResponse(BaseModel):
-    meals: list[MealSuggestion]
-    cached: bool = False
-
-
-# ---------------------------------------------------------------------------
 # Recipes
 # ---------------------------------------------------------------------------
 
@@ -127,11 +97,6 @@ class GenerateRecipeRequest(BaseModel):
     language: str = "en"
     servings: int = 1
     force_refresh: bool = False
-
-
-class TranslateRequest(BaseModel):
-    texts: list[str]
-    target: str = "zh"
 
 
 # ---------------------------------------------------------------------------

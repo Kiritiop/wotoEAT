@@ -13,7 +13,6 @@ import {
   ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -179,7 +178,7 @@ export default function PantryScreen() {
     ? countShoppingItems(shoppingList)
     : { total: 0, checked: 0 };
 
-  const styles = makeStyles(c);
+  const styles = useMemo(() => makeStyles(c), [c]);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -231,10 +230,10 @@ export default function PantryScreen() {
 
             <View style={styles.addRow}>
               <TouchableOpacity style={{ flex: 1 }} activeOpacity={0.9} onPress={() => { setShowTagPicker(true); Haptics.selectionAsync(); }}>
-                <LinearGradient colors={["#22C55E", "#15803D"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.addBtn}>
+                <View style={[styles.addBtn, { backgroundColor: c.primary }]}>
                   <Ionicons name="add" size={20} color="#FFF" />
                   <Text style={styles.addBtnText}>{t("add_ingredient")}</Text>
-                </LinearGradient>
+                </View>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.scanBtn, { borderColor: c.primary }]}
@@ -379,12 +378,7 @@ export default function PantryScreen() {
           <View style={styles.shoppingGenRow}>
             <ErrorBanner message={shoppingError} style={{ marginBottom: 8 }} />
             <TouchableOpacity onPress={handleGenerateShopping} disabled={shoppingLoading} activeOpacity={0.9}>
-              <LinearGradient
-                colors={shoppingLoading ? [c.disabled, c.disabled] : ["#22C55E", "#15803D"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.generateBtn}
-              >
+              <View style={[styles.generateBtn, { backgroundColor: shoppingLoading ? c.disabled : c.primary }]}>
                 {shoppingLoading ? (
                   <ActivityIndicator color="#FFF" size="small" />
                 ) : (
@@ -395,7 +389,7 @@ export default function PantryScreen() {
                     </Text>
                   </>
                 )}
-              </LinearGradient>
+              </View>
             </TouchableOpacity>
           </View>
 
