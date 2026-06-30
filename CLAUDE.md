@@ -76,6 +76,7 @@ uvicorn main:app --reload
 | `GROQ_API_KEY` | Groq API key (llama-3.3-70b-versatile) |
 | `SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_KEY` | Supabase service-role key |
+| `SUPABASE_JWT_SECRET` | **Required for legacy (HS256) Supabase projects** — the shared JWT secret used to verify user access tokens in `routers/auth.py`. Not needed for projects using asymmetric (ES256/RS256) signing keys (those verify against the JWKS at `{SUPABASE_URL}/auth/v1/.well-known/jwks.json`). If a project is on HS256 and this is unset, all authenticated requests return 401 (fail-closed). |
 | `ALLOWED_ORIGINS` | CORS origins, comma-separated |
 | `CACHE_TTL_SECONDS` | AI response cache TTL (default 3600) |
 | `PEXELS_API_KEY` | Pexels image search API key (image-cascade fallback; set in Railway) |
@@ -396,6 +397,7 @@ Meals and recipes can be shared as browsable links anyone can open.
 
 - Supabase email+password auth.
 - `app/_layout.tsx` listens to `supabase.auth.onAuthStateChange`; calls `setAuthToken(token)` to cache the JWT.
+- **Backend verifies the JWT signature before trusting `sub`** (`routers/auth.py`): HS256 tokens are verified against `SUPABASE_JWT_SECRET`; ES256/RS256 tokens against the project JWKS (`{SUPABASE_URL}/auth/v1/.well-known/jwks.json`). Expiry + audience (`authenticated`) are checked; verification **fails closed** (unverifiable token → unauthenticated). The backend uses the service-role key (RLS-bypassing) and isolates users solely by this verified `sub`, so signature verification is the security boundary — never weaken it back to an unverified decode.
 - Unauthenticated users can still generate meals and parse recipes (endpoints with `get_optional_user_id`).
 - Authenticated-only: saving recipes, history, pantry, profile (`require_user_id`).
 - Onboarding: first-run screen (`hasOnboarded` flag in store) prompts profile setup before sending to the main tabs.
@@ -430,6 +432,7 @@ Meals and recipes can be shared as browsable links anyone can open.
 ## Known Patterns / Conventions
 
 - **Backend error handling**: `ValueError` → HTTP 422; `GroqTransientError` (RateLimitError/APIConnectionError/APIStatusError) → HTTP 503; uncaught exceptions → HTTP 500.
+- **SSRF guard on URL fetch**: `utils/scraper.py` (`/recipes/parse`) accepts a user-supplied URL, so `_assert_public_http_url()` enforces an http(s)-only scheme allowlist and resolves the host, rejecting any answer in loopback/private/link-local/reserved/multicast ranges (blocks cloud metadata `169.254.169.254`, `localhost`, internal hosts). Redirects are followed **manually** (`follow_redirects=False`, max 5 hops) so every hop is re-validated — a public URL can't 30x-redirect into an internal address.
 - **Cache key**: MD5 of sorted JSON of the filters dict (excluding `recent_ratings` for plan cache keys to avoid thrashing). **`avoid_meals` is NOT excluded** — it must stay in the key so a growing exclusion list forces fresh, non-repeating results.
 - **Token limits**: budgets are right-sized to the response so Groq's per-minute token (TPM) reservation — which counts the *requested* `max_tokens`, not just what's generated — isn't blown on every call (the old flat 6000 was a 3-meal-era leftover and caused 429→503 rate-limit storms now that generation is one meal per call). `generate_meal_plan`/`swap_meal` use `_meal_max_tokens(n_slots)` (≈3600 for one slot); `generate_recipe_by_name` uses 4500; `parse_recipe` uses 4000. A single rich meal/recipe response is ~1.5–2k output tokens, so these are comfortably above the truncation threshold. Don't raise them back toward 6000 — that reintroduces the rate-limit storms. If a response ever truncates (→ 422 on JSON parse), bump that one call's budget by ~1000, don't blanket-raise.
 - **CORS**: `main.py` allows `GET, POST, PUT, PATCH, DELETE, OPTIONS`. `PATCH` is required for `/recipes/{id}/labels`.

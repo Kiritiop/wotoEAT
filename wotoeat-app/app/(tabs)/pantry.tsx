@@ -21,7 +21,7 @@ import { getPantry, replacePantry, deletePantryItem, generateShoppingList } from
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PantryTagPicker } from "@/components/PantryTagPicker";
-import { formatShoppingListText, countShoppingItems } from "@/utils/shopping";
+import { formatShoppingListText, countShoppingItems, displayCategory } from "@/utils/shopping";
 import { IngredientRow } from "@/components/IngredientRow";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";

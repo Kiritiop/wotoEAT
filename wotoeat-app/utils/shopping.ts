@@ -1,5 +1,14 @@
 import type { ShoppingList } from "@/services/api";
 
+/**
+ * Display label for a shopping-group category. Ingredients auto-added when a meal
+ * is confirmed are bucketed under the internal key `meal-<dish name>`; strip that
+ * prefix so the heading reads as the dish name instead of "meal-Kung Pao Chicken".
+ */
+export function displayCategory(category: string): string {
+  return category.startsWith("meal-") ? category.slice("meal-".length) : category;
+}
+
 /** Formats a shopping list into a share-friendly plain-text string. */
 export function formatShoppingListText(list: ShoppingList, language = "en"): string {
   const checked = "[x]";
@@ -7,7 +16,7 @@ export function formatShoppingListText(list: ShoppingList, language = "en"): str
   const title = language === "zh" ? "wotoEAT 购物清单" : "wotoEAT Shopping List";
   const lines: string[] = [title];
   for (const group of list.groups) {
-    lines.push(`\n${group.category.toUpperCase()}`);
+    lines.push(`\n${displayCategory(group.category).toUpperCase()}`);
     for (const item of group.items) {
       lines.push(`${item.checked ? checked : unchecked} ${item.name}`);
     }

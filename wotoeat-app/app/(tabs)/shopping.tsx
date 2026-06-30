@@ -16,7 +16,7 @@ import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useAppStore } from "@/store/useAppStore";
 import { generateShoppingList, saveCurrentShoppingList } from "@/services/api";
-import { formatShoppingListText, countShoppingItems } from "@/utils/shopping";
+import { formatShoppingListText, countShoppingItems, displayCategory } from "@/utils/shopping";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 
@@ -142,7 +142,7 @@ export default function ShoppingScreen() {
           }
           renderItem={({ item: group }) => (
             <View style={styles.group}>
-              <Text style={[styles.groupLabel, { color: c.textPlaceholder }]}>{group.category}</Text>
+              <Text style={[styles.groupLabel, { color: c.textPlaceholder }]}>{displayCategory(group.category)}</Text>
               {group.items.map((item) => (
                 <IngredientRow
                   key={item.name}
