@@ -5,6 +5,7 @@ from db.models import UpsertPantryRequest, ScanReceiptRequest, ScanReceiptRespon
 from db import supabase_client as db
 from ai.claude import scan_receipt, GroqTransientError
 from ai.sqlite_cache import rate_limit_check
+from utils.errors import server_error
 from .auth import require_user_id
 
 router = APIRouter(tags=["pantry"])
@@ -25,7 +26,7 @@ async def get_pantry(user_id: str = Depends(require_user_id)):
     try:
         return db.get_pantry(user_id)
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise server_error("pantry.get", exc, "Could not load pantry.")
 
 
 @router.post("/", response_model=list[dict])
@@ -41,7 +42,7 @@ async def upsert_pantry(
         items = [item.model_dump() for item in req.items]
         return db.replace_pantry(user_id, items)
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise server_error("pantry.upsert", exc, "Could not save pantry.")
 
 
 
@@ -55,7 +56,7 @@ async def delete_pantry_item(
         db.delete_pantry_item(user_id, item_name)
         return {"deleted": item_name}
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise server_error("pantry.delete", exc, "Could not delete pantry item.")
 
 
 @router.post("/scan-receipt", response_model=ScanReceiptResponse)
@@ -100,5 +101,5 @@ async def scan(
             detail="AI service is temporarily at capacity. Please try again in a few minutes.",
         )
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"AI scan error: {exc}")
+        raise server_error("pantry.scan", exc, "Could not scan receipt. Please try again.")
     return ScanReceiptResponse(**result)

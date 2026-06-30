@@ -20,6 +20,7 @@ import * as Haptics from "expo-haptics";
 import { getSavedRecipes, deleteRecipe, updateRecipe, saveRecipe, getMealHistory, generateRecipeByName, updateRecipeLabels, createShare, shareWebUrl } from "@/services/api";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { useAppStore } from "@/store/useAppStore";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -140,11 +141,12 @@ export default function RecipesScreen() {
           const parsed = parseFloat(i.amount);
           return { name: i.name.trim(), amount: isNaN(parsed) ? (i.amount.trim() || 1) : parsed, unit: i.unit.trim() };
         });
+      const cals = parseInt(editCalories, 10);
       const recipePayload = {
         title: editTitle.trim(),
-        servings: parseInt(editServings) || 1,
-        prep_time_mins: parseInt(editPrepTime) || 0,
-        calories_per_serving: editCalories.trim() ? parseInt(editCalories) : undefined,
+        servings: parseInt(editServings, 10) || 1,
+        prep_time_mins: parseInt(editPrepTime, 10) || 0,
+        calories_per_serving: Number.isNaN(cals) ? undefined : cals,
         ingredients,
         steps: editSteps.filter((s) => s.trim()),
         tags: editTags,
@@ -203,7 +205,7 @@ export default function RecipesScreen() {
       setRefreshing(false);
       setLoading(false);
     }
-  }, [authReady]);
+  }, [authReady, setAllRecipeLabels]);
 
   useFocusEffect(useCallback(() => { void loadRecipes(); }, [loadRecipes]));
 
@@ -344,7 +346,20 @@ export default function RecipesScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* Sub-tab bar + search icon */}
+      <ScreenHeader
+        title={t("tab_my_recipes")}
+        right={
+          activeTab !== "history" ? (
+            <TouchableOpacity
+              style={styles.searchIconBtn}
+              onPress={() => { setShowSearch((v) => !v); if (showSearch) setSearchText(""); Haptics.selectionAsync(); }}
+            >
+              <Ionicons name={showSearch ? "close" : "search"} size={20} color={c.textMuted} />
+            </TouchableOpacity>
+          ) : undefined
+        }
+      />
+      {/* Sub-tab bar */}
       <View style={[styles.tabBarRow, { borderBottomColor: c.border, backgroundColor: c.surface }]}>
         <View style={styles.tabBar}>
           {TABS.map(({ key, label, icon }) => (
@@ -360,14 +375,6 @@ export default function RecipesScreen() {
             </TouchableOpacity>
           ))}
         </View>
-        {activeTab !== "history" && (
-          <TouchableOpacity
-            style={styles.searchIconBtn}
-            onPress={() => { setShowSearch((v) => !v); if (showSearch) setSearchText(""); Haptics.selectionAsync(); }}
-          >
-            <Ionicons name={showSearch ? "close" : "search"} size={20} color={c.textMuted} />
-          </TouchableOpacity>
-        )}
       </View>
       {showSearch && (
         <View style={[styles.searchBar, { backgroundColor: c.inputBg, borderColor: c.border }]}>

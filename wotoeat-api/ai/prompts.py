@@ -164,6 +164,69 @@ Respond with ONLY valid JSON, no markdown:
 }}"""
 
 
+def _profile_constraints_block(profile: dict) -> str:
+    """Surface the safety-critical and goal-shaping profile fields as explicit,
+    prioritized constraints instead of leaving them buried in the filters JSON.
+
+    A real user fills in allergies / dietary restrictions / health goals expecting
+    suggestions to honour them — an allergen or "vegetarian" violation is a trust-
+    breaking failure, so these are stated as hard constraints that override every
+    taste/pantry preference. Built outside the prompt f-string so its literal
+    braces (the no_match JSON) pass through untouched.
+    """
+    if not profile:
+        return ""
+    allergies = [str(a).strip() for a in (profile.get("allergies") or []) if str(a).strip()]
+    restrictions = [str(r).strip() for r in (profile.get("dietary_restrictions") or []) if str(r).strip()]
+    goals = [str(g).strip() for g in (profile.get("health_goals") or []) if str(g).strip()]
+    calorie_goal = profile.get("calorie_goal")
+    protein_goal = profile.get("protein_goal_g")
+
+    parts: list[str] = []
+
+    if allergies or restrictions:
+        safety = ["\nDIETARY SAFETY — ABSOLUTE HARD CONSTRAINTS (override cuisine, flavour, pantry, and required tags):"]
+        if allergies:
+            safety.append(
+                f'- ALLERGIES: {", ".join(allergies)}. The dish and EVERY ingredient must be completely free of these '
+                'AND their derivatives (e.g. "peanuts" also rules out peanut oil and satay sauce; "shellfish" rules out '
+                'shrimp, crab and lobster; "dairy" rules out milk, butter, cheese, cream and yoghurt). If you are unsure '
+                'whether an ingredient contains the allergen, leave it out.'
+            )
+        if restrictions:
+            safety.append(
+                f'- DIETARY RESTRICTIONS: {", ".join(restrictions)}. Every dish must fully comply (vegetarian = no meat, '
+                'poultry, fish or seafood; vegan = no animal products at all, including eggs, dairy and honey; halal = no '
+                'pork or alcohol; gluten-free = no wheat, barley, rye or regular soy sauce; keto/low-carb = minimal starches '
+                'and sugar). Choose or adapt a real dish that complies — NEVER suggest one that violates a restriction.'
+            )
+        safety.append(
+            'Safety wins over every preference: if a required tag or pantry item conflicts with an allergy or restriction, '
+            'do NOT compromise — return the {"error": "no_match", ...} response instead.'
+        )
+        parts.append("\n".join(safety))
+
+    if goals or calorie_goal or protein_goal:
+        goal_lines = ["\nHEALTH GOALS — tailor every suggestion to these:"]
+        if goals:
+            goal_lines.append(
+                f'- Goals: {", ".join(goals)}. For weight loss, favour lower-calorie, high-protein, high-fibre, '
+                'vegetable-forward dishes and avoid deep-fried or heavy-cream ones; for building or gaining muscle, favour '
+                'protein-rich dishes (aim for 30g+ protein per serving); otherwise keep meals balanced.'
+            )
+        if calorie_goal:
+            goal_lines.append(
+                f'- Daily calorie target ~{calorie_goal} kcal: keep each meal\'s calories_per_serving a sensible share of '
+                'this (around a third for a main meal, less for breakfast or a lighter slot); never suggest a single meal '
+                'that alone exceeds the daily target.'
+            )
+        if protein_goal:
+            goal_lines.append(f'- Daily protein target ~{protein_goal} g: prefer dishes that help reach it.')
+        parts.append("\n".join(goal_lines))
+
+    return ("\n".join(parts) + "\n") if parts else ""
+
+
 def meal_generate_prompt(filters: dict, language: str = "en") -> str:
     """One rich meal per requested slot (ingredients, steps, macros)."""
     lang_note = _lang(language)
@@ -202,6 +265,9 @@ def meal_generate_prompt(filters: dict, language: str = "en") -> str:
     else:
         required_block = ""
 
+    # Build the dietary-safety + health-goal block from the user's profile.
+    safety_block = _profile_constraints_block(filters.get("profile") or {})
+
     # Build the pantry-priority block — prefer dishes that reuse what the user has.
     pantry_items = filters.get("pantry") or []
     if pantry_items:
@@ -238,7 +304,7 @@ For {servings} {serving_word}. Match ALL active (non-null) filters below.
 {f"DO NOT suggest any of these (disliked): {', '.join(disliked)}" if disliked else ""}
 FILTERS:
 {json.dumps(display_filters, indent=2)}
-{required_block}{pantry_block}{style_block}
+{safety_block}{required_block}{pantry_block}{style_block}
 AUTHENTICITY — THIS IS THE MOST IMPORTANT RULE:
 - Every dish MUST be a REAL, established dish that people actually cook — something you would
   find on a restaurant menu or in a published cookbook, with many recipes findable online.
@@ -256,6 +322,7 @@ RULES:
 - Every dish must satisfy ALL active (non-null) filters
 - difficulty must be one of: "easy", "medium", "hard"
 - prep_time_mins is realistic total time including cooking
+- If max_prep_time_mins is set in the filters, prep_time_mins MUST be at or under it — pick a faster real dish rather than exceed the user's time limit
 - description: 1–2 sentences capturing the dish's flavor profile and what makes it special — written warmly.
 - ingredients: flat list scaled for {servings} serving(s), e.g. ["300g chicken breast", "2 tbsp soy sauce"]
 - components.vegetable / .protein / .staple: short component names (e.g. "broccoli", "chicken", "rice")

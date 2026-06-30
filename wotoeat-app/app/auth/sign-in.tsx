@@ -10,6 +10,7 @@ import {
   Image,
 } from "react-native";
 import { Link } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -17,6 +18,7 @@ import { LanguageToggle } from "@/components/LanguageToggle";
 
 export default function SignInScreen() {
   const c = useTheme();
+  const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -48,7 +50,7 @@ export default function SignInScreen() {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <View style={styles.langRow}>
+      <View style={[styles.langRow, { paddingTop: insets.top + 8 }]}>
         <LanguageToggle />
       </View>
       <View style={styles.inner}>
@@ -106,7 +108,7 @@ export default function SignInScreen() {
 function makeStyles(c: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: c.bg },
-    langRow: { alignItems: "flex-end", paddingHorizontal: 20, paddingTop: 56 },
+    langRow: { alignItems: "flex-end", paddingHorizontal: 20 },
     inner: { flex: 1, justifyContent: "center", paddingHorizontal: 28, gap: 12 },
     logoWrap: {
       width: 100, height: 100,

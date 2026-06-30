@@ -164,7 +164,10 @@ def _meal_max_tokens(n_slots: int) -> int:
 # Recipe parsing
 # ---------------------------------------------------------------------------
 
-async def parse_recipe(html: str, language: str = "en") -> dict:
+async def parse_recipe(html: str) -> dict:
+    # No `language` arg: the recipe is parsed in its source language and the
+    # frontend's dynamic-translation layer localizes it for display. Passing a
+    # language here would only add AI cost for no benefit.
     text = await _generate(recipe_parse_prompt(html), max_tokens=4000)
     result = json.loads(_clean_json(text))
     if "error" in result:

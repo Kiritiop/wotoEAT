@@ -10,6 +10,7 @@ import {
   Image,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/hooks/useTheme";
@@ -17,6 +18,7 @@ import { useTranslation } from "@/hooks/useTranslation";
 
 export default function ForgotPasswordScreen() {
   const c = useTheme();
+  const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -55,7 +57,7 @@ export default function ForgotPasswordScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <View style={styles.inner}>
-        <TouchableOpacity style={styles.back} onPress={() => router.back()}>
+        <TouchableOpacity style={[styles.back, { top: insets.top + 12 }]} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={22} color={c.primary} />
           <Text style={[styles.backText, { color: c.primary }]}>{t("back")}</Text>
         </TouchableOpacity>
@@ -107,7 +109,7 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: c.bg },
     inner: { flex: 1, justifyContent: "center", paddingHorizontal: 28, gap: 12 },
-    back: { flexDirection: "row", alignItems: "center", gap: 4, position: "absolute", top: 60, left: 28 },
+    back: { flexDirection: "row", alignItems: "center", gap: 4, position: "absolute", left: 28 },
     backText: { fontSize: 15, fontWeight: "600" },
     logoWrap: {
       width: 100, height: 100,

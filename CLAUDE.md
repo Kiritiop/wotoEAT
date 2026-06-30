@@ -70,7 +70,20 @@ uvicorn main:app --reload
 # or via Procfile: web: uvicorn main:app --host 0.0.0.0 --port $PORT
 ```
 
+### Tests (`wotoeat-api/tests/`)
+Plain runnable scripts (no pytest dependency); each exits non-zero on failure.
+- **Offline, deterministic** (no network / LLM / key — safe in CI):
+  - `venv/bin/python tests/test_scraper_ssrf.py` — locks the SSRF guard (loopback/private/link-local/metadata/bad-scheme blocked, public allowed). **Keep green if you touch `_assert_public_http_url`.**
+  - `venv/bin/python tests/test_clean_json.py` — `_clean_json`/`_NUM_EXPR_RE`: resolves bare arithmetic in numeric positions, never mangles digits inside strings (URLs, "1/2 cup").
+  - `venv/bin/python tests/test_models.py` — Pydantic validators that sanitize LLM output: `Ingredient.coerce_amount` (fraction parsing, non-positive/unparseable → None) and `ScannedItem.empty_to_none` ("null"/"none"/"" → None).
+  - `venv/bin/python tests/test_profile_constraints.py` — `_profile_constraints_block`: allergies/restrictions emit the ABSOLUTE-hard-constraint block + `no_match` override; goals/calorie/protein emit the tailoring block; empty/blank profiles emit nothing; and the block is actually injected into `meal_generate_prompt`. Guards that meal generation can't silently stop honouring allergies.
+- **Live-LLM** (needs `GROQ_API_KEY`, mild flake): `venv/bin/python tests/test_receipt_normalize.py` — receipt Stage-2 prompt contract.
+
 ### Environment Variables (`wotoeat-api/.env`)
+Copy `wotoeat-api/.env.example` → `.env` and fill in (the example lists exactly the
+vars the code reads via `os.getenv`). Note: `wotoeat-api/.gitignore` needs the
+`!.env.example` negation or the template is silently ignored (it has its own `.env.*`).
+
 | Variable | Purpose |
 |---|---|
 | `GROQ_API_KEY` | Groq API key (llama-3.3-70b-versatile) |
@@ -88,8 +101,8 @@ uvicorn main:app --reload
 | Prefix | File | Description |
 |---|---|---|
 | `GET /` | `main.py` | Health check |
-| `POST /meals/generate` | `routers/meals.py` | **Primary**: slot-aware rich meal plan (ingredients, steps, macros, tags) |
-| `POST /meals/swap` | `routers/meals.py` | Swap one slot in an existing plan |
+| `POST /meals/generate` | `routers/meals.py` | **Primary**: slot-aware rich meal plan (ingredients, steps, macros, tags). Optional auth; rate-limited 150/hr per identity (shared `meal-ai` budget with swap) |
+| `POST /meals/swap` | `routers/meals.py` | Swap one slot in an existing plan. Optional auth; shares the 150/hr `meal-ai` budget |
 | `GET /meals/history` | `routers/meals.py` | User's past meal history (requires auth) |
 | `POST /recipes/parse` | `routers/recipes.py` | Parse recipe from URL (rate-limited 20/hr per IP) |
 | `POST /recipes/generate` | `routers/recipes.py` | Generate full recipe for a named dish (rate-limited 30/hr per user) |
@@ -104,19 +117,19 @@ uvicorn main:app --reload
 | `POST /pantry/scan-receipt` | `routers/pantry.py` | Extract food items from a receipt photo (requires auth; rate-limited 10/hr per user; annotate-only — writes nothing) |
 | `GET /profile/` | `routers/profile.py` | Get health profile |
 | `PUT /profile/` | `routers/profile.py` | Upsert health profile |
-| `POST /shopping/generate` | `routers/shopping.py` | Generate shopping list from recipes minus pantry (also best-effort inserts a `shopping_lists` history row if authed — never read back) |
+| `POST /shopping/generate` | `routers/shopping.py` | Generate shopping list from recipes minus pantry (also best-effort inserts a `shopping_lists` history row if authed — never read back). Optional auth; rate-limited 40/hr per identity (`shopping-ai`) |
 | `GET /shopping/current` | `routers/shopping.py` | Get the persisted "current" shopping list (requires auth; read on app startup) |
 | `PUT /shopping/current` | `routers/shopping.py` | Upsert the "current" shopping list (requires auth; debounced save from Shopping tab) |
 | `GET /shopping/history` | `routers/shopping.py` | List saved shopping lists (optional auth; **no frontend caller**) |
 | `PATCH /recipes/{id}/labels` | `routers/recipes.py` | Update recipe labels (favorite, mine, etc.) |
-| `GET /images/search` | `routers/images.py` | Food image cascade — TheMealDB → Pexels → Unsplash (returns `{url}`) |
+| `GET /images/search` | `routers/images.py` | Food image cascade — TheMealDB → Pexels → Unsplash (returns `{url}`; SQLite-cached; rate-limited 100 novel lookups/hr per IP) |
 | `POST /share` | `routers/share.py` | Create a public share (`{kind:"recipe"\|"meal", payload}`) → `{id}`; optional auth; rate-limited 30/hr per client |
 | `GET /share/{id}` | `routers/share.py` | **Public, no auth** — fetch a shared meal/recipe payload (404 if missing) |
 
 ### AI Layer (`ai/`)
 
 **`ai/prompts.py`** — All prompt templates:
-- `meal_generate_prompt(filters, language)` — rich slot-based plan; handles `required_ingredients` enforcement (see Tag Filtering section below)
+- `meal_generate_prompt(filters, language)` — rich slot-based plan; handles `required_ingredients` enforcement (see Tag Filtering section below). Calls `_profile_constraints_block(profile)` to surface the user's **allergies + dietary restrictions as ABSOLUTE hard constraints** (override cuisine/flavour/pantry/required-tags; a required tag that conflicts with safety returns `no_match`) and their **health goals / calorie / protein targets** as dish-shaping guidance — placed right after the FILTERS JSON so the model doesn't treat them as just another buried field. Also enforces `max_prep_time_mins` as a hard cap on `prep_time_mins`. Both generate and swap go through this prompt, so both honour the constraints.
 - `generate_recipe_prompt(dish_name, language, servings)` — full recipe by dish name
 - `recipe_parse_prompt(html)` — extract recipe from scraped HTML
 - `shopping_list_prompt(recipes, pantry, language)` — de-duplicated shopping list with pantry subtraction
@@ -127,7 +140,7 @@ uvicorn main:app --reload
 
 **`ai/claude.py`** — Async wrappers around the Groq client (`llama-3.3-70b-versatile`):
 - `generate_meal_plan(filters)` → `(dict, cached_bool)` — raises `ValueError` if AI returns `{"error": "no_match", ...}` (unsatisfiable required tags)
-- `parse_recipe(html, language)` → `dict`
+- `parse_recipe(html)` → `dict` (no `language` arg — recipes are parsed in their source language and localized client-side by the dynamic-translation layer; `ParseRecipeRequest.language` is still accepted for API-contract compatibility but unused)
 - `generate_recipe_by_name(dish_name, language, servings, force_refresh)` → `dict` (cached 7 days; `force_refresh=True` bypasses cache — used by the Regenerate button)
 - `generate_shopping_list(recipes, pantry, language)` → `dict`
 - `swap_meal(slot, current_plan, filters)` → `dict` (`current_plan` optional; exclusion is driven by `filters["avoid_meals"]` = today's seen list; filters also include cuisine, flavour, max_prep_time_mins, required_ingredients, meal_style)
@@ -159,7 +172,7 @@ Key models:
 ### Database Tables (Supabase)
 | Table | Purpose |
 |---|---|
-| `pantry` | User's pantry items — **name-only**: `(id, user_id, name, updated_at)`, `UNIQUE(user_id, name)`. No quantity/unit columns exist anywhere in the stack. |
+| `pantry` | User's pantry items: `(id, user_id, name, category, updated_at)`, `UNIQUE(user_id, name)`. `category` is an optional display-grouping override (null → derived from name by the frontend); `replace_pantry` persists it. **No quantity/unit columns** exist anywhere in the stack. |
 | `saved_recipes` | Full recipe JSON per user |
 | `meal_history` | Daily meal batches (user_id, date, meals JSON). Written by suggest/generate/swap **iff authed && response not cached**; read by History/Recipes tabs; never fed back into generation. |
 | `user_profiles` | Health profile per user (read once at app startup; generation uses the locally-cached profile sent in the request body) |
@@ -224,6 +237,8 @@ Only 4 tabs are visible in the tab bar: Today, Pantry, My Recipes, Profile.
 - `IngredientRow` (`components/IngredientRow.tsx`) — ingredient list item with cart toggle
 - `NetworkBanner` — offline indicator
 - `ErrorBanner`, `EmptyState` — common UI utilities
+- `ScreenHeader` (`components/ui/ScreenHeader.tsx`) — **the shared in-app header**. Render inside a screen's existing `SafeAreaView` (adds no top inset). `variant`-free props: `title` (Pantry/Recipes/Profile/Shopping…) OR `greeting`+`subtitle` (Today), an optional `right` action slot, and `onBack` (shows a back chevron instead of the logo brand mark). Used by every in-app tab/screen so the shell is consistent; the tab screens that use it set `headerShown: false` in `app/(tabs)/_layout.tsx`.
+- `PinnedBar` (`components/ui/PinnedBar.tsx`) — bottom-anchored container for a screen's single primary action so it stays in the thumb zone and never scrolls away. Render as the last child of the `SafeAreaView`, after a `flex: 1` ScrollView/List. Used by Today (the Generate FAB).
 
 ### State (`store/useAppStore.ts`)
 Persisted to AsyncStorage under key `wotoeat-store`. Fields:
@@ -291,7 +306,7 @@ Key functions: `generateMeals` (now takes `avoid_meals`), `swapMeal` (no `curren
 - **Save** (bookmark): calls `saveRecipe` → stores in Supabase `saved_recipes`.
 - **Confirm** (checkmark): adds meal to `selectedRecipes` in store; auto-adds missing ingredients to shopping list.
 - **Tag tap**: adds tag to required filters, opens filter panel.
-- **Detail modal**: tap card body → bottom sheet with macros, full ingredients (scalable by serving stepper), steps, image from Pexels. Ingredients already in the pantry show a green **"In pantry"** marker (per-ingredient, via `ingInPantry`). Footer has a **Share** action (`createShare("meal", …)` → share sheet with a `/share/<id>` link).
+- **Detail modal**: tap card body → bottom sheet with macros, full ingredients (scalable by serving stepper), steps, image from Pexels. Ingredients already in the pantry show a green **"In pantry"** marker (per-ingredient, via `ingInPantry` → `pantryNameMatches`, a **word-aware** matcher: both names are first normalized to canonical English via `toCanonicalEnglish` (exact-match curated reverse map — so an English pantry item matches a Chinese ingredient string in zh mode, e.g. "chicken breast"↔"鸡胸肉", and it can never invent a match); then every word of the shorter name must match a word of the longer one, where a word matches if equal or a ≥4-char prefix — so plurals/morphology still match (tomato↔tomatoes) but loose substrings no longer false-positive (egg≠eggplant, oil≠"boiling water", "soy sauce"≠"fish sauce"); CJK that isn't in the curated map falls back to containment. `missingIngredients` is `!ingInPantry` — the shopping-list auto-add and the badge share one matcher). Footer has a **Share** action (`createShare("meal", …)` → share sheet with a `/share/<id>` link).
 
 ### Filter Options
 - **Meal type**: Auto (inferred), Breakfast, Lunch, Dinner — **single-select**, one meal generated per tap
@@ -376,6 +391,8 @@ Closes the input side of the pantry loop: photograph a grocery receipt → AI ex
 
 - `services/imageSearch.ts` → calls `GET /images/search?q=<meal name>`.
 - Backend runs a **food-specific cascade** (`routers/images.py`): **TheMealDB** (real photographed dish when the name matches a known recipe — free, no key) → **Pexels** (food-tuned stock query; needs `PEXELS_API_KEY`) → **Unsplash** (optional, needs `UNSPLASH_ACCESS_KEY`). Returns `{url}` or `{url: null}`.
+- **Results are cached** in the SQLite TTL cache (key `img:<lowercased query>`): a found URL for 7 days, a miss for 6 hours (so a transient upstream failure — e.g. a rate-limited Pexels call — recovers on the next request). The same dish name never re-hits the external APIs within the TTL.
+- **Rate-limited** 100 novel lookups/hour per IP (`image-search`). The cache is checked **before** the limiter, so cache hits/misses don't count — only genuine new external lookups do; normal browsing is never limited, but a flood of distinct queries (key-burning abuse) is capped. On limit it degrades to `{url: null}` (placeholder) and does **not** cache that, since the cap is transient. The endpoint is unauthenticated, so the limit is per-IP via `request.client.host`.
 - **Wikipedia was removed** — its loose title-matching returned unrelated images ("random stuff"). Returning `{url: null}` (→ placeholder) is preferred over a wrong image.
 - Images shown as hero in the meal detail modal, rendered via **`expo-image`** (`contentFit="cover"`, `cachePolicy="memory-disk"`, 200ms fade) for memory+disk caching.
 - **Fetched lazily**: each `MealSlotCard` only calls `searchMealImage` once its detail modal is first opened (guarded by a `fetchedImageFor` ref keyed on `meal.name`), not on card mount — so the growing meal stream no longer fires an image search per card up-front.
@@ -431,7 +448,9 @@ Meals and recipes can be shared as browsable links anyone can open.
 
 ## Known Patterns / Conventions
 
-- **Backend error handling**: `ValueError` → HTTP 422; `GroqTransientError` (RateLimitError/APIConnectionError/APIStatusError) → HTTP 503; uncaught exceptions → HTTP 500.
+- **Numeric text inputs**: parse with an explicit radix (`parseInt(v, 10)`) and reject `NaN` before storing — `keyboardType` is ignored on web (this app ships to Vercel), so a user can type/paste non-numeric text. The profile fields (age/calorie/protein) and the recipe-edit calories field guard `Number.isNaN(n)`; don't store a raw `parseInt` result, or `NaN` leaks into state and renders as the literal "NaN" (and serializes to `null` on save).
+- **Rate limiting (every AI / external-cost endpoint)**: all paid-AI and external-API endpoints go through `ai.sqlite_cache.rate_limit_check(key, action, max, window)`. Key = `user_id` for authed-only endpoints, else `user_id or request.client.host` for optional-auth ones (anon falls back to IP). Current caps: meals generate+swap share **150/hr** (`meal-ai`); shopping generate **40/hr** (`shopping-ai`); recipe parse **20/hr per IP**; recipe generate **30/hr**; receipt scan **10/hr**; share create **30/hr**; image search **100 novel lookups/hr per IP** (cache hits exempt). Don't leave a new AI endpoint unlimited — it's an unauthenticated cost/abuse vector.
+- **Backend error handling**: `ValueError` → HTTP 422; `GroqTransientError` (RateLimitError/APIConnectionError/APIStatusError) → HTTP 503; uncaught exceptions → HTTP 500. **Never leak `{exc}` in client responses** — routers route their generic `except Exception` through `utils/errors.server_error(context, exc, message)`, which logs the full exception with traceback server-side (logger `wotoeat`) and returns a fixed, user-safe `detail`. The 422 (`ValueError`) and 503 (`GroqTransientError`) bodies are kept verbatim because the frontend keys off them (`no_receipt`/`no_food_items`/`unreadable_receipt` in `scan.tsx`; `no dish`/`required tags` in `discover.tsx`); the user-facing `/recipes/parse` fetch-failure 422 is also kept (it surfaces the user's own bad/blocked URL).
 - **SSRF guard on URL fetch**: `utils/scraper.py` (`/recipes/parse`) accepts a user-supplied URL, so `_assert_public_http_url()` enforces an http(s)-only scheme allowlist and resolves the host, rejecting any answer in loopback/private/link-local/reserved/multicast ranges (blocks cloud metadata `169.254.169.254`, `localhost`, internal hosts). Redirects are followed **manually** (`follow_redirects=False`, max 5 hops) so every hop is re-validated — a public URL can't 30x-redirect into an internal address.
 - **Cache key**: MD5 of sorted JSON of the filters dict (excluding `recent_ratings` for plan cache keys to avoid thrashing). **`avoid_meals` is NOT excluded** — it must stay in the key so a growing exclusion list forces fresh, non-repeating results.
 - **Token limits**: budgets are right-sized to the response so Groq's per-minute token (TPM) reservation — which counts the *requested* `max_tokens`, not just what's generated — isn't blown on every call (the old flat 6000 was a 3-meal-era leftover and caused 429→503 rate-limit storms now that generation is one meal per call). `generate_meal_plan`/`swap_meal` use `_meal_max_tokens(n_slots)` (≈3600 for one slot); `generate_recipe_by_name` uses 4500; `parse_recipe` uses 4000. A single rich meal/recipe response is ~1.5–2k output tokens, so these are comfortably above the truncation threshold. Don't raise them back toward 6000 — that reintroduces the rate-limit storms. If a response ever truncates (→ 422 on JSON parse), bump that one call's budget by ~1000, don't blanket-raise.
@@ -441,11 +460,13 @@ Meals and recipes can be shared as browsable links anyone can open.
 - **Semantic pantry matching**: `_MATCHING_RULES` in `prompts.py` teaches the AI to match ingredient types (e.g. "巴沙鱼" satisfies "white fish").
 - **Shopping list category**: meals use `meal-{meal.name}` as the shopping list category key (names are unique within a day via seen-meals exclusion).
 - **Pantry priority**: `meal_generate_prompt` has a `PANTRY PRIORITY` block instructing the AI to prefer dishes that reuse pantry ingredients and to fill `uses_pantry_items` (without violating other filters). The pantry list is surfaced explicitly (no longer buried in `display_filters`).
+- **Dietary safety + goal tailoring** (`_profile_constraints_block`): the profile's `allergies` and `dietary_restrictions` are stated as ABSOLUTE hard constraints that override every taste/pantry/required-tag preference (allergen derivatives spelled out — "peanuts" also rules out peanut oil/satay; "shellfish" rules out shrimp/crab/lobster); a required tag conflicting with a safety constraint must return `no_match` rather than suggest a violating dish. `health_goals`/`calorie_goal`/`protein_goal_g` shape dish choice (weight-loss → lower-cal/high-fibre/veg-forward; build-muscle → 30g+ protein). The hierarchy is **safety > active filters > pantry/goal preference**. This is the highest-trust behaviour: a user fills in allergies/restrictions expecting them honoured, so they are emphasised, not left buried in the filters JSON. Applies to both generate and swap (swap reuses the same prompt). Don't weaken the safety override.
 - **Tags always English**: the AI is instructed to return tags in English regardless of response language. Frontend translates via `TAG_ZH` at render time.
 - **Pantry names are canonical English** (same convention as tags): receipt scan returns `name` always-English plus `name_zh` for display; `PantryTagPicker` built-ins already store English (its zh labels are display-only). All pantry-name display goes through `usePantryDisplay`, which **first normalizes to canonical English** via `TAG_EN`/`toCanonicalEnglish` (reverse map built from `TAG_ZH` + `PANTRY_CATEGORIES` itemsZh) so the library is single-language — then EN passes through / ZH resolves curated `TAG_ZH` → dynamic translation → raw. User-typed names (picker custom items, scan edits, renames) are stored literally; if not in the reverse map they display as typed.
 - **No calories displayed on card header**: calorie/kcal display is only visible inside the info panel (tap ℹ️ icon). Prep time is still shown in the header.
 - **Solid button colours (no gradients)**: buttons/badges/avatars use flat theme colours (`c.primary` green for actions, `SLOT_COLOUR[slot]` for meal-card headers) instead of `LinearGradient`. `expo-linear-gradient` has been **removed** from dependencies — do not reintroduce it; use solid `backgroundColor` from the `useTheme()` palette.
 - **Memoized styles**: every screen builds its stylesheet via `const styles = useMemo(() => makeStyles(c), [c])` (not a bare `makeStyles(c)` per render). `useTheme()` returns a stable module-level palette object, so the memo only recomputes on light/dark switch.
+- **UI / design system**: warm cream + green brand; design tokens in `hooks/useTheme.ts` (`space`, `radius`, `fontSize`, `shadows`, light/dark palettes) — prefer these over ad-hoc numbers. Conventions: every in-app screen renders a `ScreenHeader` at the top (consistent brand mark + title/greeting; tab screens set `headerShown: false`); the **single primary action sits in the thumb zone** (Today's Generate is a `PinnedBar` FAB that doesn't scroll away — don't move it back in-flow); titles/non-interactive elements at the top, destructive actions less prominent; touch targets ≥44pt; use `useSafeAreaInsets()`/`SafeAreaView` for insets (no hardcoded `paddingTop`). On Today, the meal-type chips (Auto/Breakfast/Lunch/Dinner) are surfaced **above** the collapsible filter panel (most-used filter, one tap). The active tab shows a soft `primaryLight` pill behind its icon (`TabIcon` in `_layout.tsx`). **Guardrail: do NOT add food images to the Today meal cards** — images are lazy-loaded only when a detail sheet opens (perf); imagery lives in detail/recipe/share sheets.
 - **Swap respects filters**: `handleSwap` passes cuisine, flavour, maxTime, requiredIngredients, and mealStyle to the backend swap endpoint.
 - **Regenerate bypasses cache**: `generateRecipeByName` accepts `force_refresh=True`; the Regenerate button (FindRecipeModal) and history Generate button both pass this flag.
 - **Web SPA routing**: `wotoeat-app/vercel.json` includes a catch-all rewrite to `index.html` so direct URL loads (e.g. `/discover`) work without a 404.

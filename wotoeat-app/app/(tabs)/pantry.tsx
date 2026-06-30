@@ -20,8 +20,9 @@ import { useAppStore } from "@/store/useAppStore";
 import { getPantry, replacePantry, deletePantryItem, generateShoppingList } from "@/services/api";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { PantryTagPicker } from "@/components/PantryTagPicker";
-import { formatShoppingListText, countShoppingItems, displayCategory } from "@/utils/shopping";
+import { formatShoppingListText, countShoppingItems } from "@/utils/shopping";
 import { IngredientRow } from "@/components/IngredientRow";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -182,6 +183,22 @@ export default function PantryScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <ScreenHeader
+        title={t("tab_pantry")}
+        right={
+          <TouchableOpacity
+            style={[styles.cartBtn, { backgroundColor: c.surfaceAlt }]}
+            onPress={() => { setShowShopping(true); Haptics.selectionAsync(); }}
+          >
+            <Ionicons name="cart-outline" size={22} color={c.primary} />
+            {selectedRecipes.length > 0 && (
+              <View style={[styles.cartBadge, { backgroundColor: c.primary }]}>
+                <Text style={styles.cartBadgeText}>{selectedRecipes.length}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        }
+      />
       <SectionList
         sections={sections}
         keyExtractor={(item) => item.name}
@@ -213,20 +230,7 @@ export default function PantryScreen() {
         }
         ListHeaderComponent={
           <View>
-            <View style={styles.headerRow}>
-              <Text style={[styles.intro, { flex: 1 }]}>{t("pantry_intro")}</Text>
-              <TouchableOpacity
-                style={[styles.cartBtn, { backgroundColor: c.surfaceAlt }]}
-                onPress={() => { setShowShopping(true); Haptics.selectionAsync(); }}
-              >
-                <Ionicons name="cart-outline" size={22} color={c.primary} />
-                {selectedRecipes.length > 0 && (
-                  <View style={[styles.cartBadge, { backgroundColor: c.primary }]}>
-                    <Text style={styles.cartBadgeText}>{selectedRecipes.length}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            </View>
+            <Text style={[styles.intro, styles.introSpacing]}>{t("pantry_intro")}</Text>
 
             <View style={styles.addRow}>
               <TouchableOpacity style={{ flex: 1 }} activeOpacity={0.9} onPress={() => { setShowTagPicker(true); Haptics.selectionAsync(); }}>
@@ -433,9 +437,9 @@ export default function PantryScreen() {
 function makeStyles(c: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.bg },
-    content: { padding: 16, paddingBottom: 40 },
-    headerRow: { flexDirection: "row", alignItems: "center", marginBottom: 12, gap: 10 },
+    content: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 40 },
     intro: { fontSize: 13, color: c.textMuted, lineHeight: 19 },
+    introSpacing: { marginBottom: 12 },
     cartBtn: { width: 44, height: 44, borderRadius: 16, alignItems: "center", justifyContent: "center" },
     cartBadge: {
       position: "absolute", top: -4, right: -4,

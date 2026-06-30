@@ -5,6 +5,7 @@ from ai.claude import parse_recipe, generate_recipe_by_name
 from ai.sqlite_cache import rate_limit_check
 from utils.scraper import fetch_page_html
 from db import supabase_client as db
+from utils.errors import server_error
 from .auth import require_user_id
 
 router = APIRouter(tags=["recipes"])
@@ -31,11 +32,11 @@ async def parse(req: ParseRecipeRequest, request: Request):
         raise HTTPException(status_code=422, detail=f"Could not fetch URL: {exc}")
 
     try:
-        recipe_dict = await parse_recipe(html, req.language)
+        recipe_dict = await parse_recipe(html)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"AI parsing error: {exc}")
+        raise server_error("recipes.parse", exc, "Could not parse recipe. Please try again.")
 
     recipe_dict.setdefault("source_url", req.url)
     return Recipe(**recipe_dict)
@@ -60,7 +61,7 @@ async def generate(
     except GroqTransientError:
         raise HTTPException(status_code=503, detail="AI service is temporarily at capacity. Please try again in a few minutes.")
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"AI generation error: {exc}")
+        raise server_error("recipes.generate", exc, "Could not generate recipe. Please try again.")
     return Recipe(**recipe_dict)
 
 
@@ -78,7 +79,7 @@ async def save(
         saved = db.save_recipe(user_id, req.recipe.model_dump())
         return saved
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Database error: {exc}")
+        raise server_error("recipes.save", exc, "Could not save recipe.")
 
 
 @router.get("/saved", response_model=list[dict])
@@ -87,7 +88,7 @@ async def list_saved(user_id: str = Depends(require_user_id)):
     try:
         return db.get_saved_recipes(user_id)
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise server_error("recipes.list_saved", exc, "Could not load recipes.")
 
 
 @router.get("/{recipe_id}", response_model=dict)
@@ -117,7 +118,7 @@ async def update(
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Database error: {exc}")
+        raise server_error("recipes.update", exc, "Could not update recipe.")
 
 
 @router.patch("/{recipe_id}/labels", response_model=dict)
@@ -135,7 +136,7 @@ async def update_labels(
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Database error: {exc}")
+        raise server_error("recipes.update_labels", exc, "Could not update recipe.")
 
 
 @router.delete("/{recipe_id}")
@@ -148,4 +149,4 @@ async def delete(
         db.delete_recipe(recipe_id, user_id)
         return {"deleted": recipe_id}
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise server_error("recipes.delete", exc, "Could not delete recipe.")

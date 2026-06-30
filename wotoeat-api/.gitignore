@@ -1,6 +1,9 @@
 # Environment variables — NEVER commit these
 .env
 .env.*
+# ...but DO commit the template (matches the root .gitignore). Without this
+# negation the .env.example onboarding template is silently un-committable.
+!.env.example
 
 # Python virtual environment
 venv/

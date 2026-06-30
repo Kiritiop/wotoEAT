@@ -53,6 +53,10 @@ export default function RootLayout() {
       setReady(true);
     });
     return () => listener.subscription.unsubscribe();
+    // Subscribe exactly once for the component's lifetime. The referenced store
+    // actions (clearMeals/setAuthReady) are stable Zustand setters, so omitting
+    // them is intentional — re-running would tear down and re-add the listener.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Load profile from backend whenever a session is established.
@@ -70,6 +74,9 @@ export default function RootLayout() {
     getCurrentShoppingList()
       .then((list) => { if (list) setShoppingList(list); })
       .catch(() => {});
+    // Keyed on the user id (not the whole session object) so a token refresh
+    // doesn't refetch the profile; the store setters are stable. Intentional.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.id, ready]);
 
   // Redirect based on auth + onboarding state
@@ -91,9 +98,12 @@ export default function RootLayout() {
         router.replace("/(tabs)/discover");
       }
     } else if (session && !inAuth && !inOnboarding && !hasOnboarded) {
-       
+
       router.replace("/onboarding" as any);
     }
+    // `router` is a stable expo-router singleton; including it would add churn
+    // without changing behaviour. The listed deps are the real redirect inputs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, ready, segments, hasOnboarded]);
 
   return (

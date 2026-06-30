@@ -1,12 +1,14 @@
 from datetime import date as _date
 import logging
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from ai.claude import GroqTransientError
 from db.models import (
     MealGenerateRequest, MealGenerateResponse, GeneratedPlan, SwapMealRequest,
 )
 from ai.claude import generate_meal_plan, swap_meal as ai_swap_meal
+from ai.sqlite_cache import rate_limit_check
 from db import supabase_client as db
+from utils.errors import server_error
 from .auth import get_optional_user_id, require_user_id
 
 logger = logging.getLogger(__name__)
@@ -15,12 +17,26 @@ router = APIRouter(tags=["meals"])
 
 _HISTORY_LIMIT = 200
 
+# These AI endpoints are unauthenticated (optional auth) and each call hits Groq,
+# so cap them per identity (user_id, else IP) to stop scripted abuse from burning
+# the AI budget. Generous enough that a human exploring meals never hits it —
+# 150 dishes/hr is one every 24s for a solid hour.
+_MEAL_AI_MAX = 150
+_MEAL_AI_WINDOW = 3600
+
+
+def _client_key(user_id: str | None, request: Request) -> str:
+    return user_id or (request.client.host if request.client else "anon")
+
 
 @router.post("/generate", response_model=MealGenerateResponse)
 async def generate_meals(
     body: MealGenerateRequest,
+    request: Request,
     user_id: str | None = Depends(get_optional_user_id),
 ):
+    if not rate_limit_check(_client_key(user_id, request), "meal-ai", _MEAL_AI_MAX, _MEAL_AI_WINDOW):
+        raise HTTPException(status_code=429, detail="Too many meal requests. Please wait a bit and try again.")
     try:
         filters = body.model_dump(exclude_none=True)
         if body.profile:
@@ -38,15 +54,17 @@ async def generate_meals(
     except GroqTransientError:
         raise HTTPException(status_code=503, detail="AI service is temporarily at capacity. Please try again in a few minutes.")
     except Exception as exc:
-        logger.exception("[meals] generate_meals unhandled error")
-        raise HTTPException(status_code=500, detail=f"AI error: {exc}")
+        raise server_error("meals.generate", exc, "Could not generate meals. Please try again.")
 
 
 @router.post("/swap")
 async def swap_meal(
     body: SwapMealRequest,
+    request: Request,
     user_id: str | None = Depends(get_optional_user_id),
 ):
+    if not rate_limit_check(_client_key(user_id, request), "meal-ai", _MEAL_AI_MAX, _MEAL_AI_WINDOW):
+        raise HTTPException(status_code=429, detail="Too many meal requests. Please wait a bit and try again.")
     try:
         filters = body.model_dump(exclude_none=True)
         if body.profile:
@@ -64,7 +82,7 @@ async def swap_meal(
     except GroqTransientError:
         raise HTTPException(status_code=503, detail="AI service is temporarily at capacity. Please try again in a few minutes.")
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"AI error: {exc}")
+        raise server_error("meals.swap", exc, "Could not swap meal. Please try again.")
 
 
 @router.get("/history", response_model=list[dict])
@@ -76,4 +94,4 @@ async def meal_history(
     try:
         return db.get_meal_history(user_id, limit=min(limit, _HISTORY_LIMIT))
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise server_error("meals.history", exc, "Could not load meal history.")

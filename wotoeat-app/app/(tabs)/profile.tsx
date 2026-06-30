@@ -16,6 +16,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useTheme } from "@/hooks/useTheme";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { saveProfile } from "@/services/api";
 import { supabase } from "@/lib/supabase";
 import {
@@ -122,6 +123,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <ScreenHeader title={t("tab_profile")} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
         {/* Complete profile banner — shown when key fields are missing */}
@@ -135,12 +137,11 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {/* Avatar */}
+        {/* Avatar — title lives in the ScreenHeader, so show only the warm subtitle */}
         <View style={styles.avatarWrap}>
           <View style={[styles.avatar, { backgroundColor: c.primary }]}>
-            <Ionicons name="person" size={40} color="#FFF" />
+            <Ionicons name="person" size={36} color="#FFF" />
           </View>
-          <Text style={[styles.avatarLabel, { color: c.text }]}>{t("your_profile")}</Text>
           <Text style={[styles.avatarSub, { color: c.textMuted }]}>{t("profile_subtitle")}</Text>
         </View>
 
@@ -271,8 +272,8 @@ export default function ProfileScreen() {
                     placeholderTextColor={c.textPlaceholder}
                     value={profile.age?.toString() ?? ""}
                     onChangeText={(v) => {
-                      const n = v ? parseInt(v) : undefined;
-                      if (n != null && n <= 0) { setFieldErrors((e) => ({ ...e, age: t("validation_positive") })); return; }
+                      const n = v ? parseInt(v, 10) : undefined;
+                      if (n != null && (Number.isNaN(n) || n <= 0)) { setFieldErrors((e) => ({ ...e, age: t("validation_positive") })); return; }
                       setFieldErrors((e) => ({ ...e, age: null }));
                       setProfile({ age: n });
                       setSaved(false);
@@ -352,8 +353,8 @@ export default function ProfileScreen() {
                     placeholderTextColor={c.textPlaceholder}
                     value={profile.calorie_goal?.toString() ?? ""}
                     onChangeText={(v) => {
-                      const n = v ? parseInt(v) : undefined;
-                      if (n != null && n <= 0) { setFieldErrors((e) => ({ ...e, calorie_goal: t("validation_positive") })); return; }
+                      const n = v ? parseInt(v, 10) : undefined;
+                      if (n != null && (Number.isNaN(n) || n <= 0)) { setFieldErrors((e) => ({ ...e, calorie_goal: t("validation_positive") })); return; }
                       setFieldErrors((e) => ({ ...e, calorie_goal: null }));
                       setProfile({ calorie_goal: n });
                       setSaved(false);
@@ -370,8 +371,8 @@ export default function ProfileScreen() {
                     placeholderTextColor={c.textPlaceholder}
                     value={profile.protein_goal_g?.toString() ?? ""}
                     onChangeText={(v) => {
-                      const n = v ? parseInt(v) : undefined;
-                      if (n != null && n <= 0) { setFieldErrors((e) => ({ ...e, protein_goal_g: t("validation_positive") })); return; }
+                      const n = v ? parseInt(v, 10) : undefined;
+                      if (n != null && (Number.isNaN(n) || n <= 0)) { setFieldErrors((e) => ({ ...e, protein_goal_g: t("validation_positive") })); return; }
                       setFieldErrors((e) => ({ ...e, protein_goal_g: null }));
                       setProfile({ protein_goal_g: n });
                       setSaved(false);
@@ -665,21 +666,20 @@ export default function ProfileScreen() {
 function makeStyles(c: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.bg },
-    content: { padding: 20, paddingBottom: 48 },
+    content: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 48 },
     completeBanner: {
       flexDirection: "row", alignItems: "flex-start", gap: 10,
       borderRadius: 18, borderWidth: 1, padding: 14, marginBottom: 16,
     },
     completeBannerTitle: { fontSize: 14, fontWeight: "700", marginBottom: 2 },
     completeBannerSub: { fontSize: 12, lineHeight: 17, opacity: 0.85 },
-    avatarWrap: { alignItems: "center", marginBottom: 28 },
+    avatarWrap: { alignItems: "center", marginBottom: 20, marginTop: 4 },
     avatar: {
       width: 84, height: 84, borderRadius: 42,
       alignItems: "center", justifyContent: "center", marginBottom: 12,
       shadowColor: "#16A34A", shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.3, shadowRadius: 14, elevation: 6,
     },
-    avatarLabel: { fontSize: 20, fontWeight: "800" },
     avatarSub: { fontSize: 13, marginTop: 4, textAlign: "center" },
     section: {
       borderRadius: 20, padding: 16, marginBottom: 12,

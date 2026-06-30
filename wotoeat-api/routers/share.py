@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Depends, Request
 from db.models import CreateShareRequest, CreateShareResponse, SharedItem
 from db import supabase_client as db
 from ai.sqlite_cache import rate_limit_check
+from utils.errors import server_error
 from .auth import get_optional_user_id
 
 router = APIRouter(tags=["share"])
@@ -35,7 +36,7 @@ async def create_share(
             raise RuntimeError("insert returned no id")
         return {"id": share_id}
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Could not create share: {exc}")
+        raise server_error("share.create", exc, "Could not create share.")
 
 
 @router.get("/{share_id}", response_model=SharedItem)
@@ -50,7 +51,7 @@ async def get_share(share_id: str):
     try:
         row = db.get_share(share_id)
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Could not load share: {exc}")
+        raise server_error("share.get", exc, "Could not load shared item.")
     if not row:
         raise HTTPException(status_code=404, detail="Shared item not found.")
     return row

@@ -9,11 +9,13 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { IngredientRow } from "@/components/IngredientRow";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { useAppStore } from "@/store/useAppStore";
 import { generateShoppingList, saveCurrentShoppingList } from "@/services/api";
 import { formatShoppingListText, countShoppingItems, displayCategory } from "@/utils/shopping";
@@ -31,6 +33,7 @@ export default function ShoppingScreen() {
     language,
   } = useAppStore();
   const c = useTheme();
+  const router = useRouter();
   const { t, strings } = useTranslation();
   const [loading, setLoading] = useState(false);
 
@@ -79,6 +82,7 @@ export default function ShoppingScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <ScreenHeader title={t("shopping_list")} onBack={() => router.back()} />
       <ErrorBanner message={error} style={styles.errorBanner} />
 
       {/* Action bar */}

@@ -16,7 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAppStore } from "@/store/useAppStore";
-import { CUISINES, FLAVOUR_OPTIONS, PREP_TIME_PRESETS, SLOT_COLOUR, SLOT_ICON, DIFFICULTY_COLORS, translateTag, translateCuisine, translateDifficulty } from "@/constants/filters";
+import { CUISINES, FLAVOUR_OPTIONS, PREP_TIME_PRESETS, SLOT_COLOUR, SLOT_ICON, DIFFICULTY_COLORS, translateTag, translateCuisine, translateDifficulty, toCanonicalEnglish } from "@/constants/filters";
 import { generateMeals, swapMeal, saveRecipe, deleteRecipe, createShare, shareWebUrl, generateRecipeByName } from "@/services/api";
 import type { Recipe, Ingredient , DailyPlanMeal } from "@/services/api";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -25,6 +25,8 @@ import { useBatchTranslated, useTranslated, usePantryDisplay } from "@/hooks/use
 import FindRecipeModal from "@/components/FindRecipeModal";
 import { searchMealImage } from "@/services/imageSearch";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { ScreenHeader } from "@/components/ui/ScreenHeader";
+import { PinnedBar } from "@/components/ui/PinnedBar";
 import type { Rating } from "@/store/useAppStore";
 
 type MealTypeTag = "any" | "breakfast" | "lunch" | "dinner";
@@ -38,6 +40,38 @@ function scaleIngredientStr(s: string, factor: number): string {
   const scaled = parseFloat(m[1]) * factor;
   const display = scaled % 1 < 0.05 ? Math.round(scaled).toString() : scaled.toFixed(1);
   return display + m[2];
+}
+
+// Does a pantry name and an ingredient name refer to the same food?
+// Word-aware (not raw substring) so "egg" no longer matches "eggplant", "oil"
+// no longer matches "boiling water", and "soy sauce" no longer matches "fish
+// sauce" — while plural/morphology (tomato↔tomatoes) still matches. Every word
+// of the shorter name must match a word of the longer name; a word matches if
+// equal or is a >=4-char prefix of the other. CJK has no whitespace word
+// boundaries, so it falls back to containment.
+const _CJK_RE = /[一-鿿]/;
+function _wordsOf(s: string): string[] {
+  return s.split(/[^a-z0-9一-鿿]+/i).filter(Boolean);
+}
+function _wordMatch(a: string, b: string): boolean {
+  if (a === b) return true;
+  if (a.length >= 4 && b.startsWith(a)) return true;
+  if (b.length >= 4 && a.startsWith(b)) return true;
+  return false;
+}
+function pantryNameMatches(pantryName: string, ingredientName: string): boolean {
+  // Normalize both to canonical English first (exact-match curated lookup, so it
+  // never invents a match): lets an English pantry item match a Chinese ingredient
+  // string in zh mode, e.g. pantry "chicken breast" ↔ ingredient "鸡胸肉".
+  const a = toCanonicalEnglish(pantryName.trim()).trim().toLowerCase();
+  const b = toCanonicalEnglish(ingredientName.trim()).trim().toLowerCase();
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (_CJK_RE.test(a) || _CJK_RE.test(b)) return a.includes(b) || b.includes(a);
+  const wa = _wordsOf(a), wb = _wordsOf(b);
+  if (!wa.length || !wb.length) return false;
+  const [short, long] = wa.length <= wb.length ? [wa, wb] : [wb, wa];
+  return short.every((w) => long.some((lw) => _wordMatch(w, lw)));
 }
 
 function MacroCell({ label, value, color }: { label: string; value: string; color: string }) {
@@ -110,13 +144,10 @@ function MealSlotCard({
   }
   const ingInPantry = (ing: string) => {
     const n = ingredientNameFrom(ing);
-    return pantry.some((p) => p.name.toLowerCase().includes(n) || n.includes(p.name.toLowerCase()));
+    return pantry.some((p) => pantryNameMatches(p.name, n));
   };
   const pantryMatches = (meal.ingredients ?? []).filter(ingInPantry);
-  const missingIngredients = (meal.ingredients ?? []).filter((ing) => {
-    const n = ingredientNameFrom(ing);
-    return !pantry.some((p) => p.name.toLowerCase().includes(n) || n.includes(p.name.toLowerCase()));
-  });
+  const missingIngredients = (meal.ingredients ?? []).filter((ing) => !ingInPantry(ing));
 
   // B2: track parsed names of auto-added ingredients so we can undo on un-confirm
   const [autoAddedIngs, setAutoAddedIngs] = useState<string[]>([]);
@@ -878,23 +909,22 @@ export default function TodayScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-
-        {/* ── Greeting ── */}
-        <View style={styles.greetHero}>
-          <Text style={[styles.greetText, { color: c.textMuted }]}>{greeting}</Text>
-          <Text style={[styles.greetSub, { color: c.text }]}>{subGreeting}</Text>
-        </View>
-
-        {/* ── Top bar: refresh + search + filters ── */}
-        <View style={styles.topBar}>
+      <ScreenHeader
+        greeting={greeting}
+        subtitle={subGreeting}
+        right={
           <TouchableOpacity
-            style={[styles.topBarBtn, { borderColor: c.border, backgroundColor: c.surface }]}
-            onPress={() => { clearMeals(); Haptics.selectionAsync(); }}
+            style={[styles.topBarBtn, { borderColor: showSettings ? c.primary : c.border, backgroundColor: showSettings ? c.primary : c.surface }]}
+            onPress={() => { setShowSettings((v) => !v); Haptics.selectionAsync(); }}
           >
-            <Ionicons name="refresh-outline" size={20} color={c.primary} />
+            <Ionicons name="options-outline" size={20} color={showSettings ? "#FFF" : c.textMuted} />
           </TouchableOpacity>
+        }
+      />
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
+        {/* ── Search + refresh ── */}
+        <View style={styles.topBar}>
           <TouchableOpacity
             style={[styles.searchBarBtn, { borderColor: c.border, backgroundColor: c.surface }]}
             onPress={() => setShowFindRecipe(true)}
@@ -905,38 +935,37 @@ export default function TodayScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.topBarBtn, { borderColor: showSettings ? c.primary : c.border, backgroundColor: showSettings ? c.primary : c.surface }]}
-            onPress={() => { setShowSettings((v) => !v); Haptics.selectionAsync(); }}
+            style={[styles.topBarBtn, { borderColor: c.border, backgroundColor: c.surface }]}
+            onPress={() => { clearMeals(); Haptics.selectionAsync(); }}
           >
-            <Ionicons name="options-outline" size={20} color={showSettings ? "#FFF" : c.textMuted} />
+            <Ionicons name="refresh-outline" size={20} color={c.primary} />
           </TouchableOpacity>
+        </View>
+
+        {/* ── Meal-type chips (always visible — the most-used filter) ── */}
+        <View style={styles.slotChipRow}>
+          {MEAL_TYPE_TAGS.map((tag) => {
+            const active = selectedSlots.includes(tag.key);
+            return (
+              <TouchableOpacity
+                key={tag.key}
+                style={[styles.filterChip, { backgroundColor: active ? c.primary : c.chipBg, borderColor: active ? c.primary : c.border }]}
+                onPress={() => toggleMealType(tag.key)}
+              >
+                <Text style={[styles.filterChipText, { color: active ? "#FFF" : c.chipText }]}>
+                  {language === "zh" ? tag.labelZh : tag.labelEn}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* ── Collapsible filters panel ── */}
         {showSettings && (
           <View style={[styles.settingsPanel, { backgroundColor: c.surface, borderColor: c.border }]}>
 
-            {/* Meal type */}
-            <Text style={[styles.filterLabel, { color: c.textMuted }]}>{t("meal_type")}</Text>
-            <View style={styles.filterChipRow}>
-              {MEAL_TYPE_TAGS.map((tag) => {
-                const active = selectedSlots.includes(tag.key);
-                return (
-                  <TouchableOpacity
-                    key={tag.key}
-                    style={[styles.filterChip, { backgroundColor: active ? c.primary : c.chipBg, borderColor: active ? c.primary : c.border }]}
-                    onPress={() => toggleMealType(tag.key)}
-                  >
-                    <Text style={[styles.filterChipText, { color: active ? "#FFF" : c.chipText }]}>
-                      {language === "zh" ? tag.labelZh : tag.labelEn}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
             {/* Meal style */}
-            <Text style={[styles.filterLabel, { color: c.textMuted, marginTop: 10 }]}>{t("meal_style_label")}</Text>
+            <Text style={[styles.filterLabel, { color: c.textMuted }]}>{t("meal_style_label")}</Text>
             <View style={styles.filterChipRow}>
               {([{ key: "full", en: "Full Meal", zh: "完整餐" }, { key: "main_dish", en: "Main Dish", zh: "主菜" }] as const).map((opt) => {
                 const active = mealStyle === opt.key;
@@ -1087,21 +1116,6 @@ export default function TodayScreen() {
 
         <FindRecipeModal visible={showFindRecipe} onClose={() => setShowFindRecipe(false)} />
 
-        {/* ── Big generate CTA ── */}
-        <TouchableOpacity onPress={handleGenerate} disabled={loading} activeOpacity={0.9}>
-          <View style={[styles.generateBtnLarge, { backgroundColor: loading ? c.disabled : c.primary }]}>
-            {loading ? (
-              <ActivityIndicator color="#FFF" size="small" />
-            ) : (
-              <>
-                <Ionicons name="sparkles" size={28} color="#FFF" />
-                <Text style={styles.generateBtnLargeText}>{t("generate_cta")}</Text>
-                <Text style={styles.generateBtnLargeSub}>{t("no_plan_body")}</Text>
-              </>
-            )}
-          </View>
-        </TouchableOpacity>
-
         <ErrorBanner message={error} />
         {filterError && (
           <TouchableOpacity
@@ -1197,6 +1211,22 @@ export default function TodayScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* ── Pinned primary action — stays in the thumb zone as the stream grows ── */}
+      <PinnedBar>
+        <TouchableOpacity onPress={handleGenerate} disabled={loading} activeOpacity={0.9}>
+          <View style={[styles.generateFab, { backgroundColor: loading ? c.disabled : c.primary }]}>
+            {loading ? (
+              <ActivityIndicator color="#FFF" size="small" />
+            ) : (
+              <>
+                <Ionicons name="sparkles" size={20} color="#FFF" />
+                <Text style={styles.generateFabText}>{t("generate_cta")}</Text>
+              </>
+            )}
+          </View>
+        </TouchableOpacity>
+      </PinnedBar>
     </SafeAreaView>
   );
 }
@@ -1288,10 +1318,9 @@ const cardStyles = StyleSheet.create({
 function makeStyles(c: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.bg },
-    content: { padding: 16, paddingBottom: 48, gap: 10 },
-    greetHero: { marginTop: 2, paddingVertical: 2 },
-    greetText: { fontSize: 13, fontWeight: "600" },
-    greetSub: { fontSize: 18, fontWeight: "800", letterSpacing: -0.2, marginTop: 1 },
+    scroll: { flex: 1 },
+    content: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24, gap: 10 },
+    slotChipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     welcomeWrap: { paddingTop: 8, paddingBottom: 8, gap: 10, alignItems: "center" },
     stepsCard: {
       width: "100%", borderRadius: 20, borderWidth: 1, paddingHorizontal: 16, marginTop: 6,
@@ -1312,15 +1341,14 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
       gap: 8, borderRadius: 16, borderWidth: 1, paddingHorizontal: 16,
     },
     searchBarText: { fontSize: 14, flex: 1 },
-    // Generate CTA
-    generateBtnLarge: {
-      alignItems: "center", justifyContent: "center",
-      borderRadius: 26, paddingVertical: 26, gap: 8,
+    // Generate CTA — pinned FAB in the thumb zone
+    generateFab: {
+      flexDirection: "row", alignItems: "center", justifyContent: "center",
+      borderRadius: 18, paddingVertical: 16, gap: 8,
       shadowColor: c.primary, shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.35, shadowRadius: 10, elevation: 6,
+      shadowOpacity: 0.3, shadowRadius: 10, elevation: 6,
     },
-    generateBtnLargeText: { color: "#FFF", fontSize: 22, fontWeight: "800", letterSpacing: 0.3 },
-    generateBtnLargeSub: { color: "rgba(255,255,255,0.9)", fontSize: 13, fontWeight: "600", textAlign: "center", paddingHorizontal: 16, lineHeight: 18 },
+    generateFabText: { color: "#FFF", fontSize: 17, fontWeight: "800", letterSpacing: 0.3 },
     ingSearchRow: { flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8 },
     ingSearchInput: { flex: 1, fontSize: 13, paddingVertical: 0 },
     // Filters panel
