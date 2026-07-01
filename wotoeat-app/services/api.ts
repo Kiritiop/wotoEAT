@@ -16,6 +16,18 @@ export function setAuthToken(token: string | null) {
   _authToken = token;
 }
 
+/**
+ * Extracts a user-facing message from a failed API call. Prefers the backend's
+ * `detail` (e.g. the friendly 503 "AI is at capacity" / 429 rate-limit text)
+ * over Axios's raw "Request failed with status code 503", falling back to a
+ * caller-supplied message when there's no detail (network error, etc.).
+ */
+export function apiErrorMessage(err: unknown, fallback: string): string {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const detail = (err as any)?.response?.data?.detail;
+  return typeof detail === "string" && detail.trim() ? detail : fallback;
+}
+
 api.interceptors.request.use(async (config) => {
   // Use the cached token first; fall back to getSession() for cold starts
   const token =

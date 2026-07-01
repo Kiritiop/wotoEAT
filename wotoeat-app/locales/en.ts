@@ -27,6 +27,8 @@ const en = {
   filters: "Filters",
   clear: "Clear",
   nutrition_info: "Nutrition info",
+  could_not_generate: "Couldn't generate a meal. Please try again.",
+  could_not_swap: "Couldn't swap the meal. Please try again.",
   clear_meals_title: "Clear today's meals?",
   clear_meals_confirm: "This removes all generated meals and confirmations for today. You can generate new ones anytime.",
   generate: "Generate",
@@ -186,6 +188,7 @@ const en = {
   shopping_empty_title: "Your list is empty",
   shopping_empty_body: "Confirm meals in Discover or add recipes from the Recipes tab, then tap Generate List.",
   no_recipes_selected: "Go to Recipes → add recipes to your list first.",
+  shopping_gen_error: "Couldn't generate the shopping list. Please try again.",
   items_progress: (checked: number, total: number) => `${checked} / ${total} items`,
 
   // ── Network ───────────────────────────────────────────────────────────────

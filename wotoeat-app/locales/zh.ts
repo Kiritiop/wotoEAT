@@ -27,6 +27,8 @@ const zh = {
   filters: "筛选",
   clear: "清除",
   nutrition_info: "营养信息",
+  could_not_generate: "无法生成餐点，请重试。",
+  could_not_swap: "无法更换餐点，请重试。",
   clear_meals_title: "清除今天的餐点？",
   clear_meals_confirm: "这将删除今天生成的所有餐点和已确认项，你随时可以重新生成。",
   generate: "生成",
@@ -186,6 +188,7 @@ const zh = {
   shopping_empty_title: "购物清单为空",
   shopping_empty_body: "在发现页确认餐食，或从食谱页添加食谱，然后点击生成购物清单。",
   no_recipes_selected: "请先在食谱页面添加食谱。",
+  shopping_gen_error: "无法生成购物清单，请重试。",
   items_progress: (checked: number, total: number) => `${checked} / ${total} 项`,
 
   // ── Network ───────────────────────────────────────────────────────────────

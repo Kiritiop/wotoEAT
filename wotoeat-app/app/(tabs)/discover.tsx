@@ -19,7 +19,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAppStore } from "@/store/useAppStore";
 import { CUISINES, FLAVOUR_OPTIONS, PREP_TIME_PRESETS, SLOT_COLOUR, SLOT_ICON, DIFFICULTY_COLORS, translateTag, translateCuisine, translateDifficulty, toCanonicalEnglish } from "@/constants/filters";
-import { generateMeals, swapMeal, saveRecipe, deleteRecipe, createShare, shareWebUrl, generateRecipeByName } from "@/services/api";
+import { generateMeals, swapMeal, saveRecipe, deleteRecipe, createShare, shareWebUrl, generateRecipeByName, apiErrorMessage } from "@/services/api";
 import type { Recipe, Ingredient , DailyPlanMeal } from "@/services/api";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useTheme } from "@/hooks/useTheme";
@@ -868,7 +868,7 @@ export default function TodayScreen() {
         );
         setFilterError(true);
       } else {
-        setError(e instanceof Error ? e.message : "Could not generate plan.");
+        setError(apiErrorMessage(e, t("could_not_generate")));
         setFilterError(false);
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -916,7 +916,7 @@ export default function TodayScreen() {
         );
         setFilterError(true);
       } else {
-        setError(e instanceof Error ? e.message : "Could not swap meal.");
+        setError(apiErrorMessage(e, t("could_not_swap")));
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {

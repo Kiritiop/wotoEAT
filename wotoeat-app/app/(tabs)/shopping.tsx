@@ -17,7 +17,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { Button } from "@/components/ui/Button";
 import { useAppStore } from "@/store/useAppStore";
-import { generateShoppingList, saveCurrentShoppingList } from "@/services/api";
+import { generateShoppingList, saveCurrentShoppingList, apiErrorMessage } from "@/services/api";
 import { formatShoppingListText, countShoppingItems, displayCategory } from "@/utils/shopping";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -62,7 +62,7 @@ export default function ShoppingScreen() {
       setShoppingList(list);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to generate list.");
+      setError(apiErrorMessage(err, t("shopping_gen_error")));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setLoading(false);
