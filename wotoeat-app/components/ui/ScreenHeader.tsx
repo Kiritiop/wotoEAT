@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { View, Text, Image, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme, fontSize, space } from "@/hooks/useTheme";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface Props {
   /** Title variant — a single screen title (Pantry, Recipes, Profile…). */
@@ -25,6 +26,7 @@ interface Props {
  */
 export function ScreenHeader({ title, greeting, subtitle, right, onBack }: Props) {
   const c = useTheme();
+  const { t } = useTranslation();
   return (
     <View style={styles.row}>
       <View style={styles.left}>
@@ -33,6 +35,8 @@ export function ScreenHeader({ title, greeting, subtitle, right, onBack }: Props
             onPress={onBack}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             style={[styles.backBtn, { backgroundColor: c.surfaceAlt }]}
+            accessibilityRole="button"
+            accessibilityLabel={t("back")}
           >
             <Ionicons name="chevron-back" size={22} color={c.text} />
           </TouchableOpacity>

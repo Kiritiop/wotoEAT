@@ -10,6 +10,8 @@ import {
   Share,
   Modal,
   Pressable,
+  Alert,
+  Platform,
 } from "react-native";
 import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -784,6 +786,21 @@ export default function TodayScreen() {
   const proteinGoal = profile.protein_goal_g;
   const showProtein = totalProteinG > 0 && !!proteinGoal;
 
+  // Clearing wipes today's whole meal stream + confirmations, so confirm first
+  // (web has no RN Alert — fall back to window.confirm). No prompt when empty.
+  function handleClearMeals() {
+    if (meals.length === 0) return;
+    const doClear = () => { clearMeals(); Haptics.selectionAsync(); };
+    if (Platform.OS === "web") {
+      if (typeof window !== "undefined" && window.confirm(t("clear_meals_confirm"))) doClear();
+      return;
+    }
+    Alert.alert(t("clear_meals_title"), t("clear_meals_confirm"), [
+      { text: t("cancel"), style: "cancel" },
+      { text: t("clear"), style: "destructive", onPress: doClear },
+    ]);
+  }
+
   async function handleGenerate() {
     setShowSettings(false);
     setLoading(true);
@@ -916,6 +933,8 @@ export default function TodayScreen() {
           <TouchableOpacity
             style={[styles.topBarBtn, { borderColor: showSettings ? c.primary : c.border, backgroundColor: showSettings ? c.primary : c.surface }]}
             onPress={() => { setShowSettings((v) => !v); Haptics.selectionAsync(); }}
+            accessibilityRole="button"
+            accessibilityLabel={t("filters")}
           >
             <Ionicons name="options-outline" size={20} color={showSettings ? "#FFF" : c.textMuted} />
           </TouchableOpacity>
@@ -936,7 +955,9 @@ export default function TodayScreen() {
 
           <TouchableOpacity
             style={[styles.topBarBtn, { borderColor: c.border, backgroundColor: c.surface }]}
-            onPress={() => { clearMeals(); Haptics.selectionAsync(); }}
+            onPress={handleClearMeals}
+            accessibilityRole="button"
+            accessibilityLabel={t("clear")}
           >
             <Ionicons name="refresh-outline" size={20} color={c.textMuted} />
           </TouchableOpacity>

@@ -97,7 +97,12 @@ export default function ShoppingScreen() {
         />
 
         {shoppingList && (
-          <TouchableOpacity style={[styles.iconBtn, { backgroundColor: c.surfaceAlt }]} onPress={handleShare}>
+          <TouchableOpacity
+            style={[styles.iconBtn, { backgroundColor: c.surfaceAlt }]}
+            onPress={handleShare}
+            accessibilityRole="button"
+            accessibilityLabel={t("share")}
+          >
             <Ionicons name="share-outline" size={22} color={c.primary} />
           </TouchableOpacity>
         )}
@@ -105,6 +110,8 @@ export default function ShoppingScreen() {
           <TouchableOpacity
             style={[styles.iconBtn, { backgroundColor: c.surfaceAlt }]}
             onPress={() => { clearShoppingList(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+            accessibilityRole="button"
+            accessibilityLabel={t("clear")}
           >
             <Ionicons name="trash-outline" size={22} color={c.error} />
           </TouchableOpacity>

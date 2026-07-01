@@ -151,6 +151,8 @@ export default function PantryScreen() {
           <TouchableOpacity
             style={[styles.cartBtn, { backgroundColor: c.surfaceAlt }]}
             onPress={() => { router.push("/(tabs)/shopping"); Haptics.selectionAsync(); }}
+            accessibilityRole="button"
+            accessibilityLabel={t("shopping_list")}
           >
             <Ionicons name="cart-outline" size={22} color={c.primary} />
             {selectedRecipes.length > 0 && (
@@ -290,12 +292,16 @@ export default function PantryScreen() {
                 }}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 style={{ marginRight: 14 }}
+                accessibilityRole="button"
+                accessibilityLabel={t("edit")}
               >
                 <Ionicons name="create-outline" size={18} color={c.textMuted} />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => handleDelete(item.name)}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityRole="button"
+                accessibilityLabel={t("delete")}
               >
                 <Ionicons name="close-circle" size={20} color={c.textMuted} />
               </TouchableOpacity>
