@@ -26,6 +26,7 @@ const en = {
   share: "Share",
   filters: "Filters",
   clear: "Clear",
+  nutrition_info: "Nutrition info",
   clear_meals_title: "Clear today's meals?",
   clear_meals_confirm: "This removes all generated meals and confirmations for today. You can generate new ones anytime.",
   generate: "Generate",

@@ -333,7 +333,11 @@ export default function RecipesScreen() {
     if (activeTagFilter && !(r.tags ?? []).some((t) => t.toLowerCase() === activeTagFilter.toLowerCase())) return false;
     if (!searchText.trim()) return true;
     const q = searchText.trim().toLowerCase();
-    return r.title.toLowerCase().includes(q) || (r.tags ?? []).some((t) => t.toLowerCase().includes(q));
+    return (
+      r.title.toLowerCase().includes(q) ||
+      (r.tags ?? []).some((t) => t.toLowerCase().includes(q)) ||
+      (r.ingredients ?? []).some((ing) => ing.name?.toLowerCase().includes(q))
+    );
   });
 
   const TABS: { key: RecipeTab; label: string; icon: React.ComponentProps<typeof Ionicons>["name"] }[] = [

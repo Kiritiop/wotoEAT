@@ -380,6 +380,8 @@ function MealSlotCard({
             style={[cardStyles.dislikeBtn, { borderColor: swapping ? c.error : c.border, backgroundColor: swapping ? c.errorBg : "transparent" }]}
             onPress={() => { onRate("down"); onSwap(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); }}
             disabled={swapping}
+            accessibilityRole="button"
+            accessibilityLabel={t("swap_meal")}
           >
             {swapping ? (
               <ActivityIndicator size={13} color={c.error} />
@@ -395,6 +397,8 @@ function MealSlotCard({
             style={[cardStyles.infoIconBtn, { borderColor: showInfo ? c.primary : c.border, backgroundColor: showInfo ? c.primaryLight : "transparent" }]}
             onPress={() => { setShowInfo((v) => !v); Haptics.selectionAsync(); }}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel={t("nutrition_info")}
           >
             <Ionicons name="information-circle-outline" size={17} color={showInfo ? c.primary : c.textMuted} />
           </TouchableOpacity>
@@ -407,6 +411,8 @@ function MealSlotCard({
             onPress={handleSaveMeal}
             disabled={savedState === "saving" || savedState === "unsaving"}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel={savedState === "saved" ? t("saved") : t("save")}
           >
             {savedState === "saving" || savedState === "unsaving" ? (
               <ActivityIndicator size={13} color={c.primary} />
@@ -426,6 +432,8 @@ function MealSlotCard({
             }]}
             onPress={handleConfirm}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel={isConfirmed ? t("unconfirm") : t("confirm")}
           >
             <Ionicons
               name={isConfirmed ? "checkmark-circle" : "checkmark-circle-outline"}

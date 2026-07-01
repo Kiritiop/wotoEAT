@@ -26,6 +26,7 @@ const zh = {
   share: "分享",
   filters: "筛选",
   clear: "清除",
+  nutrition_info: "营养信息",
   clear_meals_title: "清除今天的餐点？",
   clear_meals_confirm: "这将删除今天生成的所有餐点和已确认项，你随时可以重新生成。",
   generate: "生成",
