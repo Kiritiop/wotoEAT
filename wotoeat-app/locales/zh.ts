@@ -53,6 +53,8 @@ const zh = {
   sign_up_link: "去注册",
   app_tagline: "智能饮食，轻松生活。",
   welcome_back: "欢迎回来",
+  made_with_wotoeat: "由 wotoEAT 制作",
+  try_wotoeat: "试试 wotoEAT",
   create_account: "创建账号",
   start_discovering: "开始探索更健康的饮食",
   account_created: "账号已创建！请查收邮件确认链接，然后",

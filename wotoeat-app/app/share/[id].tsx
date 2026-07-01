@@ -9,12 +9,22 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
+  Linking,
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { getShared } from "@/services/api";
+import { Button } from "@/components/ui/Button";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
+
+/** Public web home for the "Try wotoEAT" CTA on a shared page. */
+function appHomeUrl(): string {
+  const base = process.env.EXPO_PUBLIC_WEB_URL?.replace(/\/$/, "");
+  if (base) return base;
+  if (typeof window !== "undefined" && window.location?.origin) return window.location.origin;
+  return "";
+}
 
  
 function ingredientToText(ing: any): string {
@@ -147,7 +157,18 @@ export default function SharedItemScreen() {
         </>
       )}
 
-      <Text style={[styles.footer, { color: c.textPlaceholder }]}>wotoEAT</Text>
+      <View style={styles.ctaBox}>
+        <Text style={[styles.ctaTagline, { color: c.textMuted }]}>{t("made_with_wotoeat")}</Text>
+        {appHomeUrl() ? (
+          <Button
+            label={t("try_wotoeat")}
+            icon="sparkles"
+            fullWidth={false}
+            style={styles.ctaBtn}
+            onPress={() => Linking.openURL(appHomeUrl())}
+          />
+        ) : null}
+      </View>
     </ScrollView>
   );
 }
@@ -176,6 +197,8 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     stepText: { flex: 1, fontSize: 14, lineHeight: 20 },
     tipRow: { flexDirection: "row", gap: 8, borderRadius: 10, padding: 10, marginBottom: 6 },
     tipText: { flex: 1, fontSize: 13, lineHeight: 19 },
-    footer: { fontSize: 12, fontWeight: "700", textAlign: "center", marginTop: 28 },
+    ctaBox: { alignItems: "center", gap: 10, marginTop: 32 },
+    ctaTagline: { fontSize: 12, fontWeight: "600" },
+    ctaBtn: { paddingHorizontal: 24, marginTop: 2 },
   });
 }

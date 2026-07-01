@@ -151,8 +151,6 @@ function MealSlotCard({
   const pantryMatches = (meal.ingredients ?? []).filter(ingInPantry);
   const missingIngredients = (meal.ingredients ?? []).filter((ing) => !ingInPantry(ing));
 
-  // B2: track parsed names of auto-added ingredients so we can undo on un-confirm
-  const [autoAddedIngs, setAutoAddedIngs] = useState<string[]>([]);
   const [cartBanner, setCartBanner] = useState<string | null>(null);
   const [savedBanner, setSavedBanner] = useState<string | null>(null);
 
@@ -175,7 +173,6 @@ function MealSlotCard({
       });
       const toAdd = missingIngredients.filter((ing) => !inCart(ing));
       toAdd.forEach((ing) => addToShoppingList(cartCategory, ingredientNameFrom(ing)));
-      setAutoAddedIngs(toAdd.map(ingredientNameFrom));
       if (toAdd.length > 0) {
         setCartBanner(language === "zh"
           ? `${toAdd.length} 个食材已加入购物车`
@@ -185,8 +182,11 @@ function MealSlotCard({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } else {
       removeRecipe(meal.name);
-      autoAddedIngs.forEach((ing) => removeFromShoppingList(cartCategory, ing));
-      setAutoAddedIngs([]);
+      // Remove every shopping item this meal contributed. The meal-{name} group is
+      // exclusive to this meal, so clearing it is robust even after a remount (where
+      // the old per-instance autoAddedIngs list would be empty and leak stale items).
+      const group = shoppingList?.groups.find((g) => g.category === cartCategory);
+      group?.items.forEach((item) => removeFromShoppingList(cartCategory, item.name));
       setCartBanner(null);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
