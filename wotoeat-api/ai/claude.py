@@ -73,6 +73,17 @@ def _clean_json(text: str) -> str:
     return text
 
 
+def _parse_ai_json(text: str) -> dict:
+    """Parse an AI JSON response (fence-cleaned). A truncated/garbled reply raises
+    a JSONDecodeError, which is a ValueError subclass and would otherwise surface to
+    the client as a raw '422: Expecting value: line 1 column 900'. Convert it to a
+    clean, user-safe message the caller can show and the user can retry on."""
+    try:
+        return json.loads(_clean_json(text))
+    except json.JSONDecodeError:
+        raise ValueError("The AI response was incomplete. Please try again.")
+
+
 def _cache_key(data: object) -> str:
     return hashlib.md5(
         json.dumps(data, sort_keys=True, default=str).encode()
@@ -169,7 +180,7 @@ async def parse_recipe(html: str) -> dict:
     # frontend's dynamic-translation layer localizes it for display. Passing a
     # language here would only add AI cost for no benefit.
     text = await _generate(recipe_parse_prompt(html), max_tokens=4000)
-    result = json.loads(_clean_json(text))
+    result = _parse_ai_json(text)
     if "error" in result:
         raise ValueError(result["error"])
     return result
@@ -181,7 +192,7 @@ async def parse_recipe(html: str) -> dict:
 
 async def generate_shopping_list(recipes: list, pantry: list, language: str = "en") -> dict:
     text = await _generate(shopping_list_prompt(recipes, pantry, language), max_tokens=2500)
-    return json.loads(_clean_json(text))
+    return _parse_ai_json(text)
 
 
 # ---------------------------------------------------------------------------
@@ -197,7 +208,7 @@ async def generate_recipe_by_name(dish_name: str, language: str = "en", servings
             return cached
 
     text = await _generate(generate_recipe_prompt(dish_name, language, servings), max_tokens=4500)
-    result = json.loads(_clean_json(text))
+    result = _parse_ai_json(text)
     if "error" in result:
         raise ValueError(result["error"])
     cache_set(key, result, 604800)  # 7 days
@@ -221,7 +232,7 @@ async def generate_meal_plan(filters: dict) -> tuple[dict, bool]:
     # Lower temperature than the 0.7 default — meal generation should return
     # conventional, real dishes, not "creative" invented ones.
     text = await _generate(meal_generate_prompt(filters, language), max_tokens=_meal_max_tokens(n_slots), temperature=0.5)
-    result = json.loads(_clean_json(text))
+    result = _parse_ai_json(text)
     if isinstance(result, dict) and result.get("error") == "no_match":
         raise ValueError(result.get("message", "No dish can satisfy the required tags."))
     cache_set(key, result, _CACHE_TTL)
@@ -239,7 +250,7 @@ async def swap_meal(slot: str, current_plan: dict | None, filters: dict) -> dict
     merged_ratings.update(filters.get("recent_ratings") or {})
     swap_filters = {**filters, "slots": [slot], "recent_ratings": merged_ratings}
     text = await _generate(meal_generate_prompt(swap_filters, language), max_tokens=_meal_max_tokens(1), temperature=0.5)
-    result = json.loads(_clean_json(text))
+    result = _parse_ai_json(text)
     if isinstance(result, dict) and result.get("error") == "no_match":
         raise ValueError(result.get("message", "No dish can satisfy the required tags."))
     meals = result.get("meals", [result])
