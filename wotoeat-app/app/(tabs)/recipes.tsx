@@ -17,7 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { getSavedRecipes, deleteRecipe, updateRecipe, saveRecipe, getMealHistory, generateRecipeByName, updateRecipeLabels, createShare, shareWebUrl } from "@/services/api";
+import { getSavedRecipes, deleteRecipe, updateRecipe, saveRecipe, getMealHistory, generateRecipeByName, updateRecipeLabels, createShare, shareWebUrl, apiErrorMessage } from "@/services/api";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
@@ -177,7 +177,7 @@ export default function RecipesScreen() {
       setIsEditing(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
-      setEditError(err instanceof Error ? err.message : "Could not save.");
+      setEditError(apiErrorMessage(err, "Could not save."));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setEditSaving(false);
@@ -201,7 +201,7 @@ export default function RecipesScreen() {
       setAllRecipeLabels(labelsFromBackend);
       hasFetchedRef.current = true;
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : "Could not load recipes.");
+      setLoadError(apiErrorMessage(err, "Could not load recipes."));
     } finally {
       setRefreshing(false);
       setLoading(false);
@@ -218,7 +218,7 @@ export default function RecipesScreen() {
       setPendingDelete(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: unknown) {
-      setDeleteError(err instanceof Error ? err.message : "Failed to delete.");
+      setDeleteError(apiErrorMessage(err, "Failed to delete."));
       setPendingDelete(null);
     }
   }

@@ -20,7 +20,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { RecipeSource } from "@/components/RecipeSource";
 import { DIFFICULTY_COLORS, translateDifficulty } from "@/constants/filters";
-import { parseRecipe, saveRecipe } from "@/services/api";
+import { parseRecipe, saveRecipe, apiErrorMessage } from "@/services/api";
 import { useAppStore } from "@/store/useAppStore";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -76,7 +76,7 @@ export default function MealDetailScreen() {
       setParsedRecipes((prev) => [recipe, ...prev]);
       setUrl("");
     } catch (err: unknown) {
-      setParseError(err instanceof Error ? err.message : "Could not parse recipe from that URL.");
+      setParseError(apiErrorMessage(err, "Could not parse recipe from that URL."));
     } finally {
       setParsing(false);
     }
@@ -90,7 +90,7 @@ export default function MealDetailScreen() {
       await Promise.all(parsedRecipes.map((r) => saveRecipe(r)));
       setSaveStatus("saved");
     } catch (err: unknown) {
-      setSaveError(err instanceof Error ? err.message : "Could not save.");
+      setSaveError(apiErrorMessage(err, "Could not save."));
       setSaveStatus("error");
     }
   }

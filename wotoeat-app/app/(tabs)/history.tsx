@@ -15,7 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { getMealHistory, generateRecipeByName, saveRecipe } from "@/services/api";
+import { getMealHistory, generateRecipeByName, saveRecipe, apiErrorMessage } from "@/services/api";
 import type { MealSuggestion, MealHistoryEntry } from "@/services/api";
 import { MealCard } from "@/components/MealCard";
 import { DIFFICULTY_COLORS, translateTag, translateDifficulty } from "@/constants/filters";
@@ -63,7 +63,7 @@ export default function HistoryScreen() {
       const data = await getMealHistory(50);
       setEntries(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load history.");
+      setError(apiErrorMessage(e, "Could not load history."));
     } finally {
       setRefreshing(false);
       setLoading(false);

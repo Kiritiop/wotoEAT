@@ -17,7 +17,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { Button } from "@/components/ui/Button";
-import { saveProfile } from "@/services/api";
+import { saveProfile, apiErrorMessage } from "@/services/api";
 import { supabase } from "@/lib/supabase";
 import {
   HEALTH_GOAL_OPTIONS,
@@ -107,7 +107,7 @@ export default function ProfileScreen() {
       setSaved(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save profile.");
+      setError(apiErrorMessage(e, "Could not save profile."));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setSaving(false);

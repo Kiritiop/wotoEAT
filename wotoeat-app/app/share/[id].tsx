@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { getShared } from "@/services/api";
+import { getShared, apiErrorMessage } from "@/services/api";
 import { Button } from "@/components/ui/Button";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -51,7 +51,7 @@ export default function SharedItemScreen() {
     setLoading(true);
     getShared(String(id))
       .then((res) => setPayload(res.payload))
-      .catch((err) => setError(err instanceof Error ? err.message : "Not found."))
+      .catch((err) => setError(apiErrorMessage(err, "Not found.")))
       .finally(() => setLoading(false));
   }, [id]);
 

@@ -14,7 +14,7 @@ import * as Haptics from "expo-haptics";
 import { useAppStore } from "@/store/useAppStore";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useTheme } from "@/hooks/useTheme";
-import { generateRecipeByName, saveRecipe } from "@/services/api";
+import { generateRecipeByName, saveRecipe, apiErrorMessage } from "@/services/api";
 import type { Recipe, SavedRecipe } from "@/services/api";
 import { translateTag } from "@/constants/filters";
 import { Button } from "@/components/ui/Button";
@@ -79,7 +79,7 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
       setPhase("preview");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("error"));
+      setError(apiErrorMessage(e, t("error")));
       setPhase("idle");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
@@ -103,7 +103,7 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       handleClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("error"));
+      setError(apiErrorMessage(e, t("error")));
       setPhase("preview");
     }
   }

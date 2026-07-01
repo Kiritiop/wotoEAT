@@ -14,7 +14,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAppStore } from "@/store/useAppStore";
-import { getPantry, replacePantry, deletePantryItem } from "@/services/api";
+import { getPantry, replacePantry, deletePantryItem, apiErrorMessage } from "@/services/api";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
@@ -95,7 +95,7 @@ export default function PantryScreen() {
       setPantry(pantry.filter((p) => p.name !== name));
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (err: unknown) {
-      setDeleteError(err instanceof Error ? err.message : "Could not delete.");
+      setDeleteError(apiErrorMessage(err, "Could not delete."));
     }
   }
 
@@ -136,7 +136,7 @@ export default function PantryScreen() {
     try {
       await replacePantry(updated);
     } catch (err: unknown) {
-      setDeleteError(err instanceof Error ? err.message : "Could not save.");
+      setDeleteError(apiErrorMessage(err, "Could not save."));
       loadPantry(); // restore server truth
     }
   }

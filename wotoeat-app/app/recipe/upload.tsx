@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { parseRecipe, saveRecipe } from "@/services/api";
+import { parseRecipe, saveRecipe, apiErrorMessage } from "@/services/api";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Button } from "@/components/ui/Button";
@@ -58,7 +58,7 @@ export default function UploadRecipeScreen() {
       } catch {}
       setRecipe(result);
     } catch (err: unknown) {
-      setParseError(err instanceof Error ? err.message : "No recipe found at that URL.");
+      setParseError(apiErrorMessage(err, "No recipe found at that URL."));
     } finally {
       setParsing(false);
     }
@@ -74,7 +74,7 @@ export default function UploadRecipeScreen() {
       setSaveStatus("saved");
       setTimeout(() => router.back(), 1200);
     } catch (err: unknown) {
-      setSaveError(err instanceof Error ? err.message : "Could not save.");
+      setSaveError(apiErrorMessage(err, "Could not save."));
       setSaveStatus("error");
     } finally {
       setSaving(false);
