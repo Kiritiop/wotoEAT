@@ -6,7 +6,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
   Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -17,6 +16,7 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { useTheme } from "@/hooks/useTheme";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
+import { Button } from "@/components/ui/Button";
 import { saveProfile } from "@/services/api";
 import { supabase } from "@/lib/supabase";
 import {
@@ -606,23 +606,12 @@ export default function ProfileScreen() {
         <ErrorBanner message={error} style={{ marginBottom: 12 }} />
 
         {/* Save */}
-        <TouchableOpacity
-          style={(saving || saved) && { opacity: 0.85 }}
+        <Button
+          icon={saved ? "checkmark-circle" : "save-outline"}
+          label={saved ? t("profile_saved") : t("save_profile")}
           onPress={handleSave}
-          disabled={saving}
-          activeOpacity={0.9}
-        >
-          <View style={[styles.saveBtn, { backgroundColor: saving ? c.disabled : c.primary }]}>
-            {saving ? (
-              <ActivityIndicator color="#FFF" size="small" />
-            ) : (
-              <>
-                <Ionicons name={saved ? "checkmark-circle" : "save-outline"} size={18} color="#FFF" />
-                <Text style={styles.saveBtnText}>{saved ? t("profile_saved") : t("save_profile")}</Text>
-              </>
-            )}
-          </View>
-        </TouchableOpacity>
+          loading={saving}
+        />
 
         {/* Sign out */}
         <TouchableOpacity style={[styles.signOutBtn, { backgroundColor: c.errorBg }]} onPress={handleSignOut}>

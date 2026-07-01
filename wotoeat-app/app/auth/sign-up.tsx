@@ -15,6 +15,7 @@ import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageToggle } from "@/components/LanguageToggle";
+import { Button } from "@/components/ui/Button";
 
 export default function SignUpScreen() {
   const c = useTheme();
@@ -110,15 +111,12 @@ export default function SignUpScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          <TouchableOpacity
-            style={[styles.btn, { backgroundColor: c.primary }, loading && { backgroundColor: c.disabled }]}
+          <Button
+            label={t("create_account")}
             onPress={handleSignUp}
-            disabled={loading}
-          >
-            <Text style={styles.btnText}>
-              {loading ? t("creating_account") : t("create_account")}
-            </Text>
-          </TouchableOpacity>
+            loading={loading}
+            style={styles.btn}
+          />
         )}
 
         <Link href="/auth/sign-in" asChild>

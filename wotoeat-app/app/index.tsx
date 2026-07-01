@@ -18,6 +18,8 @@ import * as Haptics from "expo-haptics";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageToggle } from "@/components/LanguageToggle";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 
 const FEATURES: {
   icon: React.ComponentProps<typeof Ionicons>["name"];
@@ -50,12 +52,8 @@ export default function LandingScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* Top bar: brand lockup (left) + language toggle (right) */}
+      {/* Top bar: language toggle only — the brand lives in the hero below */}
       <View style={styles.topBar}>
-        <View style={styles.brand}>
-          <Image source={require("@/assets/logo.png")} style={styles.brandLogo} resizeMode="contain" />
-          <Text style={[styles.brandName, { color: c.text }]}>wotoEAT</Text>
-        </View>
         <LanguageToggle />
       </View>
 
@@ -64,8 +62,11 @@ export default function LandingScreen() {
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
-        {/* ── Hero ── */}
+        {/* ── Hero: the logo is the brand anchor (it already contains the
+            "what to eat" wordmark), so no redundant text lockup. Placed on the
+            cream page bg so its baked-in cream background blends edge-free. ── */}
         <View style={styles.hero}>
+          <Image source={require("@/assets/logo.png")} style={styles.heroLogo} resizeMode="contain" />
           <Text style={[styles.heroTitle, { color: c.text }]}>{t("landing_hero_title")}</Text>
           <Text style={[styles.heroSub, { color: c.textMuted }]}>{t("landing_hero_sub")}</Text>
         </View>
@@ -73,7 +74,7 @@ export default function LandingScreen() {
         {/* ── Feature cards ── */}
         <View style={styles.features}>
           {FEATURES.map(({ icon, titleKey, subKey, color }) => (
-            <View key={titleKey} style={[styles.featureCard, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <Card key={titleKey} style={styles.featureCard}>
               <View style={[styles.featureIcon, { backgroundColor: color + "18" }]}>
                 <Ionicons name={icon} size={22} color={color} />
               </View>
@@ -81,23 +82,20 @@ export default function LandingScreen() {
                 <Text style={[styles.featureTitle, { color: c.text }]}>{t(titleKey)}</Text>
                 <Text style={[styles.featureSub, { color: c.textMuted }]}>{t(subKey)}</Text>
               </View>
-            </View>
+            </Card>
           ))}
         </View>
 
         {/* ── CTAs ── */}
         <View style={styles.ctaSection}>
-          <TouchableOpacity
-            style={[styles.ctaPrimary, { backgroundColor: c.primary }]}
+          <Button
+            label={t("landing_cta_start")}
+            icon="arrow-forward-circle"
             onPress={() => {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               router.push("/auth/sign-up");
             }}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="arrow-forward-circle" size={20} color="#FFF" />
-            <Text style={styles.ctaPrimaryText}>{t("landing_cta_start")}</Text>
-          </TouchableOpacity>
+          />
 
           <View style={styles.signinRow}>
             <Text style={[styles.signinLabel, { color: c.textMuted }]}>{t("landing_cta_signin")}</Text>
@@ -154,26 +152,22 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.bg },
     topBar: {
-      flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+      flexDirection: "row", alignItems: "center", justifyContent: "flex-end",
       paddingHorizontal: 24, paddingTop: 8, paddingBottom: 4,
     },
-    brand: { flexDirection: "row", alignItems: "center", gap: 8 },
-    brandLogo: { width: 30, height: 30 },
-    brandName: { fontSize: 19, fontWeight: "800", letterSpacing: -0.3 },
-    content: { flexGrow: 1, justifyContent: "space-between", paddingHorizontal: 24, paddingTop: 8, paddingBottom: 14 },
+    content: { flexGrow: 1, justifyContent: "space-between", paddingHorizontal: 24, paddingTop: 4, paddingBottom: 14 },
 
-    // Hero
-    hero: { paddingTop: 12, gap: 10 },
-    heroTitle: { fontSize: 27, fontWeight: "800", lineHeight: 33, letterSpacing: -0.4 },
-    heroSub: { fontSize: 14.5, lineHeight: 21, maxWidth: 360 },
+    // Hero — logo-led, centered
+    hero: { alignItems: "center", paddingTop: 4, gap: 8 },
+    heroLogo: { width: 108, height: 108, marginBottom: 2 },
+    heroTitle: { fontSize: 27, fontWeight: "800", lineHeight: 33, letterSpacing: -0.4, textAlign: "center" },
+    heroSub: { fontSize: 14.5, lineHeight: 21, maxWidth: 360, textAlign: "center" },
 
     // Features
     features: { gap: 10 },
     featureCard: {
       flexDirection: "row", alignItems: "center", gap: 13,
-      borderRadius: 16, borderWidth: 1, paddingVertical: 12, paddingHorizontal: 14,
-      shadowColor: "#2A2118", shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.05, shadowRadius: 10, elevation: 2,
+      paddingVertical: 12, paddingHorizontal: 14,
     },
     featureIcon: {
       width: 42, height: 42, borderRadius: 13,
@@ -185,13 +179,6 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
 
     // CTAs
     ctaSection: { gap: 10, alignItems: "center" },
-    ctaPrimary: {
-      width: "100%", flexDirection: "row", alignItems: "center", justifyContent: "center",
-      gap: 10, borderRadius: 16, paddingVertical: 16,
-      shadowColor: c.primary, shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3, shadowRadius: 10, elevation: 6,
-    },
-    ctaPrimaryText: { color: "#FFF", fontSize: 17, fontWeight: "800" },
     signinRow: { flexDirection: "row", alignItems: "center", gap: 6 },
     signinLabel: { fontSize: 14 },
     signinLink: { fontSize: 14, fontWeight: "700" },

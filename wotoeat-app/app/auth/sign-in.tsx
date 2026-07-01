@@ -15,6 +15,7 @@ import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageToggle } from "@/components/LanguageToggle";
+import { Button } from "@/components/ui/Button";
 
 export default function SignInScreen() {
   const c = useTheme();
@@ -55,7 +56,7 @@ export default function SignInScreen() {
       </View>
       <View style={styles.inner}>
         <Image source={require("@/assets/logo.png")} style={styles.logoWrap} resizeMode="contain" />
-        <Text style={[styles.title, { color: c.text }]}>wotoEAT</Text>
+        <Text style={[styles.title, { color: c.text }]}>{t("welcome_back")}</Text>
         <Text style={[styles.subtitle, { color: c.textMuted }]}>{t("app_tagline")}</Text>
 
         <TextInput
@@ -78,13 +79,12 @@ export default function SignInScreen() {
 
         {error ? <Text style={[styles.errorText, { color: c.error }]}>{error}</Text> : null}
 
-        <TouchableOpacity
-          style={[styles.btn, { backgroundColor: c.primary }, loading && { backgroundColor: c.disabled }]}
+        <Button
+          label={t("sign_in")}
           onPress={handleSignIn}
-          disabled={loading}
-        >
-          <Text style={styles.btnText}>{loading ? t("signing_in") : t("sign_in")}</Text>
-        </TouchableOpacity>
+          loading={loading}
+          style={styles.btn}
+        />
 
         <Link href="/auth/forgot-password" asChild>
           <TouchableOpacity style={styles.link}>

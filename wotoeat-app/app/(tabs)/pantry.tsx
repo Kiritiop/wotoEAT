@@ -7,23 +7,19 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Modal,
   RefreshControl,
-  Share,
-  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAppStore } from "@/store/useAppStore";
-import { getPantry, replacePantry, deletePantryItem, generateShoppingList } from "@/services/api";
+import { getPantry, replacePantry, deletePantryItem } from "@/services/api";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { PantryTagPicker } from "@/components/PantryTagPicker";
-import { formatShoppingListText, countShoppingItems } from "@/utils/shopping";
-import { IngredientRow } from "@/components/IngredientRow";
+import { Button } from "@/components/ui/Button";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { usePantryDisplay } from "@/hooks/useDynamicTranslation";
@@ -32,8 +28,7 @@ import type { PantryItem } from "@/services/api";
 
 export default function PantryScreen() {
   const {
-    pantry, setPantry, authReady, language,
-    shoppingList, setShoppingList, clearShoppingList, toggleShoppingItem, selectedRecipes,
+    pantry, setPantry, authReady, language, selectedRecipes,
   } = useAppStore();
   const c = useTheme();
   const { t, strings } = useTranslation();
@@ -74,11 +69,6 @@ export default function PantryScreen() {
       .filter((k) => groups[k]?.length)
       .map((k) => ({ key: k, count: groups[k].length, data: collapsed[k] ? [] : groups[k] }));
   }, [pantry, collapsed, categoryKeys]);
-
-  // ── Shopping modal state ──────────────────────────────────────────────────
-  const [showShopping, setShowShopping] = useState(false);
-  const [shoppingLoading, setShoppingLoading] = useState(false);
-  const [shoppingError, setShoppingError] = useState<string | null>(null);
 
   const loadPantry = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
@@ -151,34 +141,6 @@ export default function PantryScreen() {
     }
   }
 
-  // ── Shopping helpers ──────────────────────────────────────────────────────
-  async function handleGenerateShopping() {
-    if (selectedRecipes.length === 0) {
-      setShoppingError(t("no_recipes_selected"));
-      return;
-    }
-    setShoppingError(null);
-    setShoppingLoading(true);
-    try {
-      const list = await generateShoppingList(selectedRecipes, pantry, language);
-      setShoppingList(list);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (err: unknown) {
-      setShoppingError(err instanceof Error ? err.message : "Failed to generate list.");
-    } finally {
-      setShoppingLoading(false);
-    }
-  }
-
-  async function handleShareShopping() {
-    if (!shoppingList) return;
-    await Share.share({ message: formatShoppingListText(shoppingList, language) });
-  }
-
-  const { total: totalItems, checked: checkedItems } = shoppingList
-    ? countShoppingItems(shoppingList)
-    : { total: 0, checked: 0 };
-
   const styles = useMemo(() => makeStyles(c), [c]);
 
   return (
@@ -188,7 +150,7 @@ export default function PantryScreen() {
         right={
           <TouchableOpacity
             style={[styles.cartBtn, { backgroundColor: c.surfaceAlt }]}
-            onPress={() => { setShowShopping(true); Haptics.selectionAsync(); }}
+            onPress={() => { router.push("/(tabs)/shopping"); Haptics.selectionAsync(); }}
           >
             <Ionicons name="cart-outline" size={22} color={c.primary} />
             {selectedRecipes.length > 0 && (
@@ -233,23 +195,21 @@ export default function PantryScreen() {
             <Text style={[styles.intro, styles.introSpacing]}>{t("pantry_intro")}</Text>
 
             <View style={styles.addRow}>
-              <TouchableOpacity style={{ flex: 1 }} activeOpacity={0.9} onPress={() => { setShowTagPicker(true); Haptics.selectionAsync(); }}>
-                <View style={[styles.addBtn, { backgroundColor: c.primary }]}>
-                  <Ionicons name="add" size={20} color="#FFF" />
-                  <Text style={styles.addBtnText}>{t("add_ingredient")}</Text>
-                </View>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.scanBtn, { borderColor: c.primary }]}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                   
-                  router.push("/pantry/scan" as any);
-                }}
-              >
-                <Ionicons name="scan-outline" size={18} color={c.primary} />
-                <Text style={[styles.scanBtnText, { color: c.primary }]}>{t("scan_receipt")}</Text>
-              </TouchableOpacity>
+              <Button
+                label={t("add_ingredient")}
+                icon="add"
+                fullWidth={false}
+                style={styles.addRowBtn}
+                onPress={() => { setShowTagPicker(true); Haptics.selectionAsync(); }}
+              />
+              <Button
+                label={t("scan_receipt")}
+                icon="scan-outline"
+                variant="secondary"
+                fullWidth={false}
+                style={styles.addRowBtn}
+                onPress={() => { Haptics.selectionAsync(); router.push("/pantry/scan" as any); }}
+              />
             </View>
             {loading && <ActivityIndicator style={{ marginTop: 24 }} color={c.primary} />}
             <ErrorBanner message={deleteError} style={{ marginTop: 8 }} />
@@ -353,83 +313,6 @@ export default function PantryScreen() {
         onSave={handleTagPickerSave}
         language={language}
       />
-
-      {/* ── Shopping list modal ───────────────────────────────────────────── */}
-      <Modal visible={showShopping} animationType="slide" transparent={false} presentationStyle="pageSheet">
-        <SafeAreaView style={[styles.safe, { backgroundColor: c.bg }]}>
-          <View style={[styles.shoppingHeader, { borderBottomColor: c.border }]}>
-            <Text style={[styles.shoppingTitle, { color: c.text }]}>{t("shopping_list")}</Text>
-            <View style={styles.shoppingHeaderActions}>
-              {shoppingList && (
-                <>
-                  <TouchableOpacity onPress={handleShareShopping} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Ionicons name="share-outline" size={22} color={c.primary} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => { clearShoppingList(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Ionicons name="trash-outline" size={22} color={c.error} />
-                  </TouchableOpacity>
-                </>
-              )}
-              <TouchableOpacity onPress={() => setShowShopping(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="close" size={24} color={c.textMuted} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={styles.shoppingGenRow}>
-            <ErrorBanner message={shoppingError} style={{ marginBottom: 8 }} />
-            <TouchableOpacity onPress={handleGenerateShopping} disabled={shoppingLoading} activeOpacity={0.9}>
-              <View style={[styles.generateBtn, { backgroundColor: shoppingLoading ? c.disabled : c.primary }]}>
-                {shoppingLoading ? (
-                  <ActivityIndicator color="#FFF" size="small" />
-                ) : (
-                  <>
-                    <Ionicons name="sparkles" size={16} color="#FFF" />
-                    <Text style={styles.generateBtnText}>
-                      {t("generate_list")} ({selectedRecipes.length})
-                    </Text>
-                  </>
-                )}
-              </View>
-            </TouchableOpacity>
-          </View>
-
-          {!shoppingList && !shoppingLoading && (
-            <EmptyState
-              icon="cart-outline"
-              iconSize={48}
-              title={t("cart_empty")}
-              body={t("cart_empty_sub")}
-            />
-          )}
-
-          {shoppingList && (
-            <ScrollView contentContainerStyle={styles.shoppingContent} showsVerticalScrollIndicator={false}>
-              <View style={styles.shoppingSummary}>
-                <Text style={[styles.summaryText, { color: c.textMuted }]}>
-                  {strings.items_progress(checkedItems, totalItems)}
-                </Text>
-              </View>
-              {shoppingList.groups.map((group) => (
-                <View key={group.category} style={styles.shoppingGroup}>
-                  <Text style={[styles.groupLabel, { color: c.textPlaceholder }]}>{group.category}</Text>
-                  {group.items.map((item) => (
-                    <IngredientRow
-                      key={item.name}
-                      item={item}
-                      showCheckbox
-                      onToggle={() => { toggleShoppingItem(group.category, item.name); Haptics.selectionAsync(); }}
-                    />
-                  ))}
-                </View>
-              ))}
-            </ScrollView>
-          )}
-        </SafeAreaView>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -448,6 +331,7 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     },
     cartBadgeText: { color: "#FFF", fontSize: 9, fontWeight: "700" },
     addRow: { flexDirection: "row", gap: 10, marginBottom: 16 },
+    addRowBtn: { flex: 1 },
     addBtn: {
       flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
       backgroundColor: c.primary, borderRadius: 16, paddingVertical: 14, gap: 8,

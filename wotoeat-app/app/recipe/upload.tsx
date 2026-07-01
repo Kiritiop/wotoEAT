@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { parseRecipe, saveRecipe } from "@/services/api";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
+import { Button } from "@/components/ui/Button";
 import type { Recipe } from "@/services/api";
 
 export default function UploadRecipeScreen() {
@@ -97,21 +98,14 @@ export default function UploadRecipeScreen() {
           value={url}
           onChangeText={(v) => { setUrl(v); setParseError(null); }}
         />
-        <TouchableOpacity
-          style={[
-            styles.parseBtn,
-            { backgroundColor: c.primary },
-            (parsing || !url.trim()) && { backgroundColor: c.disabled },
-          ]}
+        <Button
+          label={t("parse")}
+          loading={parsing}
+          disabled={!url.trim()}
+          fullWidth={false}
+          style={styles.parseBtn}
           onPress={handleParse}
-          disabled={parsing || !url.trim()}
-        >
-          {parsing ? (
-            <ActivityIndicator color="#FFF" size="small" />
-          ) : (
-            <Text style={styles.parseBtnText}>{t("parse")}</Text>
-          )}
-        </TouchableOpacity>
+        />
       </View>
 
       {parseError && (

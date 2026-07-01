@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   Share,
-  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -16,6 +15,7 @@ import { IngredientRow } from "@/components/IngredientRow";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
+import { Button } from "@/components/ui/Button";
 import { useAppStore } from "@/store/useAppStore";
 import { generateShoppingList, saveCurrentShoppingList } from "@/services/api";
 import { formatShoppingListText, countShoppingItems, displayCategory } from "@/utils/shopping";
@@ -87,20 +87,14 @@ export default function ShoppingScreen() {
 
       {/* Action bar */}
       <View style={styles.actionBar}>
-        <TouchableOpacity style={{ flex: 1 }} onPress={handleGenerate} disabled={loading} activeOpacity={0.9}>
-          <View style={[styles.generateBtn, { backgroundColor: loading ? c.disabled : c.primary }]}>
-            {loading ? (
-              <ActivityIndicator color="#FFF" size="small" />
-            ) : (
-              <>
-                <Ionicons name="sparkles" size={16} color="#FFF" />
-                <Text style={styles.generateBtnText}>
-                  {t("generate_list")} ({selectedRecipes.length})
-                </Text>
-              </>
-            )}
-          </View>
-        </TouchableOpacity>
+        <Button
+          label={`${t("generate_list")} (${selectedRecipes.length})`}
+          icon="sparkles"
+          loading={loading}
+          fullWidth={false}
+          style={styles.generateFlex}
+          onPress={handleGenerate}
+        />
 
         {shoppingList && (
           <TouchableOpacity style={[styles.iconBtn, { backgroundColor: c.surfaceAlt }]} onPress={handleShare}>
@@ -171,6 +165,7 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.bg },
     actionBar: { flexDirection: "row", alignItems: "center", padding: 16, gap: 10 },
+    generateFlex: { flex: 1 },
     generateBtn: {
       flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
       backgroundColor: c.primary, borderRadius: 16, paddingVertical: 14, gap: 8,

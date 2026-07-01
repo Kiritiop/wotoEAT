@@ -1,10 +1,8 @@
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   Image,
-  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -16,6 +14,7 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { useTheme } from "@/hooks/useTheme";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { Button } from "@/components/ui/Button";
 import { saveProfile } from "@/services/api";
 
 export default function OnboardingScreen() {
@@ -83,21 +82,13 @@ export default function OnboardingScreen() {
         <Text style={[styles.hint, { color: c.textPlaceholder }]}>
           {t("complete_profile_sub")}
         </Text>
-        <TouchableOpacity
-          style={[styles.startBtn, { backgroundColor: saving ? c.disabled : c.primary }]}
+        <Button
+          label={t("onboarding_get_started")}
+          icon="arrow-forward"
+          iconRight
           onPress={handleStart}
-          disabled={saving}
-          activeOpacity={0.85}
-        >
-          {saving ? (
-            <ActivityIndicator color="#FFF" size="small" />
-          ) : (
-            <>
-              <Text style={styles.startBtnText}>{t("onboarding_get_started")}</Text>
-              <Ionicons name="arrow-forward" size={20} color="#FFF" />
-            </>
-          )}
-        </TouchableOpacity>
+          loading={saving}
+        />
       </View>
     </SafeAreaView>
   );

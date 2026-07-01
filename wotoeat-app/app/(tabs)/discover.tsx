@@ -938,7 +938,7 @@ export default function TodayScreen() {
             style={[styles.topBarBtn, { borderColor: c.border, backgroundColor: c.surface }]}
             onPress={() => { clearMeals(); Haptics.selectionAsync(); }}
           >
-            <Ionicons name="refresh-outline" size={20} color={c.primary} />
+            <Ionicons name="refresh-outline" size={20} color={c.textMuted} />
           </TouchableOpacity>
         </View>
 

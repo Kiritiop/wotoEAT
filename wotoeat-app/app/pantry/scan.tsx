@@ -28,6 +28,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { scanReceipt, replacePantry } from "@/services/api";
 import type { ScannedItem } from "@/services/api";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { Button } from "@/components/ui/Button";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { usePantryDisplay } from "@/hooks/useDynamicTranslation";
@@ -369,24 +370,13 @@ export default function ScanReceiptScreen() {
         {checkedCount === 0 && (
           <Text style={[styles.noChecked, { color: c.textPlaceholder }]}>{t("scan_no_items_checked")}</Text>
         )}
-        <TouchableOpacity
-          style={[
-            styles.confirmBtn,
-            { backgroundColor: c.primary },
-            (checkedCount === 0 || phase === "saving") && { backgroundColor: c.disabled },
-          ]}
+        <Button
+          icon="basket-outline"
+          label={strings.scan_add_items(checkedCount)}
           onPress={handleConfirm}
-          disabled={checkedCount === 0 || phase === "saving"}
-        >
-          {phase === "saving" ? (
-            <ActivityIndicator color="#FFF" size="small" />
-          ) : (
-            <>
-              <Ionicons name="basket-outline" size={18} color="#FFF" />
-              <Text style={styles.confirmBtnText}>{strings.scan_add_items(checkedCount)}</Text>
-            </>
-          )}
-        </TouchableOpacity>
+          loading={phase === "saving"}
+          disabled={checkedCount === 0}
+        />
       </View>
     </View>
   );

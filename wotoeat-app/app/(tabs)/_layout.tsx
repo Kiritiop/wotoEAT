@@ -1,6 +1,7 @@
 import { View, StyleSheet } from "react-native";
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme, shadows } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 
@@ -21,6 +22,7 @@ function TabIcon({ name, focused, color }: { name: IoniconName; focused: boolean
 
 export default function TabsLayout() {
   const c = useTheme();
+  const insets = useSafeAreaInsets();
   const { t } = useTranslation();
 
   return (
@@ -34,9 +36,9 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: c.tabBar,
           borderTopWidth: 0,
-          paddingTop: 10,
-          height: 80,
-          paddingBottom: 14,
+          paddingTop: 8,
+          height: 66 + insets.bottom,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 12,
           borderTopLeftRadius: 24,
           borderTopRightRadius: 24,
           ...shadows.float,

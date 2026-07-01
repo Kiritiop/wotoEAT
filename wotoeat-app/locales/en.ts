@@ -48,6 +48,7 @@ const en = {
   sign_in_link: "Sign in",
   sign_up_link: "Sign up",
   app_tagline: "Smart meals, less stress.",
+  welcome_back: "Welcome back",
   create_account: "Create Account",
   start_discovering: "Start discovering better meals",
   account_created: "Account created! Check your email for a confirmation link, then",

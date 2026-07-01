@@ -21,6 +21,7 @@ import { getSavedRecipes, deleteRecipe, updateRecipe, saveRecipe, getMealHistory
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
+import { Button } from "@/components/ui/Button";
 import { useAppStore } from "@/store/useAppStore";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -613,18 +614,12 @@ export default function RecipesScreen() {
                     ))}
                   </View>
                 )}
-                <TouchableOpacity
+                <Button
+                  icon="document-text-outline"
+                  label={t("history_generate_save")}
+                  loading={historyGenerating}
                   onPress={handleHistoryGenerateRecipe}
-                  disabled={historyGenerating}
-                  activeOpacity={0.9}
-                >
-                  <View style={[styles.histGenBtn, { backgroundColor: historyGenerating ? c.disabled : c.primary }]}>
-                    {historyGenerating
-                      ? <ActivityIndicator color="#FFF" size="small" />
-                      : <><Ionicons name="document-text-outline" size={18} color="#FFF" /><Text style={styles.histGenBtnText}>{t("history_generate_save")}</Text></>
-                    }
-                  </View>
-                </TouchableOpacity>
+                />
                 {historyBanner && (
                   <View style={[styles.histBanner, { backgroundColor: historyBannerIsError ? c.errorBg : c.successBg }]}>
                     <Ionicons name={historyBannerIsError ? "alert-circle-outline" : "checkmark-circle-outline"} size={14}
@@ -797,19 +792,13 @@ export default function RecipesScreen() {
                     >
                       <Text style={[styles.editCancelText, { color: c.textMuted }]}>{t("cancel")}</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity
+                    <Button
+                      label={selectedRecipe?.source_name === "__mine__" ? t("save") : t("save_to_mine")}
+                      loading={editSaving}
+                      fullWidth={false}
                       style={{ flex: 2 }}
                       onPress={handleSaveEdit}
-                      disabled={editSaving}
-                      activeOpacity={0.9}
-                    >
-                      <View style={[styles.editSaveBtn, { backgroundColor: editSaving ? c.disabled : c.primary }]}>
-                        {editSaving
-                          ? <ActivityIndicator size="small" color="#FFF" />
-                          : <Text style={styles.editSaveBtnText}>{selectedRecipe?.source_name === "__mine__" ? t("save") : t("save_to_mine")}</Text>
-                        }
-                      </View>
-                    </TouchableOpacity>
+                    />
                   </View>
                 </>
               ) : (

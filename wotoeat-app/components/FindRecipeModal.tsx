@@ -6,7 +6,6 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  ActivityIndicator,
   StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -18,6 +17,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { generateRecipeByName, saveRecipe } from "@/services/api";
 import type { Recipe, SavedRecipe } from "@/services/api";
 import { translateTag } from "@/constants/filters";
+import { Button } from "@/components/ui/Button";
 
 const SUGGESTIONS_EN = [
   "Pasta Carbonara", "Kung Pao Chicken", "Beef Tacos",
@@ -183,26 +183,14 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
             )}
 
             {/* Generate / Regenerate button */}
-            <TouchableOpacity
-              style={[styles.generateBtn, { backgroundColor: isGenerating || phase === "saving" ? c.disabled : c.primary }]}
+            <Button
+              icon="sparkles"
+              label={hasRecipe ? t("regenerate") : t("generate")}
+              loading={isGenerating}
+              loadingLabel={t("generating_recipe")}
+              disabled={phase === "saving"}
               onPress={handleGenerate}
-              disabled={isGenerating || phase === "saving"}
-              activeOpacity={0.85}
-            >
-              {isGenerating ? (
-                <>
-                  <ActivityIndicator color="#FFF" size="small" />
-                  <Text style={styles.generateBtnText}>{t("generating_recipe")}</Text>
-                </>
-              ) : (
-                <>
-                  <Ionicons name="sparkles" size={18} color="#FFF" />
-                  <Text style={styles.generateBtnText}>
-                    {hasRecipe ? t("regenerate") : t("generate")}
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
+            />
           </View>
 
           {/* ── Recipe preview ── */}
@@ -318,21 +306,12 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
               )}
 
               {/* Save button */}
-              <TouchableOpacity
-                style={[styles.saveBtn, { backgroundColor: phase === "saving" ? c.disabled : c.primary }]}
+              <Button
+                icon="bookmark-outline"
+                label={t("save_to_recipes")}
+                loading={phase === "saving"}
                 onPress={handleSave}
-                disabled={phase === "saving"}
-                activeOpacity={0.85}
-              >
-                {phase === "saving" ? (
-                  <ActivityIndicator color="#FFF" size="small" />
-                ) : (
-                  <>
-                    <Ionicons name="bookmark-outline" size={18} color="#FFF" />
-                    <Text style={styles.saveBtnText}>{t("save_to_recipes")}</Text>
-                  </>
-                )}
-              </TouchableOpacity>
+              />
             </View>
           )}
         </ScrollView>

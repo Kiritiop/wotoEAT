@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
+import { Button } from "@/components/ui/Button";
 
 export default function ForgotPasswordScreen() {
   const c = useTheme();
@@ -89,15 +90,12 @@ export default function ForgotPasswordScreen() {
 
             {error ? <Text style={[styles.errorText, { color: c.error }]}>{error}</Text> : null}
 
-            <TouchableOpacity
-              style={[styles.btn, { backgroundColor: c.primary }, loading && { backgroundColor: c.disabled }]}
+            <Button
+              label={t("send_reset_link")}
               onPress={handleSend}
-              disabled={loading}
-            >
-              <Text style={styles.btnText}>
-                {loading ? t("sending") : t("send_reset_link")}
-              </Text>
-            </TouchableOpacity>
+              loading={loading}
+              style={styles.btn}
+            />
           </>
         )}
       </View>
