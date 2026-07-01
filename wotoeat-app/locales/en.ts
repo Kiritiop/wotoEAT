@@ -29,6 +29,7 @@ const en = {
   nutrition_info: "Nutrition info",
   could_not_generate: "Couldn't generate a meal. Please try again.",
   could_not_swap: "Couldn't swap the meal. Please try again.",
+  no_meals_for_filter: "No meals match this filter yet. Tap Generate to add one.",
   clear_meals_title: "Clear today's meals?",
   clear_meals_confirm: "This removes all generated meals and confirmations for today. You can generate new ones anytime.",
   generate: "Generate",

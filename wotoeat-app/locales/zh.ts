@@ -29,6 +29,7 @@ const zh = {
   nutrition_info: "营养信息",
   could_not_generate: "无法生成餐点，请重试。",
   could_not_swap: "无法更换餐点，请重试。",
+  no_meals_for_filter: "没有符合此筛选的餐点，点击“生成”添加一个。",
   clear_meals_title: "清除今天的餐点？",
   clear_meals_confirm: "这将删除今天生成的所有餐点和已确认项，你随时可以重新生成。",
   generate: "生成",

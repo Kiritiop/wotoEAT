@@ -1215,7 +1215,7 @@ export default function TodayScreen() {
           </View>
         )}
 
-        {sortedMeals.length === 0 && !loading && (
+        {meals.length === 0 && !loading && (
           <View style={styles.welcomeWrap}>
             <View style={[styles.stepsCard, { backgroundColor: c.surface, borderColor: c.border }]}>
               {([
@@ -1237,6 +1237,15 @@ export default function TodayScreen() {
                 </View>
               ))}
             </View>
+          </View>
+        )}
+
+        {/* Meals exist but the active meal-type chip filters them all out —
+            a filter state, not a new user, so don't show the getting-started steps. */}
+        {meals.length > 0 && sortedMeals.length === 0 && !loading && (
+          <View style={styles.filterEmptyWrap}>
+            <Ionicons name="funnel-outline" size={26} color={c.textPlaceholder} />
+            <Text style={[styles.filterEmptyText, { color: c.textMuted }]}>{t("no_meals_for_filter")}</Text>
           </View>
         )}
       </ScrollView>
@@ -1351,6 +1360,8 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     content: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24, gap: 10 },
     slotChipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     welcomeWrap: { paddingTop: 8, paddingBottom: 8, gap: 10, alignItems: "center" },
+    filterEmptyWrap: { paddingTop: 40, paddingHorizontal: 32, gap: 10, alignItems: "center" },
+    filterEmptyText: { fontSize: 14, textAlign: "center", lineHeight: 20 },
     stepsCard: {
       width: "100%", borderRadius: 20, borderWidth: 1, paddingHorizontal: 16, marginTop: 6,
       shadowColor: c.shadow, shadowOffset: { width: 0, height: 4 },
