@@ -16,38 +16,6 @@ export const CUISINES = [
   "Vietnamese",
 ];
 
-export const DIETARY_RESTRICTIONS = [
-  "vegetarian",
-  "vegan",
-  "gluten-free",
-  "dairy-free",
-  "nut-free",
-  "halal",
-  "kosher",
-  "keto",
-  "paleo",
-];
-
-export const DIETARY_GOALS = [
-  "high-protein",
-  "low-carb",
-  "low-fat",
-  "low-sodium",
-  "high-fibre",
-  "low-calorie",
-];
-
-export const FLAVOUR_PROFILES = [
-  "Any",
-  "mild",
-  "spicy",
-  "umami",
-  "sweet",
-  "sour",
-  "smoky",
-  "fresh",
-];
-
 export const FLAVOUR_OPTIONS: Array<{ value: string; en: string; zh: string }> = [
   { value: "spicy",  en: "Spicy",  zh: "辣" },
   { value: "sweet",  en: "Sweet",  zh: "甜" },
@@ -80,18 +48,6 @@ export const DIFFICULTY_COLORS: Record<string, string> = {
   medium: "#D97706",
   hard: "#DC2626",
 };
-
-export const PANTRY_UNITS = [
-  "g", "kg", "ml", "L", "个", "条", "块", "袋", "瓶", "盒",
-  "cup", "tbsp", "tsp", "piece", "bunch", "can",
-];
-
-const PANTRY_UNITS_EN = ["g", "kg", "ml", "L", "cup", "tbsp", "tsp", "piece", "bunch", "can"];
-
-/** Returns the unit list appropriate for the current language. */
-export function getPantryUnits(language: string): string[] {
-  return language === "zh" ? PANTRY_UNITS : PANTRY_UNITS_EN;
-}
 
 // Chinese translations for AI-generated tags (tags are always returned in English)
 export const TAG_ZH: Record<string, string> = {
@@ -314,20 +270,3 @@ export function translateDifficulty(difficulty: string, language: string): strin
   const map: Record<string, string> = { easy: "简单", medium: "中等", hard: "困难" };
   return map[difficulty.toLowerCase()] ?? difficulty;
 }
-
-// Approximate gram weights for non-standard units — used by the AI
-// to understand how much of an ingredient the user actually has.
-export const UNIT_GRAM_ESTIMATES: Record<string, string> = {
-  "个": "≈60g each (e.g. 1 egg≈60g, 1 medium fruit≈150g)",
-  "条": "≈200g each (e.g. 1 fish fillet≈200g, 1 carrot≈80g)",
-  "块": "≈150g each (e.g. 1 piece of meat/tofu≈150g)",
-  "袋": "≈300g per bag (e.g. 1 bag shrimp≈300g, 1 bag spinach≈200g)",
-  "瓶": "≈500ml per bottle",
-  "盒": "≈250g per box/carton",
-  "piece": "≈150g each",
-  "bunch": "≈200g",
-  "can": "≈400g",
-  "cup": "≈240ml or ≈150g for dry goods",
-  "tbsp": "≈15g",
-  "tsp": "≈5g",
-};
