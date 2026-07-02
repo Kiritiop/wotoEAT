@@ -49,12 +49,26 @@ def cache_get(key: str):
     return json.loads(row[0]) if row else None
 
 
+# Opportunistic housekeeping: purge expired rows at most once an hour per
+# process. Without this the cache grows unboundedly — meal-plan keys include
+# avoid_meals, so nearly every generation writes a unique row that expires but
+# was never deleted (cache_purge_expired existed but had no caller).
+_PURGE_INTERVAL = 3600
+_last_purge = 0.0
+
+
 def cache_set(key: str, data, ttl: int) -> None:
-    _conn().execute(
+    global _last_purge
+    now = time.time()
+    conn = _conn()
+    if now - _last_purge > _PURGE_INTERVAL:
+        _last_purge = now
+        conn.execute("DELETE FROM cache WHERE expires<?", (now,))
+    conn.execute(
         "INSERT OR REPLACE INTO cache (key, data, expires) VALUES (?,?,?)",
-        (key, json.dumps(data, default=str), time.time() + ttl),
+        (key, json.dumps(data, default=str), now + ttl),
     )
-    _conn().commit()
+    conn.commit()
 
 
 def cache_purge_expired() -> None:
