@@ -13,7 +13,11 @@ export function ErrorBanner({ message, style }: Props) {
   const c = useTheme();
   if (!message) return null;
   return (
-    <View style={[styles.banner, { backgroundColor: c.errorBg }, style]}>
+    <View
+      style={[styles.banner, { backgroundColor: c.errorBg }, style]}
+      accessibilityRole="alert"
+      accessibilityLiveRegion="polite"
+    >
       <Ionicons name="alert-circle-outline" size={15} color={c.error} />
       <Text style={[styles.text, { color: c.error }]}>{message}</Text>
     </View>
