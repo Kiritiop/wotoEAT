@@ -28,13 +28,16 @@ export default function SignInScreen() {
 
   async function handleSignIn() {
     setError("");
-    if (!email || !password) {
+    // Mobile keyboards routinely append a space after autocomplete — trim, or
+    // Supabase rejects " user@x.com" with a confusing invalid-credentials error.
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !password) {
       setError(t("enter_email_password"));
       return;
     }
     setLoading(true);
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
       if (signInError) setError(signInError.message);
       // On success the root _layout listener handles the redirect
     } catch (e) {
@@ -64,6 +67,8 @@ export default function SignInScreen() {
           placeholder={t("email")}
           placeholderTextColor={c.textPlaceholder}
           autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="email"
           keyboardType="email-address"
           value={email}
           onChangeText={setEmail}

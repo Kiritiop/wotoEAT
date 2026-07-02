@@ -83,6 +83,8 @@ export default function ForgotPasswordScreen() {
               placeholder={t("email")}
               placeholderTextColor={c.textPlaceholder}
               autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="email"
               keyboardType="email-address"
               value={email}
               onChangeText={setEmail}

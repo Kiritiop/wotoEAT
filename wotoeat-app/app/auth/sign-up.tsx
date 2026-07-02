@@ -31,7 +31,10 @@ export default function SignUpScreen() {
 
   async function handleSignUp() {
     setError("");
-    if (!email || !password) {
+    // Trim — mobile keyboards append spaces after autocomplete, and a signup
+    // with " user@x.com" would then never match at sign-in.
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !password) {
       setError(t("enter_email_password"));
       return;
     }
@@ -45,7 +48,7 @@ export default function SignUpScreen() {
     }
     setLoading(true);
     try {
-      const { error: signUpError } = await supabase.auth.signUp({ email, password });
+      const { error: signUpError } = await supabase.auth.signUp({ email: cleanEmail, password });
       if (signUpError) {
         setError(signUpError.message);
       } else {
@@ -78,6 +81,8 @@ export default function SignUpScreen() {
           placeholder={t("email")}
           placeholderTextColor={c.textPlaceholder}
           autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="email"
           keyboardType="email-address"
           value={email}
           onChangeText={setEmail}
