@@ -23,6 +23,9 @@ export function Chip({ label, active, onPress, onClose, style }: Props) {
     <TouchableOpacity
       onPress={onClose ?? onPress}
       activeOpacity={0.75}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: !!active }}
       style={[
         styles.chip,
         {
