@@ -44,6 +44,22 @@ export default function RecipesScreen() {
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [selectedRecipe, setSelectedRecipe] = useState<SavedRecipe | null>(null);
+  // Serving scaler for the read-only detail view (parity with the meal detail
+  // sheet and FindRecipeModal). Resets to the recipe's own servings on open.
+  const [detailServings, setDetailServings] = useState(1);
+  useEffect(() => {
+    if (selectedRecipe) setDetailServings(selectedRecipe.servings || 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRecipe?.id]);
+  const detailScale = selectedRecipe ? detailServings / (selectedRecipe.servings || 1) : 1;
+  const scaleAmount = (amount: number | string | null | undefined): string => {
+    if (amount == null || amount === "") return "";
+    if (Math.abs(detailScale - 1) < 0.001) return String(amount);
+    const n = typeof amount === "number" ? amount : parseFloat(String(amount));
+    if (Number.isNaN(n)) return `~${amount}`;
+    const scaled = n * detailScale;
+    return scaled % 1 < 0.05 ? String(Math.round(scaled)) : scaled.toFixed(1);
+  };
   const [activeTab, setActiveTab] = useState<RecipeTab>("saved");
 
   // ── Search ────────────────────────────────────────────────────────────────
@@ -880,9 +896,28 @@ export default function RecipesScreen() {
 
                   {(selectedRecipe.ingredients?.length ?? 0) > 0 && (
                     <>
-                      <Text style={[styles.detailSectionLabel, { color: c.textPlaceholder }]}>
-                        {t("ingredients_label")} ({selectedRecipe.ingredients!.length})
-                      </Text>
+                      <View style={styles.detailScalerRow}>
+                        <Text style={[styles.detailSectionLabel, { color: c.textPlaceholder, marginTop: 0, marginBottom: 0 }]}>
+                          {t("ingredients_label")} ({selectedRecipe.ingredients!.length})
+                        </Text>
+                        <View style={styles.detailStepper}>
+                          <TouchableOpacity
+                            onPress={() => { setDetailServings((n) => Math.max(1, n - 1)); Haptics.selectionAsync(); }}
+                            disabled={detailServings <= 1}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <Ionicons name="remove-circle-outline" size={20} color={detailServings <= 1 ? c.disabled : c.textMuted} />
+                          </TouchableOpacity>
+                          <Text style={[styles.detailStepperText, { color: c.textSecondary }]}>{strings.servings_people(detailServings)}</Text>
+                          <TouchableOpacity
+                            onPress={() => { setDetailServings((n) => Math.min(12, n + 1)); Haptics.selectionAsync(); }}
+                            disabled={detailServings >= 12}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <Ionicons name="add-circle-outline" size={20} color={detailServings >= 12 ? c.disabled : c.textMuted} />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
                       {selectedRecipe.ingredients!.map((ing, i) => (
                         <View key={i} style={[styles.detailIngRow, { borderBottomColor: c.borderLight }]}>
                           <View style={{ flex: 1 }}>
@@ -891,7 +926,7 @@ export default function RecipesScreen() {
                               <Text style={[styles.detailIngTip, { color: c.textPlaceholder }]}>{ing.tip}</Text>
                             )}
                           </View>
-                          <Text style={[styles.detailIngAmt, { color: c.textMuted }]}>{ing.amount} {ing.unit}</Text>
+                          <Text style={[styles.detailIngAmt, { color: c.textMuted }]}>{scaleAmount(ing.amount)} {ing.unit}</Text>
                         </View>
                       ))}
                     </>
@@ -1086,6 +1121,12 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
       marginTop: 16, marginBottom: 8,
     },
     detailIntro: { fontSize: 14, lineHeight: 20, marginBottom: 12, fontStyle: "italic" },
+    detailScalerRow: {
+      flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+      marginTop: 16, marginBottom: 8,
+    },
+    detailStepper: { flexDirection: "row", alignItems: "center", gap: 8 },
+    detailStepperText: { fontSize: 13, fontWeight: "600", minWidth: 54, textAlign: "center" },
     detailIngRow: {
       flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start",
       paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth,
