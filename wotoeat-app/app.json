@@ -10,13 +10,12 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#2E7D32"
+      "backgroundColor": "#FBF7F0"
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.wotoeat.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "wotoEAT uses your location to find nearby restaurants in Eat Out mode.",
         "NSCameraUsageDescription": "wotoEAT uses your camera to scan grocery receipts.",
         "NSPhotoLibraryUsageDescription": "wotoEAT accesses your photos so you can scan a saved receipt image."
       }
@@ -24,12 +23,10 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#2E7D32"
+        "backgroundColor": "#FBF7F0"
       },
       "package": "com.wotoeat.app",
       "permissions": [
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
         "CAMERA"
       ]
     },
@@ -40,17 +37,11 @@
       "name": "wotoEAT — What to Eat",
       "shortName": "wotoEAT",
       "description": "AI-powered meal planning tailored to your health goals, pantry, and taste.",
-      "themeColor": "#2E7D32",
-      "backgroundColor": "#FAFAFA"
+      "themeColor": "#16A34A",
+      "backgroundColor": "#FBF7F0"
     },
     "plugins": [
       "expo-router",
-      [
-        "expo-location",
-        {
-          "locationWhenInUsePermission": "wotoEAT uses your location to find nearby restaurants."
-        }
-      ],
       [
         "expo-image-picker",
         {
