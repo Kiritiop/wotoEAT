@@ -369,27 +369,5 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     },
     itemName: { flex: 1, fontSize: 15, fontWeight: "500", textTransform: "capitalize" },
     itemEditInput: { flex: 1, fontSize: 15, fontWeight: "500", paddingVertical: 0, marginRight: 12 },
-    // Shopping modal
-    shoppingHeader: {
-      flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-      paddingHorizontal: 20, paddingVertical: 14,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-    },
-    shoppingTitle: { fontSize: 20, fontWeight: "800" },
-    shoppingHeaderActions: { flexDirection: "row", alignItems: "center", gap: 16 },
-    shoppingGenRow: { paddingHorizontal: 16, paddingTop: 12 },
-    generateBtn: {
-      flexDirection: "row", alignItems: "center", justifyContent: "center",
-      backgroundColor: c.primary, borderRadius: 16, paddingVertical: 14, gap: 8,
-    },
-    generateBtnText: { color: "#FFF", fontSize: 14, fontWeight: "700" },
-    shoppingContent: { paddingHorizontal: 16, paddingBottom: 40 },
-    shoppingSummary: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 12 },
-    summaryText: { fontSize: 14, fontWeight: "600" },
-    shoppingGroup: { marginBottom: 20 },
-    groupLabel: {
-      fontSize: 13, fontWeight: "700", textTransform: "uppercase",
-      letterSpacing: 0.6, marginBottom: 4,
-    },
   });
 }
