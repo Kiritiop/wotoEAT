@@ -48,6 +48,9 @@ export function Button({
       onPress={onPress}
       disabled={isDisabled}
       activeOpacity={0.85}
+      accessibilityRole="button"
+      accessibilityLabel={loading && loadingLabel ? loadingLabel : label}
+      accessibilityState={{ disabled: !!isDisabled, busy: !!loading }}
       style={[
         styles.base,
         { backgroundColor: bg, borderColor, borderWidth: variant === "secondary" ? 1.5 : 0 },
