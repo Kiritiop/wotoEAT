@@ -25,15 +25,22 @@ export default function OnboardingScreen() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  function enterApp() {
+    setHasOnboarded(true);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    router.replace("/(tabs)/discover");
+  }
+
   async function handleStart() {
     setSaving(true);
     setSaveError(null);
     try {
       await saveProfile(profile);
-      setHasOnboarded(true);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.replace("/(tabs)/discover");
+      enterApp();
     } catch {
+      // Don't dead-end a brand-new user on a cold backend: the profile is
+      // already in the local store (generation sends it per-request), so offer
+      // continuing now and syncing later via the Profile tab's Save.
       setSaveError(t("onboarding_save_error"));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
@@ -89,6 +96,13 @@ export default function OnboardingScreen() {
           onPress={handleStart}
           loading={saving}
         />
+        {saveError != null && (
+          <Button
+            label={t("onboarding_continue_anyway")}
+            variant="ghost"
+            onPress={enterApp}
+          />
+        )}
       </View>
     </SafeAreaView>
   );
