@@ -27,6 +27,7 @@ import { shareText } from "@/utils/share";
 import FindRecipeModal from "@/components/FindRecipeModal";
 import { searchMealImage } from "@/services/imageSearch";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { Chip } from "@/components/ui/Chip";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { PinnedBar } from "@/components/ui/PinnedBar";
 import type { Rating } from "@/store/useAppStore";
@@ -992,20 +993,14 @@ export default function TodayScreen() {
 
         {/* ── Meal-type chips (always visible — the most-used filter) ── */}
         <View style={styles.slotChipRow}>
-          {MEAL_TYPE_TAGS.map((tag) => {
-            const active = selectedSlots.includes(tag.key);
-            return (
-              <TouchableOpacity
-                key={tag.key}
-                style={[styles.filterChip, { backgroundColor: active ? c.primary : c.chipBg, borderColor: active ? c.primary : c.border }]}
-                onPress={() => toggleMealType(tag.key)}
-              >
-                <Text style={[styles.filterChipText, { color: active ? "#FFF" : c.chipText }]}>
-                  {language === "zh" ? tag.labelZh : tag.labelEn}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+          {MEAL_TYPE_TAGS.map((tag) => (
+            <Chip
+              key={tag.key}
+              label={language === "zh" ? tag.labelZh : tag.labelEn}
+              active={selectedSlots.includes(tag.key)}
+              onPress={() => toggleMealType(tag.key)}
+            />
+          ))}
         </View>
 
         {/* ── Collapsible filters panel ── */}
@@ -1015,20 +1010,14 @@ export default function TodayScreen() {
             {/* Meal style */}
             <Text style={[styles.filterLabel, { color: c.textMuted }]}>{t("meal_style_label")}</Text>
             <View style={styles.filterChipRow}>
-              {([{ key: "full", en: "Full Meal", zh: "完整餐" }, { key: "main_dish", en: "Main Dish", zh: "主菜" }] as const).map((opt) => {
-                const active = mealStyle === opt.key;
-                return (
-                  <TouchableOpacity
-                    key={opt.key}
-                    style={[styles.filterChip, { backgroundColor: active ? c.primary : c.chipBg, borderColor: active ? c.primary : c.border }]}
-                    onPress={() => { setMealStyle(opt.key); Haptics.selectionAsync(); }}
-                  >
-                    <Text style={[styles.filterChipText, { color: active ? "#FFF" : c.chipText }]}>
-                      {language === "zh" ? opt.zh : opt.en}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+              {([{ key: "full", en: "Full Meal", zh: "完整餐" }, { key: "main_dish", en: "Main Dish", zh: "主菜" }] as const).map((opt) => (
+                <Chip
+                  key={opt.key}
+                  label={language === "zh" ? opt.zh : opt.en}
+                  active={mealStyle === opt.key}
+                  onPress={() => { setMealStyle(opt.key); Haptics.selectionAsync(); }}
+                />
+              ))}
             </View>
 
             {/* Required tags / ingredients — chip accumulator */}
@@ -1038,14 +1027,13 @@ export default function TodayScreen() {
             {requiredIngredients.length > 0 && (
               <View style={[styles.filterChipRow, { marginBottom: 6 }]}>
                 {requiredIngredients.map((ing) => (
-                  <TouchableOpacity
+                  <Chip
                     key={ing}
-                    style={[styles.filterChip, { backgroundColor: c.primary, borderColor: c.primary, flexDirection: "row", gap: 4 }]}
-                    onPress={() => { setRequiredIngredients((prev) => prev.filter((x) => x !== ing)); Haptics.selectionAsync(); }}
-                  >
-                    <Text style={[styles.filterChipText, { color: "#FFF" }]}>{ing}</Text>
-                    <Ionicons name="close" size={12} color="#FFF" />
-                  </TouchableOpacity>
+                    label={ing}
+                    active
+                    onPress={() => {}}
+                    onClose={() => { setRequiredIngredients((prev) => prev.filter((x) => x !== ing)); Haptics.selectionAsync(); }}
+                  />
                 ))}
               </View>
             )}
@@ -1083,18 +1071,17 @@ export default function TodayScreen() {
                   {pantry.map((item, idx) => {
                     const active = selectedPantryItems.map(s => s.toLowerCase()).includes(item.name.toLowerCase());
                     return (
-                      <TouchableOpacity
+                      <Chip
                         key={item.name}
-                        style={[styles.filterChip, { backgroundColor: active ? c.primary : c.chipBg, borderColor: active ? c.primary : c.border }]}
+                        label={pantryDisplayNames[idx] ?? item.name}
+                        active={active}
                         onPress={() => {
                           setSelectedPantryItems(prev =>
                             active ? prev.filter(s => s.toLowerCase() !== item.name.toLowerCase()) : [...prev, item.name]
                           );
                           Haptics.selectionAsync();
                         }}
-                      >
-                        <Text style={[styles.filterChipText, { color: active ? "#FFF" : c.chipText }]}>{pantryDisplayNames[idx] ?? item.name}</Text>
-                      </TouchableOpacity>
+                      />
                     );
                   })}
                 </View>
@@ -1105,20 +1092,14 @@ export default function TodayScreen() {
             <Text style={[styles.filterLabel, { color: c.textMuted, marginTop: 10 }]}>{t("cuisine_pref")}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 6 }}>
               <View style={{ flexDirection: "row", gap: 6 }}>
-                {CUISINES.map((cu) => {
-                  const active = cu === "Any" ? cuisines.length === 0 : cuisines.includes(cu);
-                  return (
-                    <TouchableOpacity
-                      key={cu}
-                      style={[styles.filterChip, { backgroundColor: c.chipBg, borderColor: c.border }, active && { backgroundColor: c.primary, borderColor: c.primary }]}
-                      onPress={() => { if (cu === "Any") { setCuisines([]); } else { setCuisines((prev) => prev.includes(cu) ? prev.filter((c) => c !== cu) : [...prev, cu]); } Haptics.selectionAsync(); }}
-                    >
-                      <Text style={[styles.filterChipText, { color: c.chipText }, active && { color: "#FFF", fontWeight: "700" }]}>
-                        {translateCuisine(cu, language)}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+                {CUISINES.map((cu) => (
+                  <Chip
+                    key={cu}
+                    label={translateCuisine(cu, language)}
+                    active={cu === "Any" ? cuisines.length === 0 : cuisines.includes(cu)}
+                    onPress={() => { if (cu === "Any") { setCuisines([]); } else { setCuisines((prev) => prev.includes(cu) ? prev.filter((c) => c !== cu) : [...prev, cu]); } Haptics.selectionAsync(); }}
+                  />
+                ))}
               </View>
             </ScrollView>
 
@@ -1128,15 +1109,12 @@ export default function TodayScreen() {
               {FLAVOUR_OPTIONS.map((f) => {
                 const active = flavour === f.value;
                 return (
-                  <TouchableOpacity
+                  <Chip
                     key={f.value}
-                    style={[styles.filterChip, { backgroundColor: c.chipBg, borderColor: c.border }, active && { backgroundColor: c.primary, borderColor: c.primary }]}
+                    label={language === "zh" ? f.zh : f.en}
+                    active={active}
                     onPress={() => { setFlavour(active ? "" : f.value); Haptics.selectionAsync(); }}
-                  >
-                    <Text style={[styles.filterChipText, { color: c.chipText }, active && { color: "#FFF", fontWeight: "700" }]}>
-                      {language === "zh" ? f.zh : f.en}
-                    </Text>
-                  </TouchableOpacity>
+                  />
                 );
               })}
             </View>
@@ -1147,15 +1125,12 @@ export default function TodayScreen() {
               {PREP_TIME_PRESETS.map((p) => {
                 const active = maxTime === p.value;
                 return (
-                  <TouchableOpacity
+                  <Chip
                     key={String(p.value)}
-                    style={[styles.filterChip, { backgroundColor: c.chipBg, borderColor: c.border }, active && { backgroundColor: c.primary, borderColor: c.primary }]}
+                    label={language === "zh" ? p.zh : p.en}
+                    active={active}
                     onPress={() => { setMaxTime(active ? null : p.value); Haptics.selectionAsync(); }}
-                  >
-                    <Text style={[styles.filterChipText, { color: c.chipText }, active && { color: "#FFF", fontWeight: "700" }]}>
-                      {language === "zh" ? p.zh : p.en}
-                    </Text>
-                  </TouchableOpacity>
+                  />
                 );
               })}
             </View>
@@ -1414,8 +1389,6 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     settingsPanel: { borderRadius: 20, borderWidth: 1, padding: 16 },
     filterLabel: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 6 },
     filterChipRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-    filterChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
-    filterChipText: { fontSize: 13, fontWeight: "600" },
     clearFilterBtn: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, marginTop: 6, alignSelf: "flex-start" },
     clearFilterText: { fontSize: 13, fontWeight: "600" },
     // Plan

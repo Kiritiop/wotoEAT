@@ -18,6 +18,7 @@ import { getPantry, replacePantry, deletePantryItem, apiErrorMessage } from "@/s
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
+import { Chip } from "@/components/ui/Chip";
 import { PantryTagPicker } from "@/components/PantryTagPicker";
 import { Button } from "@/components/ui/Button";
 import { useTheme } from "@/hooks/useTheme";
@@ -271,20 +272,14 @@ export default function PantryScreen() {
                 {language === "zh" ? "分类" : "Category"}
               </Text>
               <View style={styles.editCatRow}>
-                {categoryKeys.map((k) => {
-                  const active = editCategory === k;
-                  return (
-                    <TouchableOpacity
-                      key={k}
-                      onPress={() => { setEditCategory(k); Haptics.selectionAsync(); }}
-                      style={[styles.catChip, { backgroundColor: active ? c.primary : c.surfaceAlt, borderColor: active ? c.primary : c.border }]}
-                    >
-                      <Text style={[styles.catChipText, { color: active ? "#FFF" : c.textSecondary }]}>
-                        {language === "zh" ? CATEGORY_LABELS[k].zh : CATEGORY_LABELS[k].en}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+                {categoryKeys.map((k) => (
+                  <Chip
+                    key={k}
+                    label={language === "zh" ? CATEGORY_LABELS[k].zh : CATEGORY_LABELS[k].en}
+                    active={editCategory === k}
+                    onPress={() => { setEditCategory(k); Haptics.selectionAsync(); }}
+                  />
+                ))}
               </View>
             </View>
           ) : (
@@ -367,8 +362,6 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     editTopRow: { flexDirection: "row", alignItems: "center" },
     editCatLabel: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.4 },
     editCatRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-    catChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1 },
-    catChipText: { fontSize: 12, fontWeight: "600" },
     itemRow: {
       flexDirection: "row", alignItems: "center", borderRadius: 16,
       paddingHorizontal: 14, paddingVertical: 12, marginBottom: 8,
