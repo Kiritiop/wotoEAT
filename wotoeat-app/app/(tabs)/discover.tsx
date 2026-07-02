@@ -782,9 +782,14 @@ export default function TodayScreen() {
   const [showSettings, setShowSettings] = useState(false);
   const [selectedSlots, setSelectedSlots] = useState<MealTypeTag[]>(["any"]);
   const [mealStyle, setMealStyle] = useState<"full" | "main_dish">("full");
-  const [requiredIngredients, setRequiredIngredients] = useState<string[]>([]);
+  // Persisted preferences (store-backed): the ingredients/tags a user requires
+  // in generated meals survive app restarts instead of resetting every session.
+  const { requiredIngredients, setRequiredIngredients, selectedPantryItems, setSelectedPantryItems } = useAppStore();
   const [ingredientDraft, setIngredientDraft] = useState("");
-  const [selectedPantryItems, setSelectedPantryItems] = useState<string[]>([]);
+  // Ignore pantry selections whose item has since been deleted from the pantry.
+  const livePantryItems = selectedPantryItems.filter((s) =>
+    pantry.some((p) => p.name.toLowerCase() === s.toLowerCase()),
+  );
   const [showFindRecipe, setShowFindRecipe] = useState(false);
 
   const MEAL_TYPE_TAGS: { key: MealTypeTag; labelEn: string; labelZh: string }[] = [
@@ -853,7 +858,7 @@ export default function TodayScreen() {
         servings,
         targetSlots as ("breakfast" | "lunch" | "dinner")[],
         flavour.trim() || undefined,
-        [...selectedPantryItems, ...requiredIngredients].join(", ") || undefined,
+        [...livePantryItems, ...requiredIngredients].join(", ") || undefined,
         mealStyle,
         seenMeals,
       );
@@ -871,7 +876,7 @@ export default function TodayScreen() {
     } catch (e) {
       const status = (e as any)?.response?.status;
       const detail: string = (e as any)?.response?.data?.detail ?? "";
-      const hasFilters = requiredIngredients.length > 0 || selectedPantryItems.length > 0;
+      const hasFilters = requiredIngredients.length > 0 || livePantryItems.length > 0;
       const isNoMatch = detail.toLowerCase().includes("no dish") || detail.toLowerCase().includes("required tags");
       if (status === 422 && hasFilters && isNoMatch) {
         setError(
@@ -909,7 +914,7 @@ export default function TodayScreen() {
         cuisines.length > 0 ? cuisines.join(", ") : undefined,
         flavour.trim() || undefined,
         maxTime ?? undefined,
-        [...selectedPantryItems, ...requiredIngredients].join(", ") || undefined,
+        [...livePantryItems, ...requiredIngredients].join(", ") || undefined,
         mealStyle,
         seenMeals,
       );
@@ -926,7 +931,7 @@ export default function TodayScreen() {
     } catch (e) {
       const status = (e as any)?.response?.status;
       const detail: string = (e as any)?.response?.data?.detail ?? "";
-      const hasFilters = requiredIngredients.length > 0 || selectedPantryItems.length > 0;
+      const hasFilters = requiredIngredients.length > 0 || livePantryItems.length > 0;
       const isNoMatch = detail.toLowerCase().includes("no dish") || detail.toLowerCase().includes("required tags");
       if (status === 422 && hasFilters && isNoMatch) {
         setError(
@@ -1032,7 +1037,7 @@ export default function TodayScreen() {
                     label={ing}
                     active
                     onPress={() => {}}
-                    onClose={() => { setRequiredIngredients((prev) => prev.filter((x) => x !== ing)); Haptics.selectionAsync(); }}
+                    onClose={() => { setRequiredIngredients(requiredIngredients.filter((x) => x !== ing)); Haptics.selectionAsync(); }}
                   />
                 ))}
               </View>
@@ -1050,7 +1055,7 @@ export default function TodayScreen() {
                 onSubmitEditing={() => {
                   const v = ingredientDraft.trim();
                   if (v && !requiredIngredients.includes(v)) {
-                    setRequiredIngredients((prev) => [...prev, v]);
+                    setRequiredIngredients([...requiredIngredients, v]);
                     Haptics.selectionAsync();
                   }
                   setIngredientDraft("");
@@ -1076,8 +1081,10 @@ export default function TodayScreen() {
                         label={pantryDisplayNames[idx] ?? item.name}
                         active={active}
                         onPress={() => {
-                          setSelectedPantryItems(prev =>
-                            active ? prev.filter(s => s.toLowerCase() !== item.name.toLowerCase()) : [...prev, item.name]
+                          setSelectedPantryItems(
+                            active
+                              ? selectedPantryItems.filter(s => s.toLowerCase() !== item.name.toLowerCase())
+                              : [...selectedPantryItems, item.name]
                           );
                           Haptics.selectionAsync();
                         }}
@@ -1200,7 +1207,9 @@ export default function TodayScreen() {
                 swapping={swappingName === meal.name}
                 onTagPress={(tag) => {
                   setShowSettings(true);
-                  setRequiredIngredients((prev) => prev.includes(tag) ? prev : [...prev, tag]);
+                  if (!requiredIngredients.includes(tag)) {
+                    setRequiredIngredients([...requiredIngredients, tag]);
+                  }
                   Haptics.selectionAsync();
                 }}
               />

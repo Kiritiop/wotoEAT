@@ -176,7 +176,7 @@ Key models:
 | `saved_recipes` | Full recipe JSON per user |
 | `meal_history` | Daily meal batches (user_id, date, meals JSON). Written by suggest/generate/swap **iff authed && response not cached**; read by History/Recipes tabs; never fed back into generation. |
 | `user_profiles` | Health profile per user (read once at app startup; generation uses the locally-cached profile sent in the request body) |
-| `user_preferences` | **Dead** — defined in schema.sql only; zero code references |
+| `user_preferences` | **Dead table** — defined in schema.sql only; zero code references. The *feature* (a user's preferred include-ingredients for generation) lives device-local instead: `requiredIngredients`/`selectedPantryItems` persisted in the Zustand store. |
 | `daily_plans` | **Dead** — legacy daily-plan era; defined in schema.sql only, zero code references |
 | `shopping_lists` | **Partially live**: the `name="current"` row is actively read/written via `GET/PUT /shopping/current`; `POST /shopping/generate` also best-effort inserts history rows that are never read. A partial unique index (`shopping_current_unique`, in schema.sql — **run it in Supabase to apply**) enforces one "current" row per user; the upsert falls back to update on a lost insert race, and reader/updater order by `created_at` asc so they agree on the canonical row. |
 | `shared_items` | Public meal/recipe shares: `(id, kind, payload jsonb, user_id nullable, created_at)`. Written by `POST /share` (service-role); read by `GET /share/{id}` (public; RLS policy `shared_public` allows SELECT). `user_id` nullable — anon shares allowed. |
@@ -255,6 +255,7 @@ Persisted to AsyncStorage under key `wotoeat-store`. Fields:
 - `seenMeals` — names of every meal shown today; sent as `avoid_meals` so generation/swap never repeats; reset with `meals`
 - `ratings` — `Record<mealName, "up"|"down">` (used to avoid re-suggesting disliked meals)
 - `selectedRecipes` — recipes confirmed for shopping list generation (confirmation derives from this — no `confirmedSlots`)
+- `requiredIngredients` / `selectedPantryItems` — **persisted generation preferences**: the "Include tags" free-text tags and required from-pantry items survive app restarts (they are user preferences, not per-session filter state). Cleared on language change (`requiredIngredients` only — they're language-specific text) and on sign-out. At generate/swap time, stale pantry selections (item since deleted) are filtered out via `livePantryItems` in `discover.tsx`.
 - `pantry` — local cache of pantry items
 - `shoppingList` — current shopping list (grouped)
 - `recipeLabels` — `Record<recipeId, label[]>` for favoriting/tagging saved recipes

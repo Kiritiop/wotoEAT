@@ -53,6 +53,13 @@ interface AppState {
   removeRecipe: (title: string) => void;
   clearSelectedRecipes: () => void;
 
+  // ── Generation ingredient preferences (persisted — survive restarts) ──────
+  // "Include tags" free-text tags + pantry items the user requires in meals.
+  requiredIngredients: string[];
+  setRequiredIngredients: (v: string[]) => void;
+  selectedPantryItems: string[];
+  setSelectedPantryItems: (v: string[]) => void;
+
   // ── Pantry ────────────────────────────────────────────────────────────────
   pantry: PantryItem[];
   setPantry: (items: PantryItem[]) => void;
@@ -102,7 +109,7 @@ export const useAppStore = create<AppState>()(
       language: "en",
       // Clear meals, seen-history, and shopping selections when language changes —
       // everything was generated in the old language so none of it is reusable.
-      setLanguage: (lang) => set({ language: lang, meals: [], mealsDate: null, seenMeals: [], selectedRecipes: [], shoppingList: null }),
+      setLanguage: (lang) => set({ language: lang, meals: [], mealsDate: null, seenMeals: [], selectedRecipes: [], shoppingList: null, requiredIngredients: [] }),
 
       // ── Onboarding ──────────────────────────────────────────────────────
       hasOnboarded: false,
@@ -160,6 +167,12 @@ export const useAppStore = create<AppState>()(
           selectedRecipes: state.selectedRecipes.filter((r) => r.title !== title),
         })),
       clearSelectedRecipes: () => set({ selectedRecipes: [] }),
+
+      // ── Generation ingredient preferences ────────────────────────────────
+      requiredIngredients: [],
+      setRequiredIngredients: (v) => set({ requiredIngredients: v }),
+      selectedPantryItems: [],
+      setSelectedPantryItems: (v) => set({ selectedPantryItems: v }),
 
       // ── Pantry ────────────────────────────────────────────────────────────
       pantry: [],
@@ -241,6 +254,8 @@ export const useAppStore = create<AppState>()(
           selectedRecipes: [],
           pantry: [],
           shoppingList: null,
+          requiredIngredients: [],
+          selectedPantryItems: [],
         }),
     }),
     {
@@ -285,6 +300,8 @@ export const useAppStore = create<AppState>()(
         recipeLabels: state.recipeLabels,
         servings: state.servings,
         planServings: state.planServings,
+        requiredIngredients: state.requiredIngredients,
+        selectedPantryItems: state.selectedPantryItems,
       }),
     }
   )
