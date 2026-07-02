@@ -250,7 +250,7 @@ Persisted to AsyncStorage under key `wotoeat-store`. Fields:
 - `profile` — HealthProfile
 - `language` — `"en" | "zh"`
 - `hasOnboarded` — boolean
-- `meals` / `mealsDate` — today's **meal stream** (growing list of generated meals) + its date; cleared at date rollover (`onRehydrateStorage`) and on sign-in/out (`_layout` `clearMeals`)
+- `meals` / `mealsDate` — today's **meal stream** (growing list of generated meals) + its date; survives same-day restarts, cleared at date rollover (cold start via `onRehydrateStorage`, warm reopen via an AppState listener, auth events date-aware — see Meal Stream Reset) and unconditionally on sign-out
 - `seenMeals` — names of every meal shown today; sent as `avoid_meals` so generation/swap never repeats; reset with `meals`
 - `ratings` — `Record<mealName, "up"|"down">` (used to avoid re-suggesting disliked meals)
 - `selectedRecipes` — recipes confirmed for shopping list generation (confirmation derives from this — no `confirmedSlots`)
@@ -447,8 +447,10 @@ Meals and recipes can be shared as browsable links anyone can open.
 ## Meal Stream Reset (replaces Stale Plan Detection)
 
 - `mealsDate` is stored alongside the `meals` stream.
-- On store rehydrate (`onRehydrateStorage`, runs before React renders), if `mealsDate !== today` the stream, `seenMeals`, and `selectedRecipes` are cleared immediately (no banner).
-- `_layout.tsx` also calls `clearMeals()` on sign-in/out/initial-session so a fresh session never shows stale meals.
+- **Same-day persistence is a feature**: the stream (and `seenMeals`) survives app restarts within the same day — losing `seenMeals` would let the AI re-suggest dishes already shown today. Clearing is date-aware everywhere:
+  - Cold start: `onRehydrateStorage` (runs before React renders) clears iff `mealsDate !== today`.
+  - Warm reopen: an `AppState` "active" listener in `_layout.tsx` does the same date check — iOS/Android keep the app in memory for days, so rehydrate alone missed the overnight-background case.
+  - Auth: `SIGNED_IN`/`INITIAL_SESSION` also clear only on a date mismatch (on web, `SIGNED_IN` can re-fire on tab refocus — an unconditional clear wiped live streams). Only `SIGNED_OUT` clears unconditionally; a user switch is always bracketed by it (sign-out also runs `resetAll`).
 
 ---
 

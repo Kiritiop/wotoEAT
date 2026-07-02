@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AppState } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StatusBar } from "expo-status-bar";
@@ -44,10 +45,18 @@ export default function RootLayout() {
     const { data: listener } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
       setAuthToken(s?.access_token ?? null);
-      // Clear any persisted meals on every fresh login or page load so
-      // the user never sees stale meals from a previous session.
-      if (event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "SIGNED_OUT") {
+      // SIGNED_OUT clears unconditionally (a user switch is always bracketed by
+      // it). Start/sign-in clear only when the stream is from a previous DAY —
+      // clearing unconditionally here defeated same-day persistence on every
+      // cold start (and wiped seenMeals, so restarting let the AI re-suggest
+      // dishes already shown today); on web SIGNED_IN can even re-fire on tab
+      // refocus, which would wipe a live stream mid-session.
+      if (event === "SIGNED_OUT") {
         clearMeals();
+      } else if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
+        const { meals, mealsDate } = useAppStore.getState();
+        const today = new Date().toISOString().slice(0, 10);
+        if (meals.length > 0 && mealsDate !== today) clearMeals();
       }
       setAuthReady(true);
       setReady(true);
@@ -57,6 +66,19 @@ export default function RootLayout() {
     // actions (clearMeals/setAuthReady) are stable Zustand setters, so omitting
     // them is intentional — re-running would tear down and re-add the listener.
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Date rollover on warm reopen: onRehydrateStorage only runs on cold start,
+  // but iOS/Android keep the app in memory for days — reopening from background
+  // the next morning would otherwise still show yesterday's meal stream.
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state !== "active") return;
+      const { meals, mealsDate, clearMeals: clear } = useAppStore.getState();
+      const today = new Date().toISOString().slice(0, 10);
+      if (meals.length > 0 && mealsDate !== today) clear();
+    });
+    return () => sub.remove();
   }, []);
 
   // Load profile from backend whenever a session is established.
