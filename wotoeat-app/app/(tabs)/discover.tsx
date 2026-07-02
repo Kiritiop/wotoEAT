@@ -763,6 +763,21 @@ export default function TodayScreen() {
   const [cuisines, setCuisines] = useState<string[]>(() => profile.cuisine_preferences ?? []);
   const [flavour, setFlavour] = useState(() => profile.flavour_preference ?? "");
   const [maxTime, setMaxTime] = useState<number | null>(() => profile.preferred_max_prep_mins ?? null);
+
+  // Tab screens stay mounted, so a lazy initializer alone would keep stale
+  // defaults after the user edits their preferences in the Profile tab —
+  // re-sync whenever the saved profile preferences actually change.
+  const cuisinePrefKey = (profile.cuisine_preferences ?? []).join("\x00");
+  useEffect(() => {
+    setCuisines(profile.cuisine_preferences ?? []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cuisinePrefKey]);
+  useEffect(() => {
+    setFlavour(profile.flavour_preference ?? "");
+  }, [profile.flavour_preference]);
+  useEffect(() => {
+    setMaxTime(profile.preferred_max_prep_mins ?? null);
+  }, [profile.preferred_max_prep_mins]);
   const [showSettings, setShowSettings] = useState(false);
   const [selectedSlots, setSelectedSlots] = useState<MealTypeTag[]>(["any"]);
   const [mealStyle, setMealStyle] = useState<"full" | "main_dish">("full");

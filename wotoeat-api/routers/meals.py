@@ -92,6 +92,6 @@ async def meal_history(
 ):
     """GET /meals/history — all suggestion batches for this user, newest first."""
     try:
-        return db.get_meal_history(user_id, limit=min(limit, _HISTORY_LIMIT))
+        return db.get_meal_history(user_id, limit=max(1, min(limit, _HISTORY_LIMIT)))
     except Exception as exc:
         raise server_error("meals.history", exc, "Could not load meal history.")
