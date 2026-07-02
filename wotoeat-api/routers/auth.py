@@ -16,6 +16,13 @@ from typing import Optional
 import jwt
 from jwt import PyJWKClient
 from fastapi import Header, HTTPException
+from dotenv import load_dotenv
+
+# This module reads its env at import time. Load .env explicitly rather than
+# relying on another module (ai.claude) happening to be imported first — an
+# innocent import reorder would otherwise silently break ALL authentication
+# (missing JWT secret / JWKS URL → every token fails closed as unauthenticated).
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
