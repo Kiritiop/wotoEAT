@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
 import "react-native-url-polyfill/auto";
 
 // Replace these with your actual values from:
@@ -25,6 +25,17 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     detectSessionInUrl: Platform.OS === "web",
   },
 });
+
+// Official Supabase RN pattern: JS timers don't fire while the app is
+// backgrounded, so the refresh timer stalls and a user returning after an
+// hour+ holds an expired token (the api.ts 401-retry only papers over it).
+// Refresh proactively on foreground; stop the timer in background.
+if (Platform.OS !== "web") {
+  AppState.addEventListener("change", (state) => {
+    if (state === "active") supabase.auth.startAutoRefresh();
+    else supabase.auth.stopAutoRefresh();
+  });
+}
 
 // Convenience type for the session user
 export type SupabaseUser = NonNullable<
