@@ -84,7 +84,7 @@ class UpdateLabelsRequest(BaseModel):
 
 
 class ParseRecipeRequest(BaseModel):
-    url: str
+    url: str = Field(max_length=2000)
     language: str = "en"
 
 
@@ -93,7 +93,7 @@ class SaveRecipeRequest(BaseModel):
 
 
 class GenerateRecipeRequest(BaseModel):
-    dish_name: str
+    dish_name: str = Field(max_length=200)
     language: str = "en"
     servings: int = 1
     force_refresh: bool = False
@@ -162,8 +162,9 @@ class ShoppingList(BaseModel):
 
 
 class GenerateShoppingListRequest(BaseModel):
-    recipes: list[Recipe]
-    pantry: list[str] = Field(default_factory=list)
+    # Caps bound the AI prompt size; a real day is a handful of confirmed meals.
+    recipes: list[Recipe] = Field(max_length=20)
+    pantry: list[str] = Field(default_factory=list, max_length=500)
     language: str = "en"
 
 
