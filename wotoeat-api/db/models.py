@@ -216,34 +216,37 @@ class MealGenerateResponse(BaseModel):
 
 
 class MealGenerateRequest(BaseModel):
+    # List caps are anti-abuse bounds (this endpoint builds an AI prompt from
+    # them); real clients stay far below — a big pantry is ~100 items and
+    # avoid_meals is one day's stream.
     profile: Optional[HealthProfile] = None
-    pantry: list[str] = Field(default_factory=list)
+    pantry: list[str] = Field(default_factory=list, max_length=500)
     cuisine_preference: Optional[str] = None
     max_prep_time_mins: Optional[int] = None
     language: str = "en"
     recent_ratings: Optional[dict] = None
     servings: int = 1
-    slots: list[str] = Field(default_factory=lambda: ["breakfast", "lunch", "dinner"])
+    slots: list[str] = Field(default_factory=lambda: ["breakfast", "lunch", "dinner"], max_length=3)
     flavour_preference: Optional[str] = None
-    required_ingredients: Optional[str] = None
+    required_ingredients: Optional[str] = Field(default=None, max_length=2000)
     meal_style: str = "full"
     # Names of meals already shown today — never re-suggest these.
-    avoid_meals: list[str] = Field(default_factory=list)
+    avoid_meals: list[str] = Field(default_factory=list, max_length=300)
 
 
 class SwapMealRequest(BaseModel):
     slot: str
     current_plan: Optional[GeneratedPlan] = None
     profile: Optional[HealthProfile] = None
-    pantry: list[str] = Field(default_factory=list)
+    pantry: list[str] = Field(default_factory=list, max_length=500)
     language: str = "en"
     cuisine_preference: Optional[str] = None
     flavour_preference: Optional[str] = None
     max_prep_time_mins: Optional[int] = None
-    required_ingredients: Optional[str] = None
+    required_ingredients: Optional[str] = Field(default=None, max_length=2000)
     meal_style: str = "full"
     # Names of meals already shown today — never re-suggest these.
-    avoid_meals: list[str] = Field(default_factory=list)
+    avoid_meals: list[str] = Field(default_factory=list, max_length=300)
 
 
 # ---------------------------------------------------------------------------
