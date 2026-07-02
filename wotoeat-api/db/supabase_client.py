@@ -143,6 +143,12 @@ def update_recipe_labels(recipe_id: str, user_id: str, labels: list) -> dict:
 # Shopping lists
 # ---------------------------------------------------------------------------
 
+# The "current" row has no UNIQUE(user_id, name) constraint, so two debounced
+# saves racing can leave duplicate rows. Both the reader and the updater order
+# by created_at (oldest first) so they always agree on the same canonical row —
+# without ordering, unordered limit(1) could flip between duplicates and the
+# list would appear to randomly revert.
+
 def get_current_shopping_list(user_id: str) -> dict | None:
     result = (
         get_client()
@@ -150,6 +156,7 @@ def get_current_shopping_list(user_id: str) -> dict | None:
         .select("items")
         .eq("user_id", user_id)
         .eq("name", "current")
+        .order("created_at", desc=False)
         .limit(1)
         .execute()
     )
@@ -165,6 +172,7 @@ def upsert_current_shopping_list(user_id: str, items: dict) -> None:
         .select("id")
         .eq("user_id", user_id)
         .eq("name", "current")
+        .order("created_at", desc=False)
         .limit(1)
         .execute()
     )
