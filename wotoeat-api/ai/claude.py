@@ -32,7 +32,9 @@ if not _api_key:
 
 _client = AsyncGroq(api_key=_api_key)
 
-_MODEL = "llama-3.3-70b-versatile"
+# Env-overridable like the vision model, so a Groq model deprecation can be
+# handled with a config change instead of a deploy (every AI feature uses this).
+_MODEL = os.getenv("GROQ_TEXT_MODEL", "llama-3.3-70b-versatile")
 
 # Only vision-capable model on Groq (preview status) — overridable so a
 # deprecation can be handled with an env change instead of a deploy.

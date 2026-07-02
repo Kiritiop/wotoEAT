@@ -95,6 +95,7 @@ vars the code reads via `os.getenv`). Note: `wotoeat-api/.gitignore` needs the
 | `PEXELS_API_KEY` | Pexels image search API key (image-cascade fallback; set in Railway) |
 | `UNSPLASH_ACCESS_KEY` | Unsplash access key (optional last-resort image fallback) |
 | `GROQ_VISION_MODEL` | Optional override of the receipt-scan vision model (default `meta-llama/llama-4-scout-17b-16e-instruct`; swap here if Groq deprecates it) |
+| `GROQ_TEXT_MODEL` | Optional override of the main text model (default `llama-3.3-70b-versatile`) — powers all meal/recipe/shopping generation; swap here if Groq deprecates it |
 
 ### Router/Endpoint Map
 
