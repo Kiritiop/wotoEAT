@@ -135,7 +135,16 @@ export const useAppStore = create<AppState>()(
       // ── Ratings ──────────────────────────────────────────────────────────
       ratings: {},
       setRating: (mealName, rating) =>
-        set((state) => ({ ratings: { ...state.ratings, [mealName]: rating } })),
+        set((state) => {
+          // Cap at the 100 most recent — this map is persisted forever and
+          // sent with every generation request, so unbounded growth slowly
+          // bloats both the payload and the AI prompt's dislike list.
+          // JS objects preserve insertion order; re-inserting moves a repeat
+          // rating to the newest slot before trimming from the oldest end.
+          const { [mealName]: _prev, ...rest } = state.ratings;
+          const entries = [...Object.entries(rest), [mealName, rating] as const];
+          return { ratings: Object.fromEntries(entries.slice(-100)) };
+        }),
       clearRatings: () => set({ ratings: {} }),
 
       // ── Selected recipes ──────────────────────────────────────────────────
