@@ -1,3 +1,4 @@
+import json
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Depends, Request
@@ -12,6 +13,9 @@ router = APIRouter(tags=["share"])
 
 _SHARE_MAX = 30
 _SHARE_WINDOW = 3600  # 30 shares / hour / client
+# A real meal/recipe payload serializes to a few KB; 100KB is a generous cap
+# that stops the public endpoint being used to stuff megabytes into the DB.
+_MAX_PAYLOAD_BYTES = 100_000
 
 
 @router.post("/", response_model=CreateShareResponse)
@@ -25,6 +29,8 @@ async def create_share(
         raise HTTPException(status_code=422, detail="kind must be 'recipe' or 'meal'.")
     if not body.payload:
         raise HTTPException(status_code=422, detail="payload is empty.")
+    if len(json.dumps(body.payload, default=str)) > _MAX_PAYLOAD_BYTES:
+        raise HTTPException(status_code=422, detail="Share payload is too large.")
 
     limit_key = user_id or (request.client.host if request.client else "anon")
     if not rate_limit_check(limit_key, "share-create", _SHARE_MAX, _SHARE_WINDOW):
