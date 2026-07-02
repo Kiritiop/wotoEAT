@@ -24,9 +24,14 @@ interface Props {
   language?: string;
 }
 
+const ci = (s: string) => s.trim().toLowerCase();
+
 export function PantryTagPicker({ visible, currentPantry, onClose, onSave, language = "en" }: Props) {
   const c = useTheme();
-  const [selected, setSelected] = useState<Set<string>>(() => new Set(currentPantry));
+  // Selection is keyed case-insensitively (ci name → the exact name to store),
+  // so an existing "Chicken Breast" (scan edit / rename) lights up the built-in
+  // "chicken breast" chip instead of saving a near-duplicate alongside it.
+  const [selected, setSelected] = useState<Map<string, string>>(() => new Map(currentPantry.map((n) => [ci(n), n])));
   const [customInputs, setCustomInputs] = useState<Record<string, string>>({});
   const [showCustomInput, setShowCustomInput] = useState<Record<string, boolean>>({});
   const [customItemsByCategory, setCustomItemsByCategory] = useState<Record<string, string[]>>({});
@@ -37,7 +42,7 @@ export function PantryTagPicker({ visible, currentPantry, onClose, onSave, langu
 
   // Reset selection to current pantry when modal opens
   const handleOpen = () => {
-    setSelected(new Set(currentPantry));
+    setSelected(new Map(currentPantry.map((n) => [ci(n), n])));
     setCustomInputs({});
     setShowCustomInput({});
     setCustomItemsByCategory({});
@@ -46,18 +51,19 @@ export function PantryTagPicker({ visible, currentPantry, onClose, onSave, langu
 
   function toggle(name: string) {
     setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
+      const next = new Map(prev);
+      const key = ci(name);
+      if (next.has(key)) next.delete(key);
+      else next.set(key, name);
       return next;
     });
     Haptics.selectionAsync();
   }
 
   function addCustom(catKey: string) {
-    const val = (customInputs[catKey] ?? "").trim().toLowerCase();
+    const val = ci(customInputs[catKey] ?? "");
     if (!val) return;
-    setSelected((prev) => new Set([...prev, val]));
+    setSelected((prev) => new Map(prev).set(ci(val), val));
     setCustomItemsByCategory((prev) => ({ ...prev, [catKey]: [val, ...(prev[catKey] ?? [])] }));
     setCustomInputs((prev) => ({ ...prev, [catKey]: "" }));
     setShowCustomInput((prev) => ({ ...prev, [catKey]: false }));
@@ -83,7 +89,7 @@ export function PantryTagPicker({ visible, currentPantry, onClose, onSave, langu
           <Text style={[styles.headerTitle, { color: c.text }]}>
             {language === "zh" ? "选择食材" : "Select Ingredients"}
           </Text>
-          <TouchableOpacity onPress={() => onSave([...selected])} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <TouchableOpacity onPress={() => onSave([...selected.values()])} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Text style={[styles.saveBtn, { color: c.primary }]}>
               {language === "zh" ? `保存 (${selectedCount})` : `Save (${selectedCount})`}
             </Text>
@@ -136,7 +142,7 @@ export function PantryTagPicker({ visible, currentPantry, onClose, onSave, langu
                     )}
 
                     {(customItemsByCategory[cat.key] ?? []).map((item) => {
-                      const active = selected.has(item);
+                      const active = selected.has(ci(item));
                       return (
                         <TouchableOpacity
                           key={`custom-${item}`}
@@ -151,7 +157,7 @@ export function PantryTagPicker({ visible, currentPantry, onClose, onSave, langu
                     })}
 
                     {cat.items.map((item, idx) => {
-                      const active = selected.has(item);
+                      const active = selected.has(ci(item));
                       const label = language === "zh" ? (cat.itemsZh[idx] ?? item) : item;
                       return (
                         <TouchableOpacity
@@ -173,9 +179,9 @@ export function PantryTagPicker({ visible, currentPantry, onClose, onSave, langu
 
           {/* Custom-added items not in any category */}
           {(() => {
-            const allDefault = new Set(CATEGORIES.flatMap((c) => c.items));
-            const sessionCustom = new Set(Object.values(customItemsByCategory).flat());
-            const extras = [...selected].filter((s) => !allDefault.has(s) && !sessionCustom.has(s));
+            const allDefault = new Set(CATEGORIES.flatMap((c) => c.items.map(ci)));
+            const sessionCustom = new Set(Object.values(customItemsByCategory).flat().map(ci));
+            const extras = [...selected.values()].filter((s) => !allDefault.has(ci(s)) && !sessionCustom.has(ci(s)));
             if (extras.length === 0) return null;
             const isCollapsed = !!collapsed["__custom__"];
             return (
@@ -211,7 +217,7 @@ export function PantryTagPicker({ visible, currentPantry, onClose, onSave, langu
           <View style={[styles.footer, { borderTopColor: c.border, backgroundColor: c.surface }]}>
             <TouchableOpacity
               style={[styles.footerBtn, { backgroundColor: c.primary }]}
-              onPress={() => onSave([...selected])}
+              onPress={() => onSave([...selected.values()])}
             >
               <Text style={styles.footerBtnText}>
                 {language === "zh"
