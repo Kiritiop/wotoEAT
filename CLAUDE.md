@@ -177,6 +177,7 @@ Key models:
 | `meal_history` | Daily meal batches (user_id, date, meals JSON). Written by suggest/generate/swap **iff authed && response not cached**; read by History/Recipes tabs; never fed back into generation. |
 | `user_profiles` | Health profile per user (read once at app startup; generation uses the locally-cached profile sent in the request body) |
 | `user_preferences` | **Dead** — defined in schema.sql only; zero code references |
+| `daily_plans` | **Dead** — legacy daily-plan era; defined in schema.sql only, zero code references |
 | `shopping_lists` | **Partially live**: the `name="current"` row is actively read/written via `GET/PUT /shopping/current`; `POST /shopping/generate` also best-effort inserts history rows that are never read. A partial unique index (`shopping_current_unique`, in schema.sql — **run it in Supabase to apply**) enforces one "current" row per user; the upsert falls back to update on a lost insert race, and reader/updater order by `created_at` asc so they agree on the canonical row. |
 | `shared_items` | Public meal/recipe shares: `(id, kind, payload jsonb, user_id nullable, created_at)`. Written by `POST /share` (service-role); read by `GET /share/{id}` (public; RLS policy `shared_public` allows SELECT). `user_id` nullable — anon shares allowed. |
 
