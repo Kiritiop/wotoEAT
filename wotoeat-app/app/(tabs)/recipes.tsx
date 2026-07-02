@@ -11,7 +11,6 @@ import {
   Modal,
   ScrollView,
   Pressable,
-  Share,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -19,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { getSavedRecipes, deleteRecipe, updateRecipe, saveRecipe, getMealHistory, generateRecipeByName, updateRecipeLabels, createShare, shareWebUrl, apiErrorMessage } from "@/services/api";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { shareText } from "@/utils/share";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { Button } from "@/components/ui/Button";
@@ -233,6 +233,7 @@ export default function RecipesScreen() {
   }
 
   const [sharingRecipe, setSharingRecipe] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
   async function handleShareRecipe() {
     if (!selectedRecipe || sharingRecipe) return;
     setSharingRecipe(true);
@@ -249,7 +250,11 @@ export default function RecipesScreen() {
         chef_tips: selectedRecipe.chef_tips ?? [],
         tags: selectedRecipe.tags ?? [],
       });
-      await Share.share({ message: `${selectedRecipe.title}\n${shareWebUrl(id)}` });
+      const outcome = await shareText(`${selectedRecipe.title}\n${shareWebUrl(id)}`);
+      if (outcome === "copied") {
+        setShareCopied(true);
+        setTimeout(() => setShareCopied(false), 2500);
+      }
     } catch {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
@@ -657,10 +662,16 @@ export default function RecipesScreen() {
               )}
               <View style={styles.modalHeaderActions}>
                 {!isEditing && (
-                  <TouchableOpacity onPress={handleShareRecipe} disabled={sharingRecipe} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <TouchableOpacity
+                    onPress={handleShareRecipe}
+                    disabled={sharingRecipe}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    accessibilityRole="button"
+                    accessibilityLabel={shareCopied ? t("link_copied") : t("share")}
+                  >
                     {sharingRecipe
                       ? <ActivityIndicator size={16} color={c.primary} />
-                      : <Ionicons name="share-outline" size={20} color={c.primary} />}
+                      : <Ionicons name={shareCopied ? "checkmark-done-outline" : "share-outline"} size={20} color={shareCopied ? c.success : c.primary} />}
                   </TouchableOpacity>
                 )}
                 {!isEditing && (

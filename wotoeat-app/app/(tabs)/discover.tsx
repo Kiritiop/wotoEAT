@@ -7,7 +7,6 @@ import {
   TextInput,
   StyleSheet,
   ActivityIndicator,
-  Share,
   Modal,
   Pressable,
   Alert,
@@ -24,6 +23,7 @@ import type { Recipe, Ingredient , DailyPlanMeal } from "@/services/api";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useTheme } from "@/hooks/useTheme";
 import { useBatchTranslated, useTranslated, usePantryDisplay } from "@/hooks/useDynamicTranslation";
+import { shareText } from "@/utils/share";
 import FindRecipeModal from "@/components/FindRecipeModal";
 import { searchMealImage } from "@/services/imageSearch";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
@@ -270,7 +270,11 @@ function MealSlotCard({
         tags: meal.tags ?? [],
         protein_g: meal.protein_g, carbs_g: meal.carbs_g, fat_g: meal.fat_g, fiber_g: meal.fiber_g,
       });
-      await Share.share({ message: `${meal.name}\n${shareWebUrl(id)}` });
+      const outcome = await shareText(`${meal.name}\n${shareWebUrl(id)}`);
+      if (outcome === "copied") {
+        setSavedBanner(t("link_copied"));
+        setTimeout(() => setSavedBanner(null), 3000);
+      }
     } catch {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {

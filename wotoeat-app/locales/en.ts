@@ -58,6 +58,7 @@ const en = {
   app_tagline: "Smart meals, less stress.",
   welcome_back: "Welcome back",
   made_with_wotoeat: "Made with wotoEAT",
+  link_copied: "Copied to clipboard",
   try_wotoeat: "Try wotoEAT",
   create_account: "Create Account",
   start_discovering: "Start discovering better meals",

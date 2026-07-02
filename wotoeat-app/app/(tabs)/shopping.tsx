@@ -5,7 +5,6 @@ import {
   FlatList,
   TouchableOpacity,
   StyleSheet,
-  Share,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -19,6 +18,7 @@ import { Button } from "@/components/ui/Button";
 import { useAppStore } from "@/store/useAppStore";
 import { generateShoppingList, saveCurrentShoppingList, apiErrorMessage } from "@/services/api";
 import { formatShoppingListText, countShoppingItems, displayCategory } from "@/utils/shopping";
+import { shareText } from "@/utils/share";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 
@@ -69,9 +69,14 @@ export default function ShoppingScreen() {
     }
   }
 
+  const [shareCopied, setShareCopied] = useState(false);
   async function handleShare() {
     if (!shoppingList) return;
-    await Share.share({ message: formatShoppingListText(shoppingList, language) });
+    const outcome = await shareText(formatShoppingListText(shoppingList, language));
+    if (outcome === "copied") {
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2500);
+    }
   }
 
   const { total: totalItems, checked: checkedItems } = shoppingList
@@ -101,9 +106,9 @@ export default function ShoppingScreen() {
             style={[styles.iconBtn, { backgroundColor: c.surfaceAlt }]}
             onPress={handleShare}
             accessibilityRole="button"
-            accessibilityLabel={t("share")}
+            accessibilityLabel={shareCopied ? t("link_copied") : t("share")}
           >
-            <Ionicons name="share-outline" size={22} color={c.primary} />
+            <Ionicons name={shareCopied ? "checkmark-done-outline" : "share-outline"} size={22} color={shareCopied ? c.success : c.primary} />
           </TouchableOpacity>
         )}
         {shoppingList && (
