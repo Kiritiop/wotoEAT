@@ -50,7 +50,7 @@ wotoEAT/
 
 - **Backend → Railway** (`wotoeat-api/`, Procfile: uvicorn). Backend env vars live in the Railway service settings. `SUPABASE_KEY` there must be the **service-role** key — the anon key makes pantry writes fail with RLS errors (silently, in the fire-and-forget paths).
 - **Web frontend → Vercel** (`wotoeat-app/`, build = `vercel-build` script → `expo export --platform web`). Vercel needs only `EXPO_PUBLIC_API_URL` (Railway backend URL), `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`. **Never add the service-role key to Vercel** — all `EXPO_PUBLIC_*` values are baked into the public JS bundle.
-- **Native builds → EAS** (`build:ios` / `build:android` scripts). Changes to native permissions in app.json (e.g. camera for receipt scanning) only take effect in a fresh EAS build; Expo Go and web are unaffected.
+- **Native builds → EAS** (`build:ios` / `build:android` scripts). Changes to native permissions in app.json (e.g. camera for receipt scanning) only take effect in a fresh EAS build; Expo Go and web are unaffected. **⚠ eas.json only bakes `EXPO_PUBLIC_API_URL`** — `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, and `EXPO_PUBLIC_WEB_URL` must be provided as EAS environment variables (`eas env:create`, or added to the eas.json `env` blocks) or a store build ships with **auth completely broken** (empty Supabase config) and native share links rendering as relative paths. Verify with `eas env:list` before building.
 
 ---
 
