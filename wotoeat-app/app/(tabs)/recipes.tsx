@@ -120,7 +120,9 @@ export default function RecipesScreen() {
     setEditServings(recipe.servings != null ? String(recipe.servings) : "");
     setEditIngredients((recipe.ingredients ?? []).map((ing) => ({
       name: ing.name,
-      amount: String(ing.amount),
+      // amount can be null (e.g. URL-parsed "to taste" items) — String(null)
+      // would show the literal text "null" in the field and persist on save.
+      amount: ing.amount != null ? String(ing.amount) : "",
       unit: ing.unit,
     })));
     setEditSteps([...(recipe.steps ?? [])]);
@@ -140,7 +142,8 @@ export default function RecipesScreen() {
         .filter((i) => i.name.trim())
         .map((i) => {
           const parsed = parseFloat(i.amount);
-          return { name: i.name.trim(), amount: isNaN(parsed) ? (i.amount.trim() || 1) : parsed, unit: i.unit.trim() };
+          // Empty amount stays null ("to taste" items) — don't fabricate a 1.
+          return { name: i.name.trim(), amount: isNaN(parsed) ? (i.amount.trim() || null) : parsed, unit: i.unit.trim() };
         });
       const cals = parseInt(editCalories, 10);
       const recipePayload = {
