@@ -59,6 +59,7 @@ const en = {
   welcome_back: "Welcome back",
   made_with_wotoeat: "Made with wotoEAT",
   link_copied: "Copied to clipboard",
+  sign_out_confirm: "Sign out? Your data stays saved to your account.",
   try_wotoeat: "Try wotoEAT",
   create_account: "Create Account",
   start_discovering: "Start discovering better meals",

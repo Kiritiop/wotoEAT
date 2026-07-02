@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   Linking,
+  Alert,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -115,8 +117,24 @@ export default function ProfileScreen() {
   }
 
   async function handleSignOut() {
-    await supabase.auth.signOut();
-    useAppStore.getState().resetAll();
+    // Confirm first (cross-platform: RN Alert is a no-op on web), and always
+    // resetAll even if the network sign-out throws — otherwise a flaky
+    // connection leaves a half-signed-out state with stale local data.
+    const doSignOut = async () => {
+      try {
+        await supabase.auth.signOut();
+      } finally {
+        useAppStore.getState().resetAll();
+      }
+    };
+    if (Platform.OS === "web") {
+      if (typeof window !== "undefined" && window.confirm(t("sign_out_confirm"))) void doSignOut();
+      return;
+    }
+    Alert.alert(t("sign_out"), t("sign_out_confirm"), [
+      { text: t("cancel"), style: "cancel" },
+      { text: t("sign_out"), style: "destructive", onPress: () => void doSignOut() },
+    ]);
   }
 
   const styles = useMemo(() => makeStyles(c), [c]);
