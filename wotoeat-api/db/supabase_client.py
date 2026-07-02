@@ -179,7 +179,12 @@ def upsert_current_shopping_list(user_id: str, items: dict) -> None:
     if existing.data:
         client.table("shopping_lists").update({"items": items}).eq("id", existing.data[0]["id"]).execute()
     else:
-        client.table("shopping_lists").insert({"user_id": user_id, "name": "current", "items": items, "recipe_ids": []}).execute()
+        try:
+            client.table("shopping_lists").insert({"user_id": user_id, "name": "current", "items": items, "recipe_ids": []}).execute()
+        except Exception:
+            # Lost an insert race under the partial unique index — the row now
+            # exists, so apply this save as an update instead of surfacing a 500.
+            client.table("shopping_lists").update({"items": items}).eq("user_id", user_id).eq("name", "current").execute()
 
 
 def save_shopping_list(user_id: str, name: str, items: dict, recipe_ids: list[str]) -> Any:

@@ -46,6 +46,14 @@ CREATE TABLE IF NOT EXISTS shopping_lists (
     recipe_ids  uuid[] DEFAULT '{}',
     created_at  timestamptz DEFAULT now()
 );
+-- The app keeps exactly one "current" list per user (GET/PUT /shopping/current),
+-- but racing debounced saves can insert duplicates. Deduplicate (keep the oldest
+-- row — matches the API's read order), then enforce uniqueness going forward.
+DELETE FROM shopping_lists a USING shopping_lists b
+  WHERE a.name = 'current' AND b.name = 'current' AND a.user_id = b.user_id
+    AND (a.created_at > b.created_at OR (a.created_at = b.created_at AND a.ctid > b.ctid));
+CREATE UNIQUE INDEX IF NOT EXISTS shopping_current_unique
+  ON shopping_lists(user_id, name) WHERE name = 'current';
 
 -- ─── User Preferences ─────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS user_preferences (
