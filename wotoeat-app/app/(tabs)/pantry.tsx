@@ -100,7 +100,16 @@ export default function PantryScreen() {
   }
 
   async function handleTagPickerSave(names: string[]) {
-    const newItems = names.map((name) => ({ name }));
+    // Preserve each surviving item's category override — building bare {name}
+    // rows would wipe user-assigned categories on every picker save (persisted
+    // via replacePantry, so the loss would also hit the server).
+    const catByName = new Map(
+      pantry.filter((p) => p.category).map((p) => [p.name.trim().toLowerCase(), p.category]),
+    );
+    const newItems = names.map((name) => {
+      const category = catByName.get(name.trim().toLowerCase());
+      return category ? { name, category } : { name };
+    });
     setPantry(newItems);
     setShowTagPicker(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

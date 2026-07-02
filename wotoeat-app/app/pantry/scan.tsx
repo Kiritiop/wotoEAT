@@ -68,10 +68,12 @@ interface MergeRow {
  * contain duplicates (replacePantry bulk-inserts under UNIQUE(user_id, name)).
  */
 export function computeScanMerge(
-  pantry: { name: string }[],
+  pantry: { name: string; category?: string }[],
   rows: MergeRow[],
-): { merged: { name: string }[]; added: number; renamed: number } {
-  const merged = pantry.map((p) => ({ name: p.name }));
+): { merged: { name: string; category?: string }[]; added: number; renamed: number } {
+  // Copy category overrides through — replacePantry persists them, so dropping
+  // the field here would wipe the user's custom categories on every scan merge.
+  const merged = pantry.map((p) => (p.category ? { name: p.name, category: p.category } : { name: p.name }));
   const namesCi = new Set(merged.map((e) => ci(e.name)));
   const actionable = rows.filter((r) => r.checked && r.name.trim().length > 0);
   let added = 0;
@@ -84,7 +86,8 @@ export function computeScanMerge(
     const idx = merged.findIndex((e) => e.name === r.matchesPantry);
     if (idx === -1) continue; // source already renamed by an earlier row
     namesCi.delete(ci(merged[idx].name));
-    merged[idx] = { name: target };
+    // A rename is the same physical item — keep its category override.
+    merged[idx] = merged[idx].category ? { name: target, category: merged[idx].category } : { name: target };
     namesCi.add(ci(target));
     renamed++;
   }
