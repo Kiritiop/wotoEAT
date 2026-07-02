@@ -87,6 +87,19 @@ async function fetchOneTranslation(text: string): Promise<string> {
   }
 }
 
+// Share one request per string across concurrent callers — several meal cards
+// mounting at once ask for overlapping tags/names, and without this each
+// mount fired its own duplicate network request.
+const inflight = new Map<string, Promise<string>>();
+
+function fetchShared(text: string): Promise<string> {
+  const existing = inflight.get(text);
+  if (existing) return existing;
+  const p = fetchOneTranslation(text).finally(() => inflight.delete(text));
+  inflight.set(text, p);
+  return p;
+}
+
 /**
  * Translates an array of English strings to Chinese (Simplified).
  * Returns cached values immediately; fetches and caches missing ones.
@@ -95,13 +108,15 @@ export async function translateToZh(texts: string[]): Promise<string[]> {
   if (texts.length === 0) return [];
   await hydrate();
 
-  const needed = texts.filter(
-    (t) => !hasChinese(t) && !shouldSkip(t) && !memCache.has(t)
-  );
+  // De-duplicate: the same string often appears many times in one call
+  // (e.g. a tag shared by every meal) — translate it once, not N times.
+  const needed = [...new Set(
+    texts.filter((t) => !hasChinese(t) && !shouldSkip(t) && !memCache.has(t))
+  )];
 
   for (let i = 0; i < needed.length; i += MAX_CONCURRENT) {
     const batch = needed.slice(i, i + MAX_CONCURRENT);
-    const settled = await Promise.allSettled(batch.map(fetchOneTranslation));
+    const settled = await Promise.allSettled(batch.map(fetchShared));
     let updated = false;
     settled.forEach((r, j) => {
       if (r.status === "fulfilled") {
