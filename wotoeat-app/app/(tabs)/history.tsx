@@ -32,6 +32,7 @@ function groupByDay(entries: MealHistoryEntry[]): { date: string; meals: MealSug
     if (!map.has(entry.date)) map.set(entry.date, new Map());
     const dayMap = map.get(entry.date)!;
     for (const meal of entry.meals ?? []) {
+      if (!meal?.name) continue; // skip malformed server rows
       if (!dayMap.has(meal.name)) dayMap.set(meal.name, meal);
     }
   }
@@ -77,10 +78,12 @@ export default function HistoryScreen() {
   const filtered = search.trim()
     ? grouped.map((day) => ({
         ...day,
+        // meal_history rows are server JSON — older/partial rows may lack fields,
+        // so guard every access or typing a search would crash the screen.
         meals: day.meals.filter((m) =>
-          m.name.toLowerCase().includes(search.toLowerCase()) ||
-          m.cuisine.toLowerCase().includes(search.toLowerCase()) ||
-          m.tags.some((tag) => tag.toLowerCase().includes(search.toLowerCase()))
+          (m.name ?? "").toLowerCase().includes(search.toLowerCase()) ||
+          (m.cuisine ?? "").toLowerCase().includes(search.toLowerCase()) ||
+          (m.tags ?? []).some((tag) => tag.toLowerCase().includes(search.toLowerCase()))
         ),
       })).filter((day) => day.meals.length > 0)
     : grouped;
