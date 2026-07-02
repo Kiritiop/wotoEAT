@@ -109,7 +109,7 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
   }
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
       <SafeAreaView style={[styles.safe, { backgroundColor: c.bg }]}>
 
         {/* Header */}
