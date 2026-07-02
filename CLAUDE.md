@@ -440,7 +440,7 @@ Meals and recipes can be shared as browsable links anyone can open.
 ## Meal Ratings / Dislike
 
 - Rating a meal "down" and swapping calls `swapMeal`, which passes `avoid_meals` (today's `seenMeals`) + prior disliked meals to the prompt so none are re-suggested.
-- Ratings stored in `useAppStore.ratings`; sent as `recent_ratings: Record<name, "up"|"down">` on next generation.
+- Ratings stored in `useAppStore.ratings`; sent as `recent_ratings: Record<name, "up"|"down">` on next generation. **Capped at the 100 most recent** (insertion-order trim in `setRating`) — the map is persisted forever and rides on every request, so unbounded growth would slowly bloat payloads and the prompt's dislike list.
 
 ---
 
