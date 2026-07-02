@@ -22,7 +22,7 @@ import type { Recipe } from "@/services/api";
 
 export default function UploadRecipeScreen() {
   const c = useTheme();
-  const { t } = useTranslation();
+  const { t, strings } = useTranslation();
   const [url, setUrl] = useState("");
   const [parsing, setParsing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -41,8 +41,17 @@ export default function UploadRecipeScreen() {
     }
   }
 
+  /** URLs copied from browser address bars often lack the scheme
+   *  ("allrecipes.com/recipe/…") — prepend https:// instead of rejecting. */
+  function normalizeUrl(val: string): string {
+    const v = val.trim();
+    if (!v || /^[a-z][a-z0-9+.-]*:/i.test(v)) return v;
+    return v.includes(".") && !v.includes(" ") ? `https://${v}` : v;
+  }
+
   async function handleParse() {
-    if (!isValidUrl(url.trim())) {
+    const target = normalizeUrl(url);
+    if (!isValidUrl(target)) {
       setParseError(t("parse_invalid_url"));
       return;
     }
@@ -51,10 +60,10 @@ export default function UploadRecipeScreen() {
     setRecipe(null);
     setSaveStatus("idle");
     try {
-      const result = await parseRecipe(url.trim());
-      result.source_url = url.trim();
+      const result = await parseRecipe(target);
+      result.source_url = target;
       try {
-        result.source_name = new URL(url.trim()).hostname.replace("www.", "");
+        result.source_name = new URL(target).hostname.replace("www.", "");
       } catch {}
       setRecipe(result);
     } catch (err: unknown) {
@@ -127,17 +136,17 @@ export default function UploadRecipeScreen() {
           <View style={styles.metaRow}>
             <View style={[styles.metaChip, { backgroundColor: c.surfaceAlt }]}>
               <Ionicons name="time-outline" size={13} color={c.textMuted} />
-              <Text style={[styles.metaText, { color: c.textMuted }]}>{recipe.prep_time_mins} min</Text>
+              <Text style={[styles.metaText, { color: c.textMuted }]}>{recipe.prep_time_mins} {t("min_label")}</Text>
             </View>
             {recipe.calories_per_serving != null && (
               <View style={[styles.metaChip, { backgroundColor: c.surfaceAlt }]}>
                 <Ionicons name="flame-outline" size={13} color={c.textMuted} />
-                <Text style={[styles.metaText, { color: c.textMuted }]}>{recipe.calories_per_serving} kcal</Text>
+                <Text style={[styles.metaText, { color: c.textMuted }]}>{recipe.calories_per_serving} {t("calories_label")}</Text>
               </View>
             )}
             <View style={[styles.metaChip, { backgroundColor: c.surfaceAlt }]}>
               <Ionicons name="people-outline" size={13} color={c.textMuted} />
-              <Text style={[styles.metaText, { color: c.textMuted }]}>Serves {recipe.servings}</Text>
+              <Text style={[styles.metaText, { color: c.textMuted }]}>{strings.servings_people(recipe.servings)}</Text>
             </View>
           </View>
 
