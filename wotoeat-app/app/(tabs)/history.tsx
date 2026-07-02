@@ -209,9 +209,9 @@ export default function HistoryScreen() {
                 <Text style={[styles.modalDesc, { color: c.textSecondary }]}>{selected.description}</Text>
 
                 {/* Tags */}
-                {selected.tags.length > 0 && (
+                {(selected.tags ?? []).length > 0 && (
                   <View style={styles.tagRow}>
-                    {selected.tags.map((tag) => (
+                    {(selected.tags ?? []).map((tag) => (
                       <View key={tag} style={[styles.tag, { backgroundColor: c.chipBg }]}>
                         <Text style={[styles.tagText, { color: c.chipText }]}>{translateTag(tag, language)}</Text>
                       </View>

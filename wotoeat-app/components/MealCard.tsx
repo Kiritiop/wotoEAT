@@ -61,10 +61,10 @@ export function MealCard({ meal, onPress }: Props) {
         <Ionicons name="chevron-forward" size={16} color={c.textPlaceholder} style={styles.arrow} />
       </View>
 
-      {/* Tags */}
-      {meal.tags.length > 0 && (
+      {/* Tags — meal may be a legacy server row without a tags field */}
+      {(meal.tags ?? []).length > 0 && (
         <View style={styles.tags}>
-          {meal.tags.slice(0, 3).map((tag) => (
+          {(meal.tags ?? []).slice(0, 3).map((tag) => (
             <View key={tag} style={[styles.tag, { backgroundColor: c.chipBg }]}>
               <Text style={[styles.tagText, { color: c.chipText }]}>{translateTag(tag, language)}</Text>
             </View>

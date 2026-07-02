@@ -614,9 +614,9 @@ export default function RecipesScreen() {
                   </View>
                 </View>
                 <Text style={[styles.histDesc, { color: c.textSecondary }]}>{historySelected.description}</Text>
-                {historySelected.tags.length > 0 && (
+                {(historySelected.tags ?? []).length > 0 && (
                   <View style={styles.histTagRow}>
-                    {historySelected.tags.map((tag) => (
+                    {(historySelected.tags ?? []).map((tag) => (
                       <View key={tag} style={[styles.tag, { backgroundColor: c.chipBg }]}>
                         <Text style={[styles.tagText, { color: c.chipText }]}>{translateTag(tag, language)}</Text>
                       </View>
@@ -961,10 +961,11 @@ function HistoryTabContent({
   const filtered = search.trim()
     ? grouped.map((day) => ({
         ...day,
+        // History rows are server JSON — older/partial rows may lack fields.
         meals: day.meals.filter((m) =>
-          m.name.toLowerCase().includes(search.toLowerCase()) ||
-          m.cuisine.toLowerCase().includes(search.toLowerCase()) ||
-          m.tags.some((tag) => tag.toLowerCase().includes(search.toLowerCase()))
+          (m.name ?? "").toLowerCase().includes(search.toLowerCase()) ||
+          (m.cuisine ?? "").toLowerCase().includes(search.toLowerCase()) ||
+          (m.tags ?? []).some((tag) => tag.toLowerCase().includes(search.toLowerCase()))
         ),
       })).filter((day) => day.meals.length > 0)
     : grouped;
