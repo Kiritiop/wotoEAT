@@ -36,9 +36,9 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: c.tabBar,
           borderTopWidth: 0,
-          paddingTop: 8,
+          paddingTop: 4,
           height: 66 + insets.bottom,
-          paddingBottom: insets.bottom > 0 ? insets.bottom : 12,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
           borderTopLeftRadius: 24,
           borderTopRightRadius: 24,
           ...shadows.float,
