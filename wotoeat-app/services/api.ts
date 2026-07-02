@@ -166,12 +166,6 @@ export interface DailyMealPlan {
   nutrition_note: string;
 }
 
-export interface PlanHistoryEntry {
-  date: string;
-  plan: DailyMealPlan;
-  total_calories: number;
-}
-
 // ─── Recipes ─────────────────────────────────────────────────────────────────
 
 export interface Ingredient {
