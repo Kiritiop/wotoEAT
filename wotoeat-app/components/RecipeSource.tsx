@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { Recipe } from "@/services/api";
 import { useAppStore } from "@/store/useAppStore";
 import { useTheme } from "@/hooks/useTheme";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface Props {
   recipe: Recipe;
@@ -21,6 +22,7 @@ interface Props {
 
 export function RecipeSource({ recipe }: Props) {
   const c = useTheme();
+  const { t, strings } = useTranslation();
   const [open, setOpen] = useState(false);
   const { addRecipe, removeRecipe, selectedRecipes } = useAppStore();
   const isAdded = selectedRecipes.some((r) => r.title === recipe.title);
@@ -52,17 +54,17 @@ export function RecipeSource({ recipe }: Props) {
           <View style={styles.meta}>
             <View style={styles.metaItem}>
               <Ionicons name="time-outline" size={13} color={c.textMuted} />
-              <Text style={[styles.metaText, { color: c.textMuted }]}>{recipe.prep_time_mins} min</Text>
+              <Text style={[styles.metaText, { color: c.textMuted }]}>{recipe.prep_time_mins} {t("min_label")}</Text>
             </View>
             {recipe.calories_per_serving != null && (
               <View style={styles.metaItem}>
                 <Ionicons name="flame-outline" size={13} color={c.textMuted} />
                 <Text style={[styles.metaText, { color: c.textMuted }]}>
-                  {recipe.calories_per_serving} kcal
+                  {recipe.calories_per_serving} {t("calories_label")}
                 </Text>
               </View>
             )}
-            <Text style={[styles.metaText, { color: c.textMuted }]}>Serves {recipe.servings}</Text>
+            <Text style={[styles.metaText, { color: c.textMuted }]}>{strings.servings_people(recipe.servings)}</Text>
           </View>
         </View>
         <Ionicons

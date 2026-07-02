@@ -8,6 +8,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { DIFFICULTY_COLORS, translateDifficulty, translateTag } from "@/constants/filters";
 import { useTheme } from "@/hooks/useTheme";
+import { useTranslation } from "@/hooks/useTranslation";
 import { useAppStore } from "@/store/useAppStore";
 import type { MealSuggestion } from "@/services/api";
 
@@ -18,6 +19,7 @@ interface Props {
 
 export function MealCard({ meal, onPress }: Props) {
   const c = useTheme();
+  const { t } = useTranslation();
   const { language } = useAppStore();
   const difficultyColor = DIFFICULTY_COLORS[meal.difficulty] ?? "#999";
   const difficultyLabel = translateDifficulty(meal.difficulty, language);
@@ -52,11 +54,11 @@ export function MealCard({ meal, onPress }: Props) {
       <View style={styles.footer}>
         <View style={styles.metaItem}>
           <Ionicons name="time-outline" size={14} color={c.textMuted} />
-          <Text style={[styles.metaText, { color: c.textMuted }]}>{meal.prep_time_mins} min</Text>
+          <Text style={[styles.metaText, { color: c.textMuted }]}>{meal.prep_time_mins} {t("min_label")}</Text>
         </View>
         <View style={styles.metaItem}>
           <Ionicons name="flame-outline" size={14} color={c.textMuted} />
-          <Text style={[styles.metaText, { color: c.textMuted }]}>{meal.calories_per_serving} kcal</Text>
+          <Text style={[styles.metaText, { color: c.textMuted }]}>{meal.calories_per_serving} {t("calories_label")}</Text>
         </View>
         <Ionicons name="chevron-forward" size={16} color={c.textPlaceholder} style={styles.arrow} />
       </View>
