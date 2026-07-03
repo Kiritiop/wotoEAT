@@ -427,6 +427,7 @@ Meals and recipes can be shared as browsable links anyone can open.
 - Unauthenticated users can still generate meals and parse recipes (endpoints with `get_optional_user_id`).
 - Authenticated-only: saving recipes, history, pantry, profile (`require_user_id`).
 - Onboarding: first-run screen (`hasOnboarded` flag in store) prompts profile setup before sending to the main tabs.
+- **Landing is for signed-out users only**: a returning user with a persisted session auto-logs-in and goes straight to Discover. `app/index.tsx` holds rendering (blank cream screen) until `supabase.auth.getSession()` resolves, then `<Redirect>`s to `/(tabs)/discover` if a session exists (no landing flash); the root layout's redirect effect also sends `session && atLanding` → discover/onboarding as a backstop.
 - Sign-out calls `supabase.auth.signOut()` then `resetAll()` to clear store.
 
 ---

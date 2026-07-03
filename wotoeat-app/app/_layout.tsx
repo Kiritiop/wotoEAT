@@ -112,7 +112,8 @@ export default function RootLayout() {
 
     if (!session && !inAuth && !atLanding) {
       router.replace("/");
-    } else if (session && inAuth) {
+    } else if (session && (inAuth || atLanding)) {
+      // Signed-in users skip the landing page entirely (web reopens land on "/")
       if (!hasOnboarded) {
          
         router.replace("/onboarding" as any);

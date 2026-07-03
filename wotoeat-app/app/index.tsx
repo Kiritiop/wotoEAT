@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -12,9 +12,10 @@ import {
   UIManager,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, Redirect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageToggle } from "@/components/LanguageToggle";
@@ -43,12 +44,29 @@ export default function LandingScreen() {
   const { t } = useTranslation();
   const styles = useMemo(() => makeStyles(c), [c]);
   const [showMore, setShowMore] = useState(false);
+  // Landing is for new/signed-out users only. Returning users with a persisted
+  // session auto-login and go straight to the app — hold rendering (blank cream
+  // screen) until the stored session is read so they never see a landing flash.
+  const [hasSession, setHasSession] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    supabase.auth
+      .getSession()
+      .then(({ data }) => { if (mounted) setHasSession(!!data.session); })
+      .catch(() => { if (mounted) setHasSession(false); });
+    return () => { mounted = false; };
+  }, []);
 
   function toggleMore() {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setShowMore((v) => !v);
     Haptics.selectionAsync();
   }
+
+  if (hasSession === null) return <SafeAreaView style={styles.safe} />;
+  // Onboarding (if needed) is handled by the root layout's redirect effect.
+  if (hasSession) return <Redirect href="/(tabs)/discover" />;
 
   return (
     <SafeAreaView style={styles.safe}>
