@@ -5,6 +5,7 @@ import {
   FlatList,
   TouchableOpacity,
   StyleSheet,
+  AppState,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -16,7 +17,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { Button } from "@/components/ui/Button";
 import { useAppStore } from "@/store/useAppStore";
-import { generateShoppingList, saveCurrentShoppingList, apiErrorMessage } from "@/services/api";
+import { generateShoppingList, saveCurrentShoppingList, getCurrentShoppingList, apiErrorMessage } from "@/services/api";
 import { formatShoppingListText, countShoppingItems, displayCategory } from "@/utils/shopping";
 import { shareText } from "@/utils/share";
 import { useTheme } from "@/hooks/useTheme";
@@ -44,10 +45,40 @@ export default function ShoppingScreen() {
     if (isFirstRender.current) { isFirstRender.current = false; return; }
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
+      saveTimerRef.current = null;
       if (shoppingList) saveCurrentShoppingList(shoppingList).catch(() => {});
     }, 2000);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
   }, [shoppingList]);
+
+  // Cross-device sync: the list is otherwise only fetched at app startup.
+  // - Going to background: flush a pending debounced save immediately — an
+  //   edit made <2s before backgrounding would otherwise never reach the
+  //   server (JS timers don't run in background).
+  // - Returning to foreground: drop any stale pending save (its closure holds
+  //   the pre-background list) and pull the server's latest, so check-offs
+  //   made on another device show up instead of being clobbered.
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      const current = useAppStore.getState().shoppingList;
+      if (state === "background" || state === "inactive") {
+        if (saveTimerRef.current) {
+          clearTimeout(saveTimerRef.current);
+          saveTimerRef.current = null;
+          if (current) saveCurrentShoppingList(current).catch(() => {});
+        }
+      } else if (state === "active") {
+        if (saveTimerRef.current) {
+          clearTimeout(saveTimerRef.current);
+          saveTimerRef.current = null;
+        }
+        getCurrentShoppingList()
+          .then((list) => { if (list) useAppStore.getState().setShoppingList(list); })
+          .catch(() => {});
+      }
+    });
+    return () => sub.remove();
+  }, []);
   const [error, setError] = useState<string | null>(null);
 
   async function handleGenerate() {
