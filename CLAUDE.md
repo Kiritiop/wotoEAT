@@ -120,7 +120,7 @@ vars the code reads via `os.getenv`). Note: `wotoeat-api/.gitignore` needs the
 | `PUT /profile/` | `routers/profile.py` | Upsert health profile |
 | `POST /shopping/generate` | `routers/shopping.py` | Generate shopping list from recipes minus pantry (also best-effort inserts a `shopping_lists` history row if authed — never read back). Optional auth; rate-limited 40/hr per identity (`shopping-ai`) |
 | `GET /shopping/current` | `routers/shopping.py` | Get the persisted "current" shopping list (requires auth; read on app startup) |
-| `PUT /shopping/current` | `routers/shopping.py` | Upsert the "current" shopping list (requires auth; debounced save from Shopping tab) |
+| `PUT /shopping/current` | `routers/shopping.py` | Upsert the "current" shopping list (requires auth; debounced 2s save from the Shopping tab). Cross-device sync via AppState in `shopping.tsx`: going to background **flushes** a pending debounced save (JS timers don't run backgrounded); returning to foreground **drops any stale pending save and re-fetches** the server's latest so another device's check-offs aren't clobbered. |
 | `GET /shopping/history` | `routers/shopping.py` | List saved shopping lists (optional auth; **no frontend caller**) |
 | `PATCH /recipes/{id}/labels` | `routers/recipes.py` | Update recipe labels (favorite, mine, etc.) |
 | `GET /images/search` | `routers/images.py` | Food image cascade — TheMealDB → Pexels → Unsplash (returns `{url}`; SQLite-cached; rate-limited 100 novel lookups/hr per IP) |
