@@ -77,6 +77,7 @@ Plain runnable scripts (no pytest dependency); each exits non-zero on failure.
   - `venv/bin/python tests/test_clean_json.py` — `_clean_json`/`_NUM_EXPR_RE`: resolves bare arithmetic in numeric positions, never mangles digits inside strings (URLs, "1/2 cup").
   - `venv/bin/python tests/test_models.py` — Pydantic validators that sanitize LLM output: `Ingredient.coerce_amount` (fraction parsing, non-positive/unparseable → None) and `ScannedItem.empty_to_none` ("null"/"none"/"" → None).
   - `venv/bin/python tests/test_profile_constraints.py` — `_profile_constraints_block`: allergies/restrictions emit the ABSOLUTE-hard-constraint block + `no_match` override; goals/calorie/protein emit the tailoring block; empty/blank profiles emit nothing; and the block is actually injected into `meal_generate_prompt`. Guards that meal generation can't silently stop honouring allergies.
+  - `venv/bin/python tests/test_meal_prompt.py` — `meal_generate_prompt`'s other behavioural blocks: AUTHENTICITY (always present, bans invented/generic dishes), the prep-time hard-cap rule, required-tags enforcement + `no_match` contract (iff set), PANTRY PRIORITY (iff pantry given), MAIN DISH mode (no staples), and avoid_meals folding into the disliked list.
 - **Live-LLM** (needs `GROQ_API_KEY`, mild flake): `venv/bin/python tests/test_receipt_normalize.py` — receipt Stage-2 prompt contract.
 
 ### Environment Variables (`wotoeat-api/.env`)
