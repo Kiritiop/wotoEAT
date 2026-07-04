@@ -22,6 +22,23 @@ export default function Root({ children }: PropsWithChildren) {
           name="viewport"
           content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover"
         />
+        {/* Static SEO/share metadata — messengers and crawlers don't run JS,
+            so without these every shared /share/<id> link renders as a bare
+            URL. Site-level tags give all links a proper preview card. */}
+        <title>wotoEAT — What to Eat</title>
+        <meta
+          name="description"
+          content="AI-powered meal planning: real dishes from what's in your pantry, tailored to your health goals and taste."
+        />
+        <meta property="og:site_name" content="wotoEAT" />
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content="wotoEAT — What to Eat" />
+        <meta
+          property="og:description"
+          content="AI-powered meal planning: real dishes from what's in your pantry, tailored to your health goals and taste."
+        />
+        <meta property="og:image" content="https://wotoeat.com/og.png" />
+        <meta name="twitter:card" content="summary" />
         {/* Disable body scrolling — ScrollViews handle their own scrolling. */}
         <ScrollViewStyleReset />
         <style dangerouslySetInnerHTML={{ __html: css }} />
