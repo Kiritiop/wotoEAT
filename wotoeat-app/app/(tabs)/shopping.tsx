@@ -90,6 +90,22 @@ export default function ShoppingScreen() {
     setLoading(true);
     try {
       const list = await generateShoppingList(selectedRecipes, pantry, language);
+      // Regenerating mid-shop must not wipe progress: carry checked state over
+      // to items that survive (matched case-insensitively by name).
+      const prev = useAppStore.getState().shoppingList;
+      if (prev) {
+        const checkedNames = new Set(
+          prev.groups.flatMap((g) => g.items.filter((i) => i.checked).map((i) => i.name.trim().toLowerCase())),
+        );
+        if (checkedNames.size > 0) {
+          list.groups = list.groups.map((g) => ({
+            ...g,
+            items: g.items.map((i) =>
+              checkedNames.has(i.name.trim().toLowerCase()) ? { ...i, checked: true } : i,
+            ),
+          }));
+        }
+      }
       setShoppingList(list);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: unknown) {
