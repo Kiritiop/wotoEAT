@@ -329,6 +329,9 @@ export default function ScanReceiptScreen() {
               <TouchableOpacity
                 onPress={() => toggleRow(item.key)}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityRole="checkbox"
+                accessibilityLabel={item.name}
+                accessibilityState={{ checked: item.checked }}
               >
                 <Ionicons
                   name={item.checked ? "checkbox" : "square-outline"}
