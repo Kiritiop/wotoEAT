@@ -42,7 +42,8 @@ client responses; the SSRF guard on `/recipes/parse` stays intact.
 **Known gaps / natural next work** (nothing here is broken, these are the
 open ends of the product loop):
 - Nothing decrements the pantry after cooking; it is a static name list.
-- Shopping check-offs never write back to the pantry.
+  (`design/pantry-loop.md` is the accepted design for closing this; Phase 1,
+  shopping to pantry, is shipped; Phases 2 and 3 are open.)
 - `meal_history` is write-only; it is never fed back into generation
   (per-device `ratings` are the only feedback signal, capped at 100).
 - Ratings are device-local, never persisted server-side.
@@ -90,7 +91,7 @@ optional filter telling the AI what kind of dish to make. The stream and its
 ### Where the loop is one-directional today
 1. ~~Pantry input is manual-only~~ — **closed by Receipt Scanning** (see section below): photographing a grocery receipt extracts food items and merges them into the pantry additively.
 2. **Nothing consumes/decrements the pantry** after cooking — it's a static name list.
-3. **Shopping check-offs never write back to the pantry** (toggle flips `checked` only).
+3. ~~Shopping check-offs never write back to the pantry~~ — **closed by "Done shopping"** (Shopping tab): checked (= bought) items merge into the pantry (via `computeShoppingDone` in `utils/pantryMerge.ts`) and leave the list. The toggle itself is still visual-only; nothing moves until the user confirms Done shopping.
 4. **meal_history is write-only** — displayed in History/Recipes tabs, never fed back into generation.
 5. **Ratings are device-local** (Zustand persist), sent per-request as `recent_ratings`, never persisted server-side.
 
@@ -425,6 +426,7 @@ Key functions: `generateMeals` (now takes `avoid_meals`), `swapMeal` (no `curren
 - Items can be checked off (`toggleShoppingItem`).
 - Share as text, clear list.
 - Also lets you regenerate from confirmed meals.
+- **"Done shopping"** (PinnedBar, visible when ≥1 item is checked): confirms cross-platform, then moves every checked item into the pantry and off the list. Names are normalized via `toCanonicalEnglish` and merged with `computeShoppingDone` (`utils/pantryMerge.ts`, reuses `computeScanMerge` — ci-dedupe, never removes, preserves `category` overrides). The `replacePantry` call is **awaited** (scan-confirm pattern): on failure nothing changes locally and the error banner shows. If the whole list was checked, the emptied list is explicitly saved to the server (`saveCurrentShoppingList({groups: []})`) because the debounced auto-save skips `null` and a foreground refetch would otherwise resurrect it.
 
 ### Shopping List Flow
 - Auto-population: confirming a meal card in Discover auto-adds missing ingredients to the shopping list (category key is `meal-{meal.name}` — meal names are unique within a day via the seen-meals exclusion).
@@ -448,7 +450,7 @@ Closes the input side of the pantry loop: photograph a grocery receipt → AI ex
 
 **Review screen**: shows ALL returned rows — nothing silently dropped. Food rows first (checked); matched rows default **unchecked** with an "Already in pantry" badge; non-food rows last, unchecked, with a "Not food" badge. Header counts food rows (`scan_found`); a breakdown subtitle ("3 already in pantry · 1 not food") explains why the Add button's count (checked rows) differs. Names are editable inline (pencil affordance); rows display `name_zh` when the app is in Chinese until edited — once edited, the user's literal text wins and is what gets stored. For edited rows the pantry match is re-derived live (exact case-insensitive), falling back to the server's semantic match so a pending rename stays visible. `raw_text` + quantity show as the subtitle.
 
-**Merge = combine / rename / add — never removes** (`computeScanMerge` in `app/pantry/scan.tsx`, pure + exported): a checked **unedited** row that matched an existing entry is skipped (combines — checking 鸡蛋 with "eggs" in the pantry must NOT create a second entry); a checked **edited** row whose name ci-equals an existing entry combines; a checked **edited** row that semantically matched **renames** the existing entry to the user's text (collision-guarded); everything else adds with ci-dedupe. Renames run before adds against a live ci-name set, so the `replacePantry` payload can never contain duplicates (its delete-then-bulk-insert would 500 on `UNIQUE(user_id, name)`). The confirm handler **awaits** `replacePantry` before writing the store or navigating (a deliberate departure from the pantry tab's fire-and-forget) — on failure it stays on the review screen with row state intact and shows the error.
+**Merge = combine / rename / add — never removes** (`computeScanMerge` in `utils/pantryMerge.ts`, pure + exported; re-exported from `app/pantry/scan.tsx` for compatibility — shared with the Shopping tab's "Done shopping" via `computeShoppingDone`): a checked **unedited** row that matched an existing entry is skipped (combines — checking 鸡蛋 with "eggs" in the pantry must NOT create a second entry); a checked **edited** row whose name ci-equals an existing entry combines; a checked **edited** row that semantically matched **renames** the existing entry to the user's text (collision-guarded); everything else adds with ci-dedupe. Renames run before adds against a live ci-name set, so the `replacePantry` payload can never contain duplicates (its delete-then-bulk-insert would 500 on `UNIQUE(user_id, name)`). The confirm handler **awaits** `replacePantry` before writing the store or navigating (a deliberate departure from the pantry tab's fire-and-forget) — on failure it stays on the review screen with row state intact and shows the error.
 
 ### New packages / permissions
 `expo-image-picker` + `expo-image-manipulator` (both in Expo Go SDK 54 — no dev build needed). `app.json`: expo-image-picker plugin with camera/photos strings, `NSCameraUsageDescription` + `NSPhotoLibraryUsageDescription`, Android `CAMERA` permission.

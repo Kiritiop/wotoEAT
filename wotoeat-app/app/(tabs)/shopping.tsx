@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   AppState,
+  Alert,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -16,9 +18,11 @@ import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { Button } from "@/components/ui/Button";
+import { PinnedBar } from "@/components/ui/PinnedBar";
 import { useAppStore } from "@/store/useAppStore";
-import { generateShoppingList, saveCurrentShoppingList, getCurrentShoppingList, apiErrorMessage } from "@/services/api";
+import { generateShoppingList, saveCurrentShoppingList, getCurrentShoppingList, replacePantry, apiErrorMessage } from "@/services/api";
 import { formatShoppingListText, countShoppingItems, displayCategory } from "@/utils/shopping";
+import { computeShoppingDone } from "@/utils/pantryMerge";
 import { shareText } from "@/utils/share";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -31,6 +35,7 @@ export default function ShoppingScreen() {
     toggleShoppingItem,
     selectedRecipes,
     pantry,
+    setPantry,
     language,
   } = useAppStore();
   const c = useTheme();
@@ -130,6 +135,48 @@ export default function ShoppingScreen() {
     ? countShoppingItems(shoppingList)
     : { total: 0, checked: 0 };
 
+  // "Done shopping": checked (= bought) items move into the pantry and off the
+  // list; unchecked items stay. The pantry write is awaited (like scan-confirm)
+  // so a failure changes nothing locally.
+  const [finishing, setFinishing] = useState(false);
+  function handleDoneShopping() {
+    const list = useAppStore.getState().shoppingList;
+    if (!list || checkedItems === 0 || finishing) return;
+    const doMove = async () => {
+      setError(null);
+      setFinishing(true);
+      const { merged, remaining } = computeShoppingDone(useAppStore.getState().pantry, list.groups);
+      try {
+        await replacePantry(merged);
+        setPantry(merged);
+        if (remaining.length > 0) {
+          setShoppingList({ ...list, groups: remaining });
+        } else {
+          // clearShoppingList() alone would leave the old list on the server
+          // (the debounced auto-save skips null) — persist the emptied list.
+          clearShoppingList();
+          saveCurrentShoppingList({ groups: [] }).catch(() => {});
+        }
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch (err: unknown) {
+        setError(apiErrorMessage(err, t("done_shopping_error")));
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      } finally {
+        setFinishing(false);
+      }
+    };
+    const msg = strings.done_shopping_confirm(checkedItems);
+    if (Platform.OS === "web") {
+      // RN Alert is a no-op on react-native-web
+      if (typeof window !== "undefined" && window.confirm(msg)) void doMove();
+      return;
+    }
+    Alert.alert(t("done_shopping"), msg, [
+      { text: t("cancel"), style: "cancel" },
+      { text: t("done_shopping"), onPress: () => void doMove() },
+    ]);
+  }
+
   const styles = useMemo(() => makeStyles(c), [c]);
 
   return (
@@ -215,6 +262,17 @@ export default function ShoppingScreen() {
           )}
           showsVerticalScrollIndicator={false}
         />
+      )}
+
+      {shoppingList && checkedItems > 0 && (
+        <PinnedBar>
+          <Button
+            label={`${t("done_shopping")} (${checkedItems})`}
+            icon="basket-outline"
+            loading={finishing}
+            onPress={handleDoneShopping}
+          />
+        </PinnedBar>
       )}
     </SafeAreaView>
   );

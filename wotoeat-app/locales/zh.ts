@@ -194,6 +194,9 @@ const zh = {
   no_recipes_selected: "请先在食谱页面添加食谱。",
   shopping_gen_error: "无法生成购物清单，请重试。",
   items_progress: (checked: number, total: number) => `${checked} / ${total} 项`,
+  done_shopping: "购物完成",
+  done_shopping_confirm: (n: number) => `将 ${n} 项已勾选商品加入食材库，并从清单中移除？`,
+  done_shopping_error: "无法将商品移入食材库，请重试。",
 
   // ── Network ───────────────────────────────────────────────────────────────
   no_internet: "无网络连接",

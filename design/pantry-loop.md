@@ -1,6 +1,7 @@
 # Design: Closing the Pantry Loop
 
-Status: proposed, not started. Written 2026-07-06.
+Status: Phase 1 shipped 2026-07-06. Phases 2 and 3 proposed, not started.
+Written 2026-07-06.
 
 ## Problem
 

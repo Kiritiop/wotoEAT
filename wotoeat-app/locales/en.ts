@@ -194,6 +194,12 @@ const en = {
   no_recipes_selected: "Go to Recipes → add recipes to your list first.",
   shopping_gen_error: "Couldn't generate the shopping list. Please try again.",
   items_progress: (checked: number, total: number) => `${checked} / ${total} items`,
+  done_shopping: "Done shopping",
+  done_shopping_confirm: (n: number) =>
+    n === 1
+      ? "Add 1 checked item to your pantry and remove it from the list?"
+      : `Add ${n} checked items to your pantry and remove them from the list?`,
+  done_shopping_error: "Couldn't move the items to your pantry. Please try again.",
 
   // ── Network ───────────────────────────────────────────────────────────────
   no_internet: "No internet connection",

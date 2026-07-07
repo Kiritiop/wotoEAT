@@ -32,6 +32,7 @@ import { Button } from "@/components/ui/Button";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { usePantryDisplay } from "@/hooks/useDynamicTranslation";
+import { ci, computeScanMerge } from "@/utils/pantryMerge";
 
 type Phase = "pick" | "processing" | "review" | "saving";
 
@@ -49,59 +50,9 @@ interface ReviewRow {
 
 const MAX_EDGE = 1600;
 
-const ci = (s: string) => s.trim().toLowerCase();
-
-interface MergeRow {
-  name: string;
-  matchesPantry: string | null;
-  edited: boolean;
-  checked: boolean;
-}
-
-/**
- * Merge checked scan rows into the existing pantry. Never removes entries.
- * - unedited row that semantically matched an existing entry → skip (combine)
- * - edited row whose name ci-equals an existing entry → skip (combine)
- * - edited row that semantically matched → RENAME the existing entry
- * - otherwise → ADD, ci-deduped
- * Renames run before adds against a live ci-name set, so the payload can never
- * contain duplicates (replacePantry bulk-inserts under UNIQUE(user_id, name)).
- */
-export function computeScanMerge(
-  pantry: { name: string; category?: string }[],
-  rows: MergeRow[],
-): { merged: { name: string; category?: string }[]; added: number; renamed: number } {
-  // Copy category overrides through — replacePantry persists them, so dropping
-  // the field here would wipe the user's custom categories on every scan merge.
-  const merged = pantry.map((p) => (p.category ? { name: p.name, category: p.category } : { name: p.name }));
-  const namesCi = new Set(merged.map((e) => ci(e.name)));
-  const actionable = rows.filter((r) => r.checked && r.name.trim().length > 0);
-  let added = 0;
-  let renamed = 0;
-
-  for (const r of actionable) {
-    if (!(r.edited && r.matchesPantry)) continue;
-    const target = r.name.trim();
-    if (namesCi.has(ci(target))) continue; // collision → combine instead
-    const idx = merged.findIndex((e) => e.name === r.matchesPantry);
-    if (idx === -1) continue; // source already renamed by an earlier row
-    namesCi.delete(ci(merged[idx].name));
-    // A rename is the same physical item — keep its category override.
-    merged[idx] = merged[idx].category ? { name: target, category: merged[idx].category } : { name: target };
-    namesCi.add(ci(target));
-    renamed++;
-  }
-
-  for (const r of actionable) {
-    if (!r.edited && r.matchesPantry) continue; // combine with existing entry
-    const name = r.name.trim();
-    if (namesCi.has(ci(name))) continue; // covers pass-1 targets + intra-scan dupes
-    namesCi.add(ci(name));
-    merged.push({ name });
-    added++;
-  }
-  return { merged, added, renamed };
-}
+// Merge logic lives in utils/pantryMerge (shared with the Shopping tab's
+// "Done shopping" flow); re-exported here for existing importers.
+export { computeScanMerge } from "@/utils/pantryMerge";
 
 export default function ScanReceiptScreen() {
   const c = useTheme();
