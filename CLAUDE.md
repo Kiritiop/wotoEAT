@@ -1,6 +1,64 @@
 # wotoEAT — Project Reference
 Update this document every time changes happen, adapt accordingly
 
+## Handoff — read this first
+
+This section is the senior-to-junior handoff. It tells you the state of the
+project and how to work on it safely. The rest of this file is the detailed
+reference; `wotoeat-app/CLAUDE.md` and `wotoeat-api/CLAUDE.md` are the
+per-half working guides with the non-negotiable rules.
+
+**Status: live in production.** Backend on Railway, web app on Vercel,
+database and auth on Supabase, AI on Groq. A push to `main` deploys both
+halves automatically. There is no staging environment. GitHub Actions CI
+(`.github/workflows/ci.yml`) runs the backend offline tests, frontend
+typecheck + lint, and an emoji scan on every push and PR, but it does not
+block the auto-deploys, so local verification is still the release gate.
+Never push unverified changes.
+
+**How to work here:**
+1. Before claiming anything is done: `npx tsc --noEmit` + `npm run lint` in
+   `wotoeat-app`, and the five offline test scripts in `wotoeat-api/tests`
+   (commands in `wotoeat-api/CLAUDE.md`). Then actually launch and click
+   through the changed screen, on web at minimum.
+2. Make the smallest change that solves the problem. Do not reformat, rename,
+   or restyle things you were not asked to touch. Many current behaviours are
+   deliberate decisions with history behind them; the "Known Patterns /
+   Conventions" section and the sub-guides record which ones. If something
+   looks wrong but is documented, ask before "fixing" it.
+3. Update this file (and the sub-guide) in the same commit as any behaviour
+   change. The docs being trustworthy is a core feature of this repo.
+4. No emojis anywhere: UI, code, commits, docs. No gradient colours in the UI.
+5. Commit messages are short imperative sentences describing the change
+   (see `git log` for the house style).
+
+**The five safety-critical invariants** (each has a fuller writeup below or in
+the sub-guides; breaking any of these is the worst mistake you can make here):
+JWT verification in `routers/auth.py` is the security boundary; allergy and
+dietary-restriction constraints in prompts are absolute; every AI endpoint is
+rate-limited and its request fields bounded; exception details never reach
+client responses; the SSRF guard on `/recipes/parse` stays intact.
+
+**Known gaps / natural next work** (nothing here is broken, these are the
+open ends of the product loop):
+- Nothing decrements the pantry after cooking; it is a static name list.
+- Shopping check-offs never write back to the pantry.
+- `meal_history` is write-only; it is never fed back into generation
+  (per-device `ratings` are the only feedback signal, capped at 100).
+- Ratings are device-local, never persisted server-side.
+- `user_preferences` and `daily_plans` are dead tables in schema.sql, kept
+  for reference; zero code references.
+- The landing logo PNG has a baked-in cream background; a transparent export
+  would be the ideal polish.
+- Frontend has no unit tests; the backend's offline scripts (run locally and
+  in CI) are the only automated tests.
+
+**Operational notes:** Groq free/dev tiers have daily token limits; when
+generation starts 503ing check the Groq console before debugging code.
+Backend secrets live only in Railway; Vercel gets only `EXPO_PUBLIC_*` vars
+(they are public); EAS needs its env vars set separately or store builds ship
+broken (see Deployment below).
+
 ## Overview
 
 wotoEAT is an AI-powered meal-planning app that answers the daily question **"what should I cook with what I have?"** It generates meals one at a time (a growing **meal stream** for the day — there is **no daily plan**) from the user's health profile, pantry contents, and filters, then turns confirmed meals into a shopping list with pantry items semantically subtracted. Meals already shown today are never re-suggested. Users can also save favourite recipes, generate full recipes by dish name, parse recipes from external URLs, and **share meals/recipes via public web links**.
