@@ -18,6 +18,10 @@ export function IngredientRow({ item, onToggle, showCheckbox = false }: Props) {
       style={[styles.row, { borderBottomColor: c.borderLight }]}
       onPress={onToggle}
       activeOpacity={onToggle ? 0.7 : 1}
+      disabled={!onToggle}
+      accessibilityRole={showCheckbox ? "checkbox" : undefined}
+      accessibilityLabel={item.name}
+      accessibilityState={showCheckbox ? { checked: !!item.checked } : undefined}
     >
       {showCheckbox && (
         <View style={[
