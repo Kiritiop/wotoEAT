@@ -25,4 +25,5 @@ wotoeat-api/venv/
 .idea/
 *.swp
 Thumbs.db
-.claude/
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
