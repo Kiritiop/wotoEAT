@@ -9,6 +9,7 @@ interface Props {
   onPress: () => void;
   /** Show a trailing × (for removable/accumulator chips like include-tags). */
   onClose?: () => void;
+  disabled?: boolean;
   style?: ViewStyle;
 }
 
@@ -17,21 +18,23 @@ interface Props {
  * flavour, filter tags, pantry categories). Active = solid green; inactive =
  * soft chip surface. Replaces the duplicated chip style blocks in Today & Pantry.
  */
-export function Chip({ label, active, onPress, onClose, style }: Props) {
+export function Chip({ label, active, onPress, onClose, disabled, style }: Props) {
   const c = useTheme();
   return (
     <TouchableOpacity
       onPress={onClose ?? onPress}
       activeOpacity={0.75}
+      disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ selected: !!active }}
+      accessibilityState={{ selected: !!active, disabled: !!disabled }}
       style={[
         styles.chip,
         {
           backgroundColor: active ? c.primary : c.chipBg,
           borderColor: active ? c.primary : c.border,
         },
+        disabled && { opacity: 0.5 },
         style,
       ]}
     >

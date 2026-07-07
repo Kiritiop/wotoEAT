@@ -18,6 +18,7 @@ import { generateRecipeByName, saveRecipe, apiErrorMessage } from "@/services/ap
 import type { Recipe, SavedRecipe } from "@/services/api";
 import { translateTag } from "@/constants/filters";
 import { Button } from "@/components/ui/Button";
+import { Chip } from "@/components/ui/Chip";
 
 const SUGGESTIONS_EN = [
   "Pasta Carbonara", "Kung Pao Chicken", "Beef Tacos",
@@ -167,16 +168,13 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
                 </Text>
                 <View style={styles.suggestGrid}>
                   {suggestions.map((s) => (
-                    <TouchableOpacity
+                    <Chip
                       key={s}
-                      style={[styles.suggestChip, { backgroundColor: c.chipBg, borderColor: c.border }, dishName === s && { backgroundColor: c.primary, borderColor: c.primary }]}
-                      onPress={() => { setDishName(s); setError(null); Haptics.selectionAsync(); }}
+                      label={s}
+                      active={dishName === s}
                       disabled={isGenerating}
-                    >
-                      <Text style={[styles.suggestText, { color: c.chipText }, dishName === s && { color: "#FFF", fontWeight: "700" }]}>
-                        {s}
-                      </Text>
-                    </TouchableOpacity>
+                      onPress={() => { setDishName(s); setError(null); Haptics.selectionAsync(); }}
+                    />
                   ))}
                 </View>
               </>
@@ -341,8 +339,6 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     errorText: { fontSize: 13, flex: 1 },
     suggestLabel: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.4 },
     suggestGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    suggestChip: { paddingHorizontal: 13, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
-    suggestText: { fontSize: 13, fontWeight: "500" },
     servingsStepper: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
     servingsStepperLabel: { fontSize: 12, fontWeight: "600", flex: 1 },
     servingsCount: { fontSize: 15, fontWeight: "700", minWidth: 72, textAlign: "center" },
