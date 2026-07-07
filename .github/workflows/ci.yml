@@ -21,6 +21,10 @@ jobs:
           cache-dependency-path: wotoeat-api/requirements.txt
       - run: pip install -r requirements.txt
       - name: Run offline test scripts
+        env:
+          # ai/claude.py refuses to import without a key; the offline tests
+          # never call Groq, so any non-empty value works.
+          GROQ_API_KEY: ci-dummy-key
         run: |
           fail=0
           for t in test_scraper_ssrf test_clean_json test_models test_profile_constraints test_meal_prompt; do
