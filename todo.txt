@@ -1,20 +1,253 @@
-wotoEAT todo (see also "Handoff" in CLAUDE.md)
+wotoEAT roadmap and improvement plan (planning only, nothing here is built)
+Companion docs: CLAUDE.md (handoff + reference), design/pantry-loop.md
+Effort tags: S = one sitting, M = a day-ish, L = multi-day
 
-Do now (security, 10 minutes):
-- Rotate the Railway Postgres password (it sat in plaintext in Claude settings; old ClassMatch service, but rotate anyway)
-- Rotate the UWaterloo OpenData API key
+════════════════════════════════════════════════════════════════════
+RECOMMENDED NEXT FIVE (best value for effort, in order)
+════════════════════════════════════════════════════════════════════
+1. Desktop web max-width shell (S, UI-1)
+2. Skeleton loading cards for generation (M, UI-2)
+3. Manual add item on the shopping list (S, P-1)
+4. Cook mode (M, P-2)
+5. Typography pass with a display font (S-M, UI-3)
 
-Product: close the open loops:
-- DONE: pantry consumption ("I cooked this" review sheet)
-- DONE: shopping check-offs write back to the pantry ("Done shopping")
-- DONE (thin version): saves record "up" ratings; generation has a TASTE PROFILE block
-- Deferred: server-side meal_feedback table (see design/pantry-loop.md Phase 3 outcome for revisit triggers)
+════════════════════════════════════════════════════════════════════
+FIX QUEUE — confirmed by code review + audit (2026-07-08)
+════════════════════════════════════════════════════════════════════
+Bugs (in severity order):
+- FIX-1 (S) Rate limiting is broken in production: Procfile runs uvicorn
+  without --proxy-headers, so request.client.host is Railway's internal
+  proxy IP (100.64.0.x in the logs), not the user. All anonymous users
+  share a handful of IP buckets: one heavy user exhausts image-search
+  (100/hr) and recipe-parse (20/hr) for EVERYONE, and per-IP abuse
+  attribution is meaningless. Fix: add --proxy-headers
+  --forwarded-allow-ips="*" to the Procfile uvicorn line.
+- FIX-2 (S) Clearing the shopping list never persists: the debounced
+  auto-save in shopping.tsx skips null lists, so a trash-cleared list
+  resurrects on foreground refetch or another device. Fix the mechanism
+  (persist null as {groups: []}), then delete the Done-shopping
+  special-case save that papered over it.
+- FIX-3 (S) handleDoneShopping (shopping.tsx:143) captures the list in a
+  closure before the confirm dialog; on native a foreground refetch can
+  land while the Alert is open and gets overwritten. Re-read
+  getState().shoppingList inside doMove.
+- FIX-4 (S) Up-rating only fires on the Today card save; FindRecipeModal
+  and the three recipes.tsx save paths record nothing, so the TASTE
+  PROFILE learns from one of four save flows. Wire setRating(title,"up")
+  into each saveRecipe success (or one saveAndRate helper).
+- FIX-5 (M) MealSlotCard perf: pantry matching, cart scans, and the
+  detail-modal rows recompute unmemoized on every render of every card
+  (each keystroke in the include-tags input re-renders the whole
+  stream). useMemo the derived lists, React.memo the card.
+Cleanups:
+- FIX-6 (S) Extract the cross-platform confirm pattern (3 copies:
+  shopping/discover/profile) into utils/confirm.ts.
+- FIX-7 (S) Move STAPLE_CATEGORIES next to PANTRY_CATEGORIES in
+  constants/filters.ts (staple flag or exported set) so category renames
+  cannot silently diverge.
+- FIX-8 (S) CookedSheet fontSizes 18/13/13 -> fontSize tokens (rule in
+  wotoeat-app/CLAUDE.md; do the same sweep in FindRecipeModal and
+  shopping.tsx while there).
+- FIX-9 (S) Delete the dead computeScanMerge re-export in scan.tsx.
+- FIX-10 (S) Single DAY_SCOPED_RESET spread for meals/seenMeals/
+  cookedMeals/selectedRecipes instead of four hand-maintained reset
+  sites in useAppStore.ts.
 
-Engineering hygiene:
-- Make CI required: GitHub repo settings -> branch protection on main (CI passes before deploys is not enforced today)
-- Frontend unit tests for the pure logic (computeScanMerge, scaleIngredientStr, pantryNameMatches) with a lightweight runner
-- Transparent-background logo export for the landing page
+Backend/infra audit findings (same date):
+- A-1 (M) Sync Supabase calls inside async endpoints block the
+  single-worker event loop during DB I/O (every routers/*.py db.* call).
+  One slow query stalls all concurrent requests. Wrap in
+  run_in_threadpool, or make those endpoints plain def so FastAPI
+  threads them.
+- A-2 (S) services/api.ts silently falls back to http://localhost:8000
+  when EXPO_PUBLIC_API_URL is missing; a misbuilt production bundle
+  looks like "network error" instead of failing loudly. Log/throw in
+  production builds.
+- A-3 (M) Dynamic zh translation scrapes an unofficial Google endpoint
+  (services/translate.ts) with MyMemory fallback; either can break any
+  day. Sturdier: a backend /translate endpoint on Groq with the SQLite
+  cache and a rate limit, frontend falls back to passthrough.
+- A-4 (S) CORS default string includes localhost origins; make sure
+  Railway sets ALLOWED_ORIGINS explicitly so prod does not inherit them.
+- A-5 (M) discover.tsx (1416 lines) and recipes.tsx (1214) are
+  monoliths; extract MealSlotCard + detail modal + filter panel into
+  components/ before they get harder to touch. Pairs well with FIX-5.
+- A-6 (note) SQLite cache/rate counters live at /tmp: wiped per deploy
+  (acceptable) and per-process (fine at 1 worker; revisit if workers
+  are ever added).
 
-Nice to have:
-- Staging environment (Railway second service + Vercel preview off a staging branch)
-- Drop dead tables user_preferences and daily_plans from schema.sql
+════════════════════════════════════════════════════════════════════
+CARRY-OVER (from earlier sessions, still open)
+════════════════════════════════════════════════════════════════════
+- Rotate the Railway Postgres password and UWaterloo API key (leaked to
+  plaintext config; 10 minutes; do this first)
+- Verify on a real phone: "Done shopping" (Shopping tab) and "I cooked
+  this" (meal detail) shipped recently and were only verified by tests
+- Frontend unit tests + npm test wiring (another session was mid-way on
+  wotoeat-app/tests/unit/; finish and add the job to CI)
+- Branch protection on main once CI has been trusted for a while
+
+════════════════════════════════════════════════════════════════════
+UI / UX PLAN
+════════════════════════════════════════════════════════════════════
+UI-1 (S) Desktop web shell
+    The app has no max-width anywhere, so on a desktop browser every
+    screen stretches edge to edge and looks broken. Wrap the app in a
+    centered column (~520px) on web widths >768px, cream page background
+    behind it, subtle shadow. Single change in the root layout, instantly
+    makes the Vercel app presentable on laptops.
+
+UI-2 (M) Skeleton loading for meal generation
+    Generation takes seconds and today shows a spinner. Render a skeleton
+    meal card (shimmering title/chips/macro placeholders, reanimated is
+    already installed) plus rotating status copy ("Reading your pantry",
+    "Asking the chef", "Plating up"). Biggest perceived-quality win
+    available; the wait becomes part of the experience.
+
+UI-3 (S-M) Typography ramp
+    Everything is the system font. Add one display font for screen titles
+    and meal names (expo-google-fonts; candidates: Fraunces, DM Serif
+    Display, warm food-brand feel), keep system font for body. Define the
+    ramp in useTheme fontSize tokens so it applies everywhere at once.
+
+UI-4 (S-M) Motion pass (reanimated already installed, barely used)
+    - New meal card animates in (fade + slide up) when appended
+    - Filter panel expand/collapse with layout animation, not a jump cut
+    - Button press scale feedback on the shared Button primitive
+    - Checkmark morph when checking off shopping items
+    Small, cheap, and the app currently feels static.
+
+UI-5 (S) Unify toasts
+    cartBanner, savedBanner, share-copied checkmarks, and ErrorBanner are
+    four ad-hoc patterns. One Toast component with a queue (success /
+    error / info), used everywhere. Removes duplicated code and makes
+    feedback consistent.
+
+UI-6 (S) Dark mode decision
+    useTheme already follows the system scheme, so users with dark-mode
+    phones are ALREADY seeing the dark palette, and it has never been
+    audited screen by screen. Either pin the app to light until there is
+    time to audit, or do the audit (contrast, borders, images on dark).
+    Right now it is an unreviewed surface users can land on.
+
+UI-7 (S) Landing and brand assets
+    - Transparent-background logo export (current PNG has baked-in cream)
+    - Regenerate app icon / adaptive icon / favicon / splash from it
+    - Subtle entrance animation on the landing logo
+
+UI-8 (M) Onboarding polish
+    One question per screen with progress dots, warmer copy, visible skip.
+    First-run experience is the highest-leverage screen for a new user.
+
+UI-9 (S) Installable PWA
+    public/ has only og.png. Add manifest.json (name, icons, standalone
+    display, theme colour) so phone-web users can add wotoEAT to their
+    home screen and lose the browser chrome. Cheap store-app feel without
+    app stores.
+
+UI-10 (S-M) Accessibility and consistency sweep
+    Contrast check the cream/green pairs, confirm 44pt targets on the
+    small icon buttons (share/trash on Shopping, steppers), Dynamic Type
+    spot check, pull-to-refresh on Today/Recipes/Pantry for consistency.
+
+UI-11 (decision) Today-card imagery
+    Guardrail says no images on Today cards (perf). Middle ground worth
+    considering: show a thumbnail ONLY when the image is already in cache
+    from a previously opened detail sheet (zero new fetches), or add
+    slot-coloured abstract accents instead. Decide, then document.
+
+════════════════════════════════════════════════════════════════════
+PRODUCT FEATURES
+════════════════════════════════════════════════════════════════════
+P-1 (S) Manual add on the shopping list
+    You cannot add "paper towels" or any arbitrary item to the shopping
+    list by hand; items only arrive via meal confirm or AI generation.
+    One TextInput + addToShoppingList under a "Other items" group. Real
+    daily-use gap, trivial to build.
+
+P-2 (M) Cook mode
+    Full-screen step-by-step view from any recipe: one step per screen,
+    big text readable from a counter, swipe to advance, keep-awake, and
+    an inline timer when a step mentions minutes. This is the moment the
+    user is actually cooking; the app currently abandons them there.
+
+P-3 (L) Household sharing (the flagship candidate)
+    Share pantry + shopping list between two accounts (invite by email).
+    Built for the actual primary use case: two people, one kitchen. One
+    person confirms meals, the other sees the shopping list update.
+    Needs a households table, membership, and scoping pantry/shopping
+    queries by household instead of user. Biggest feature on this list,
+    and the one that makes the app genuinely shared.
+
+P-4 (M) Recipe import from photo
+    The vision pipeline exists (receipt scanning). Point it at cookbook
+    pages / handwritten cards / restaurant menus: photo to parsed recipe
+    to saved. Reuses transcribe + normalize pattern wholesale.
+
+P-5 (S) Cook again from history
+    History shows past meals but offers no one-tap path to re-cook:
+    add a button that regenerates the full recipe and jumps to it.
+
+P-6 (M) Today's nutrition summary
+    Confirmed meals already carry macros; sum them on Today against the
+    profile calorie/protein goals (small progress ring under the header).
+    Makes the health-profile data visibly useful, currently it only
+    shapes generation invisibly.
+
+P-7 (S-M) Weekly digest on History
+    "This week: 9 meals, 5 cuisines, most cooked: stir-fry". Cheap
+    aggregation over meal_history, gives the write-only table a purpose
+    and users a reason to return.
+
+P-8 (M-L) Daily dinner reminder (notifications)
+    "What's for dinner?" push at a user-chosen hour, deep-links to Today.
+    Needs expo-notifications + EAS native build (no web equivalent).
+    Retention driver, but only worth it once native builds ship.
+
+P-9 (M) Store-readiness pack (only when app-store launch is real)
+    Account deletion in Profile (App Store hard requirement), data
+    export, Apple/Google sign-in, privacy policy URL.
+
+════════════════════════════════════════════════════════════════════
+ENGINEERING / INFRA
+════════════════════════════════════════════════════════════════════
+E-1 (S-M) Error monitoring
+    No crash/error visibility today beyond Railway logs. Sentry on both
+    halves (sentry-expo, sentry-sdk[fastapi]) with the DSNs in env vars.
+    Do this before inviting more users than friends.
+
+E-2 (M) Privacy-light usage analytics
+    Feature-level counters only (generated, confirmed, cooked, scanned,
+    shared), no personal data. This is what turns future debates like
+    Phase 3 ("will anyone use it?") into lookups instead of guesses.
+
+E-3 (M) Staging environment
+    Push-to-main deploys production with no intermediate step. A staging
+    branch with its own Railway service + Vercel preview and a promote
+    step would make risky changes safe. Alternative smaller step: turn on
+    branch protection and work through PRs.
+
+E-4 (S) Groq model fallback chain
+    _create_with_retry handles 429s, but a model deprecation or outage
+    is a hard 503. Env-driven ordered fallback list (text + vision) in
+    ai/claude.py; log when running on fallback.
+
+E-5 (S) Schema hygiene
+    Drop the dead user_preferences and daily_plans tables from schema.sql
+    (zero code references, documented as dead) so new environments stop
+    creating them.
+
+E-6 (S) Dependency hygiene
+    Monthly: npm audit / pip list --outdated pass, Expo SDK upgrades on
+    their cadence. Put a reminder in the check skill or a scheduled task.
+
+════════════════════════════════════════════════════════════════════
+DEFERRED / STANDING DECISIONS (do not rebuild blindly)
+════════════════════════════════════════════════════════════════════
+- Pantry-loop Phase 3 (server-side meal_feedback): deferred as mostly
+  dead code; revisit triggers in design/pantry-loop.md Phase 3 outcome.
+- Pantry stays name-only (no quantities): foundational decision, see
+  design/pantry-loop.md.
+- No gradients, no emojis in UI: product rules, documented in CLAUDE.md.
+- seenMeals/no-repeat and same-day stream persistence are features, not
+  bugs (CLAUDE.md).
