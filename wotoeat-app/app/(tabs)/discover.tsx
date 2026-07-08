@@ -301,6 +301,9 @@ function MealSlotCard({
       const result = await saveRecipe(recipe);
       setSavedId(result.id);
       setSavedState("saved");
+      // Saving is the app's only positive taste signal: record it as an "up"
+      // rating so generation's TASTE PROFILE block can lean toward similar dishes.
+      onRate("up");
       // C2/A7: brief toast pointing user to Recipes tab for editing
       setSavedBanner(t("meal_saved_toast"));
       setTimeout(() => setSavedBanner(null), 4000);

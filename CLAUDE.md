@@ -41,10 +41,12 @@ client responses; the SSRF guard on `/recipes/parse` stays intact.
 
 **Known gaps / natural next work** (nothing here is broken, these are the
 open ends of the product loop):
-- The generation feedback loop is still open: `meal_history` is write-only and
-  ratings are device-local. (`design/pantry-loop.md` Phases 1 and 2, shopping
-  to pantry and cooked-consumption, are shipped; Phase 3, feedback into
-  generation, is the remaining piece and needs one new table.)
+- The generation feedback loop is partially open: `meal_history` is write-only
+  and ratings are device-local. A thin taste loop DOES exist now — saving a
+  meal records an "up" rating and generation's TASTE PROFILE block leans
+  toward similar dishes. The full server-side version (`design/pantry-loop.md`
+  Phase 3) was reviewed and deliberately deferred as mostly-dead-code; the
+  design doc records the revisit triggers.
 - `meal_history` is write-only; it is never fed back into generation
   (per-device `ratings` are the only feedback signal, capped at 100).
 - Ratings are device-local, never persisted server-side.
@@ -508,6 +510,7 @@ Meals and recipes can be shared as browsable links anyone can open.
 ## Meal Ratings / Dislike
 
 - Rating a meal "down" and swapping calls `swapMeal`, which passes `avoid_meals` (today's `seenMeals`) + prior disliked meals to the prompt so none are re-suggested.
+- **Saving a meal records an "up" rating** (`onRate("up")` in `handleSaveMeal`) — the app's only positive taste signal. `meal_generate_prompt` builds a TASTE PROFILE block from the most recent 15 "up" names (weakest priority tier: safety > filters > pantry > taste; never suggests the exact dishes again, leans toward similar cuisine/flavour). Locked by `tests/test_meal_prompt.py`.
 - Ratings stored in `useAppStore.ratings`; sent as `recent_ratings: Record<name, "up"|"down">` on next generation. **Capped at the 100 most recent** (insertion-order trim in `setRating`) — the map is persisted forever and rides on every request, so unbounded growth would slowly bloat payloads and the prompt's dislike list.
 
 ---

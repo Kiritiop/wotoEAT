@@ -4,10 +4,11 @@ Do now (security, 10 minutes):
 - Rotate the Railway Postgres password (it sat in plaintext in Claude settings; old ClassMatch service, but rotate anyway)
 - Rotate the UWaterloo OpenData API key
 
-Product: close the open loops (biggest wins, in order):
-- Pantry consumption: decrement/remove pantry items after a meal is cooked (confirm action could ask "did you cook this?")
-- Shopping check-offs write back to the pantry (bought = now in pantry)
-- Feed meal_history and ratings back into generation (server-side ratings instead of device-local)
+Product: close the open loops:
+- DONE: pantry consumption ("I cooked this" review sheet)
+- DONE: shopping check-offs write back to the pantry ("Done shopping")
+- DONE (thin version): saves record "up" ratings; generation has a TASTE PROFILE block
+- Deferred: server-side meal_feedback table (see design/pantry-loop.md Phase 3 outcome for revisit triggers)
 
 Engineering hygiene:
 - Make CI required: GitHub repo settings -> branch protection on main (CI passes before deploys is not enforced today)

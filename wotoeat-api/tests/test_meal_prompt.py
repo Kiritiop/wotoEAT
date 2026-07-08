@@ -56,6 +56,20 @@ check("no main-dish block for full meals", "MAIN DISH MODE" not in p)
 p_avoid = meal_generate_prompt(dict(BASE, avoid_meals=["Shakshuka", "Pad Thai"]), "en")
 check("avoided meals in disliked line", "Shakshuka" in p_avoid and "Pad Thai" in p_avoid)
 
+# Taste profile: "up" ratings (recorded on save) appear as the weakest-tier
+# preference block; "down" ratings and empty ratings must not produce it.
+p_liked = meal_generate_prompt(dict(BASE, recent_ratings={"Bibimbap": "up", "Pho Bo": "up"}), "en")
+check("taste profile block present for ups", "TASTE PROFILE" in p_liked)
+check("liked dishes listed", "Bibimbap" in p_liked and "Pho Bo" in p_liked)
+check("taste profile is lowest priority", "lowest priority" in p_liked)
+check("no exact repeats instruction", "NOT simply repeat" in p_liked)
+p_downs = meal_generate_prompt(dict(BASE, recent_ratings={"Shakshuka": "down"}), "en")
+check("no taste profile for downs only", "TASTE PROFILE" not in p_downs)
+check("no taste profile without ratings", "TASTE PROFILE" not in p)
+# A dish shown today (avoid list) must not simultaneously appear as liked.
+p_flip = meal_generate_prompt(dict(BASE, recent_ratings={"Pad Thai": "up"}, avoid_meals=["Pad Thai"]), "en")
+check("avoid/disliked wins over liked", "TASTE PROFILE" not in p_flip)
+
 
 def main() -> int:
     passed = sum(1 for _, ok in checks if ok)

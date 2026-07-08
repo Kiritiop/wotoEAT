@@ -1,7 +1,29 @@
 # Design: Closing the Pantry Loop
 
-Status: Phases 1 and 2 shipped (2026-07-06 / 2026-07-07). Phase 3 proposed,
-not started. Written 2026-07-06.
+Status: Phases 1 and 2 shipped (2026-07-06 / 2026-07-07). Phase 3 as designed
+is DEFERRED (2026-07-07) — see outcome note below; a thin no-schema version
+shipped instead. Written 2026-07-06.
+
+## Phase 3 outcome (read before building the full version)
+
+Reviewed before building: most of Phase 3 would have been dead code on
+arrival. The UI records no "up" ratings (the only rating producer is the
+swap thumbs-down), so the liked-meals signal had no data source; cooked_count
+depends on the day-old Phase 2 button; recently-cooked avoidance is dubious
+product logic (people repeat meals; same-day repeats are already prevented by
+seenMeals); and server-side persistence only buys cross-device dislike sync,
+which does not matter at the current user count.
+
+What shipped instead (no table, no endpoints): saving a meal now records an
+"up" rating in the existing device-local `ratings` store, and
+`meal_generate_prompt` gained a TASTE PROFILE block (weakest tier: safety >
+filters > pantry > taste) built from the "up" values in `recent_ratings`,
+which already ride every generate/swap request. Covered by
+`tests/test_meal_prompt.py`.
+
+Revisit the full Phase 3 (meal_feedback table, feedback endpoints, hydration)
+when any of these become true: real multi-device users exist, "I cooked this"
+shows actual usage, or ratings outgrow the device-local 100 cap.
 
 Phase 2 open questions were resolved with the proposed defaults: the category
 heuristic decides staple-vs-perishable pre-checking, and the action lives on

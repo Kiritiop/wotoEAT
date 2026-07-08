@@ -281,6 +281,21 @@ def meal_generate_prompt(filters: dict, language: str = "en") -> str:
     else:
         pantry_block = ""
 
+    # Liked meals ("up" ratings — recorded when the user saves a meal) shape
+    # taste as the WEAKEST tier: safety > active filters > pantry > this.
+    # Most-recent 15 only; ratings dicts are insertion-ordered and capped at
+    # 100 client-side, so the tail is the freshest signal.
+    liked = [n for n, r in recent_ratings.items() if r == "up" and n not in disliked][-15:]
+    if liked:
+        liked_block = (
+            "\nTASTE PROFILE (lowest priority — never override safety, filters, or required tags):\n"
+            f"The user has saved these dishes before: {', '.join(liked)}.\n"
+            "Lean toward similar cuisines, flavour profiles, or core ingredients when choosing "
+            "among dishes that satisfy everything above. Do NOT simply repeat these exact dishes.\n"
+        )
+    else:
+        liked_block = ""
+
     # Build the main-dish style enforcement block
     meal_style = filters.get("meal_style", "full")
     if meal_style == "main_dish":
@@ -304,7 +319,7 @@ For {servings} {serving_word}. Match ALL active (non-null) filters below.
 {f"DO NOT suggest any of these (disliked): {', '.join(disliked)}" if disliked else ""}
 FILTERS:
 {json.dumps(display_filters, indent=2)}
-{safety_block}{required_block}{pantry_block}{style_block}
+{safety_block}{required_block}{pantry_block}{liked_block}{style_block}
 AUTHENTICITY — THIS IS THE MOST IMPORTANT RULE:
 - Every dish MUST be a REAL, established dish that people actually cook — something you would
   find on a restaurant menu or in a published cookbook, with many recipes findable online.
