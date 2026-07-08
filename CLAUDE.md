@@ -41,9 +41,10 @@ client responses; the SSRF guard on `/recipes/parse` stays intact.
 
 **Known gaps / natural next work** (nothing here is broken, these are the
 open ends of the product loop):
-- Nothing decrements the pantry after cooking; it is a static name list.
-  (`design/pantry-loop.md` is the accepted design for closing this; Phase 1,
-  shopping to pantry, is shipped; Phases 2 and 3 are open.)
+- The generation feedback loop is still open: `meal_history` is write-only and
+  ratings are device-local. (`design/pantry-loop.md` Phases 1 and 2, shopping
+  to pantry and cooked-consumption, are shipped; Phase 3, feedback into
+  generation, is the remaining piece and needs one new table.)
 - `meal_history` is write-only; it is never fed back into generation
   (per-device `ratings` are the only feedback signal, capped at 100).
 - Ratings are device-local, never persisted server-side.
@@ -90,7 +91,7 @@ optional filter telling the AI what kind of dish to make. The stream and its
 
 ### Where the loop is one-directional today
 1. ~~Pantry input is manual-only~~ — **closed by Receipt Scanning** (see section below): photographing a grocery receipt extracts food items and merges them into the pantry additively.
-2. **Nothing consumes/decrements the pantry** after cooking — it's a static name list.
+2. ~~Nothing consumes/decrements the pantry after cooking~~ — **closed by "I cooked this"** (meal detail modal → `CookedSheet`): a review sheet proposes the pantry items the dish used (perishables pre-checked, staples pre-unchecked) and removes the confirmed ones. The pantry is name-only, so consumption = review-and-remove.
 3. ~~Shopping check-offs never write back to the pantry~~ — **closed by "Done shopping"** (Shopping tab): checked (= bought) items merge into the pantry (via `computeShoppingDone` in `utils/pantryMerge.ts`) and leave the list. The toggle itself is still visual-only; nothing moves until the user confirms Done shopping.
 4. **meal_history is write-only** — displayed in History/Recipes tabs, never fed back into generation.
 5. **Ratings are device-local** (Zustand persist), sent per-request as `recent_ratings`, never persisted server-side.
@@ -314,6 +315,7 @@ Persisted to AsyncStorage under key `wotoeat-store`. Fields:
 - `hasOnboarded` — boolean
 - `meals` / `mealsDate` — today's **meal stream** (growing list of generated meals) + its date; survives same-day restarts, cleared at date rollover (cold start via `onRehydrateStorage`, warm reopen via an AppState listener, auth events date-aware — see Meal Stream Reset) and unconditionally on sign-out
 - `seenMeals` — names of every meal shown today; sent as `avoid_meals` so generation/swap never repeats; reset with `meals`
+- `cookedMeals` — names of today's meals marked "I cooked this" (drives the Cooked button state); reset with `meals` (clearMeals/setLanguage/resetAll/rehydrate rollover)
 - `ratings` — `Record<mealName, "up"|"down">` (used to avoid re-suggesting disliked meals)
 - `selectedRecipes` — recipes confirmed for shopping list generation (confirmation derives from this — no `confirmedSlots`)
 - `requiredIngredients` / `selectedPantryItems` — **persisted generation preferences**: the "Include tags" free-text tags and required from-pantry items survive app restarts (they are user preferences, not per-session filter state). Cleared on language change (`requiredIngredients` only — they're language-specific text) and on sign-out. At generate/swap time, stale pantry selections (item since deleted) are filtered out via `livePantryItems` in `discover.tsx`.
@@ -374,7 +376,8 @@ Key functions: `generateMeals` (now takes `avoid_meals`), `swapMeal` (no `curren
 - **Save** (bookmark): calls `saveRecipe` → stores in Supabase `saved_recipes`.
 - **Confirm** (checkmark): adds meal to `selectedRecipes` in store; auto-adds missing ingredients to shopping list.
 - **Tag tap**: adds tag to required filters, opens filter panel.
-- **Detail modal**: tap card body → bottom sheet with macros, full ingredients (scalable by serving stepper), steps, image from Pexels. Ingredients already in the pantry show a green **"In pantry"** marker (per-ingredient, via `ingInPantry` → `pantryNameMatches`, a **word-aware** matcher: both names are first normalized to canonical English via `toCanonicalEnglish` (exact-match curated reverse map — so an English pantry item matches a Chinese ingredient string in zh mode, e.g. "chicken breast"↔"鸡胸肉", and it can never invent a match); then every word of the shorter name must match a word of the longer one, where a word matches if equal or a ≥4-char prefix — so plurals/morphology still match (tomato↔tomatoes) but loose substrings no longer false-positive (egg≠eggplant, oil≠"boiling water", "soy sauce"≠"fish sauce"); CJK that isn't in the curated map falls back to containment. `missingIngredients` is `!ingInPantry` — the shopping-list auto-add and the badge share one matcher). Footer has a **Share** action (`createShare("meal", …)` → share sheet with a `/share/<id>` link).
+- **I cooked this** (full-width button at the end of the detail modal's scroll content — the footer already holds four actions): opens `CookedSheet` (`components/CookedSheet.tsx`), which lists the pantry items the dish matched (`pantryItemsUsedBy`), pre-checked unless their category is a staple (`grains/condiments/oils/herbs/frozen` — one dish rarely finishes the soy sauce). Confirm **awaits** `replacePantry` with the checked items removed (scan-confirm pattern: failure changes nothing, sheet stays open), optionally re-adds them to the shopping list (toggle, default off), and records the meal in `cookedMeals`. With no checked items it just marks the meal cooked. The button then shows a disabled "Cooked" state.
+- **Detail modal**: tap card body → bottom sheet with macros, full ingredients (scalable by serving stepper), steps, image from Pexels. Ingredients already in the pantry show a green **"In pantry"** marker (per-ingredient, via `ingInPantry` → `pantryNameMatches` — in `utils/pantryMatch.ts`, shared with the CookedSheet so the badge and consumption review can never disagree — a **word-aware** matcher: both names are first normalized to canonical English via `toCanonicalEnglish` (exact-match curated reverse map — so an English pantry item matches a Chinese ingredient string in zh mode, e.g. "chicken breast"↔"鸡胸肉", and it can never invent a match); then every word of the shorter name must match a word of the longer one, where a word matches if equal or a ≥4-char prefix — so plurals/morphology still match (tomato↔tomatoes) but loose substrings no longer false-positive (egg≠eggplant, oil≠"boiling water", "soy sauce"≠"fish sauce"); CJK that isn't in the curated map falls back to containment. `missingIngredients` is `!ingInPantry` — the shopping-list auto-add and the badge share one matcher). Footer has a **Share** action (`createShare("meal", …)` → share sheet with a `/share/<id>` link).
 
 ### Filter Options
 - **Meal type**: Auto (inferred), Breakfast, Lunch, Dinner — **single-select**, one meal generated per tap

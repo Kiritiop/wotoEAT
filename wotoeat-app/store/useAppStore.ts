@@ -42,6 +42,10 @@ interface AppState {
   seenMeals: string[];
   addSeenMeals: (names: string[]) => void;
 
+  // ── Meals cooked today (marks "I cooked this"; resets with the stream) ─────
+  cookedMeals: string[];
+  addCookedMeal: (name: string) => void;
+
   // ── Meal ratings ──────────────────────────────────────────────────────────
   ratings: Record<string, Rating>;
   setRating: (mealName: string, rating: Rating) => void;
@@ -109,7 +113,7 @@ export const useAppStore = create<AppState>()(
       language: "en",
       // Clear meals, seen-history, and shopping selections when language changes —
       // everything was generated in the old language so none of it is reusable.
-      setLanguage: (lang) => set({ language: lang, meals: [], mealsDate: null, seenMeals: [], selectedRecipes: [], shoppingList: null, requiredIngredients: [] }),
+      setLanguage: (lang) => set({ language: lang, meals: [], mealsDate: null, seenMeals: [], cookedMeals: [], selectedRecipes: [], shoppingList: null, requiredIngredients: [] }),
 
       // ── Onboarding ──────────────────────────────────────────────────────
       hasOnboarded: false,
@@ -130,13 +134,20 @@ export const useAppStore = create<AppState>()(
         })),
       removeMeal: (name) =>
         set((state) => ({ meals: state.meals.filter((m) => m.name !== name) })),
-      clearMeals: () => set({ meals: [], mealsDate: null, seenMeals: [], selectedRecipes: [] }),
+      clearMeals: () => set({ meals: [], mealsDate: null, seenMeals: [], cookedMeals: [], selectedRecipes: [] }),
 
       // ── Seen meals ───────────────────────────────────────────────────────
       seenMeals: [],
       addSeenMeals: (names) =>
         set((state) => ({
           seenMeals: [...state.seenMeals, ...names.filter((n) => !state.seenMeals.includes(n))],
+        })),
+
+      // ── Cooked meals ─────────────────────────────────────────────────────
+      cookedMeals: [],
+      addCookedMeal: (name) =>
+        set((state) => ({
+          cookedMeals: state.cookedMeals.includes(name) ? state.cookedMeals : [...state.cookedMeals, name],
         })),
 
       // ── Ratings ──────────────────────────────────────────────────────────
@@ -250,6 +261,7 @@ export const useAppStore = create<AppState>()(
           meals: [],
           mealsDate: null,
           seenMeals: [],
+          cookedMeals: [],
           ratings: {},
           selectedRecipes: [],
           pantry: [],
@@ -282,6 +294,7 @@ export const useAppStore = create<AppState>()(
           state.meals = [];
           state.mealsDate = null;
           state.seenMeals = [];
+          state.cookedMeals = [];
           state.selectedRecipes = [];
         }
       },
@@ -293,6 +306,7 @@ export const useAppStore = create<AppState>()(
         meals: state.meals,
         mealsDate: state.mealsDate,
         seenMeals: state.seenMeals,
+        cookedMeals: state.cookedMeals,
         pantry: state.pantry,
         ratings: state.ratings,
         selectedRecipes: state.selectedRecipes,

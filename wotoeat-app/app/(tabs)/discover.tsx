@@ -17,7 +17,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAppStore } from "@/store/useAppStore";
-import { CUISINES, FLAVOUR_OPTIONS, PREP_TIME_PRESETS, SLOT_COLOUR, SLOT_ICON, DIFFICULTY_COLORS, translateTag, translateCuisine, translateDifficulty, toCanonicalEnglish } from "@/constants/filters";
+import { CUISINES, FLAVOUR_OPTIONS, PREP_TIME_PRESETS, SLOT_COLOUR, SLOT_ICON, DIFFICULTY_COLORS, translateTag, translateCuisine, translateDifficulty } from "@/constants/filters";
+import { pantryNameMatches, ingredientNameFrom } from "@/utils/pantryMatch";
+import { CookedSheet } from "@/components/CookedSheet";
+import { Button } from "@/components/ui/Button";
 import { generateMeals, swapMeal, saveRecipe, deleteRecipe, createShare, shareWebUrl, generateRecipeByName, apiErrorMessage } from "@/services/api";
 import type { Recipe, Ingredient , DailyPlanMeal } from "@/services/api";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -52,30 +55,8 @@ function scaleIngredientStr(s: string, factor: number): string {
 // of the shorter name must match a word of the longer name; a word matches if
 // equal or is a >=4-char prefix of the other. CJK has no whitespace word
 // boundaries, so it falls back to containment.
-const _CJK_RE = /[一-鿿]/;
-function _wordsOf(s: string): string[] {
-  return s.split(/[^a-z0-9一-鿿]+/i).filter(Boolean);
-}
-function _wordMatch(a: string, b: string): boolean {
-  if (a === b) return true;
-  if (a.length >= 4 && b.startsWith(a)) return true;
-  if (b.length >= 4 && a.startsWith(b)) return true;
-  return false;
-}
-function pantryNameMatches(pantryName: string, ingredientName: string): boolean {
-  // Normalize both to canonical English first (exact-match curated lookup, so it
-  // never invents a match): lets an English pantry item match a Chinese ingredient
-  // string in zh mode, e.g. pantry "chicken breast" ↔ ingredient "鸡胸肉".
-  const a = toCanonicalEnglish(pantryName.trim()).trim().toLowerCase();
-  const b = toCanonicalEnglish(ingredientName.trim()).trim().toLowerCase();
-  if (!a || !b) return false;
-  if (a === b) return true;
-  if (_CJK_RE.test(a) || _CJK_RE.test(b)) return a.includes(b) || b.includes(a);
-  const wa = _wordsOf(a), wb = _wordsOf(b);
-  if (!wa.length || !wb.length) return false;
-  const [short, long] = wa.length <= wb.length ? [wa, wb] : [wb, wa];
-  return short.every((w) => long.some((lw) => _wordMatch(w, lw)));
-}
+// pantryNameMatches / ingredientNameFrom moved to utils/pantryMatch.ts so the
+// cooked-consumption sheet shares the exact same matcher as the badge/auto-add.
 
 function MacroCell({ label, value, color }: { label: string; value: string; color: string }) {
   return (
@@ -98,11 +79,13 @@ function MealSlotCard({
 
   const [showInfo, setShowInfo] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
+  const [showCooked, setShowCooked] = useState(false);
   const scrollStartY = useRef(0);
   const isConfirming = useRef(false);
   const c = useTheme();
   const { t, strings } = useTranslation();
-  const { language, servings: storeServings, planServings, pantry, shoppingList, addToShoppingList, removeFromShoppingList, addRecipe, removeRecipe, selectedRecipes, replaceMeal } = useAppStore();
+  const { language, servings: storeServings, planServings, pantry, shoppingList, addToShoppingList, removeFromShoppingList, addRecipe, removeRecipe, selectedRecipes, replaceMeal, cookedMeals } = useAppStore();
+  const isCooked = cookedMeals.includes(meal.name);
 
   // Lazy step loading: the meal card is generated light (no steps/chef_tips) to
   // keep generation fast and under Groq's token-per-minute ceiling. Full steps
@@ -137,14 +120,6 @@ function MealSlotCard({
   // N-13: derive confirmed from selectedRecipes for bidirectional sync with Shopping/Pantry tab
   const isConfirmed = selectedRecipes.some((r) => r.title === meal.name);
 
-  // N-01: extract name from ingredient string — handles "100g chicken breast", "2 eggs", bare strings
-  function ingredientNameFrom(s: string): string {
-    const withUnit = s.match(/^[\d./]+\s*[a-zA-Z一-鿿]+\s+(.+)$/);
-    let name = withUnit ? withUnit[1] : s.match(/^[\d./]+\s+(.+)$/) ? s.match(/^[\d./]+\s+(.+)$/)![1] : s;
-    // Strip preparation notes after comma or opening parenthesis
-    name = name.split(/[,(]/)[0];
-    return name.trim().toLowerCase();
-  }
   const ingInPantry = (ing: string) => {
     const n = ingredientNameFrom(ing);
     return pantry.some((p) => pantryNameMatches(p.name, n));
@@ -686,6 +661,17 @@ function MealSlotCard({
                       ))}
                     </View>
                   )}
+
+                  {/* I cooked this — pantry-loop Phase 2 (consumption review) */}
+                  <View style={{ paddingHorizontal: 20, marginBottom: 20 }}>
+                    <Button
+                      label={isCooked ? t("cooked_done") : t("cooked_it")}
+                      icon={isCooked ? "checkmark-circle" : "restaurant-outline"}
+                      variant={isCooked ? "secondary" : "primary"}
+                      disabled={isCooked}
+                      onPress={() => setShowCooked(true)}
+                    />
+                  </View>
                 </ScrollView>
 
                 {/* Modal footer actions */}
@@ -725,6 +711,14 @@ function MealSlotCard({
                     <Text style={[cardStyles.modalActionText, { color: isConfirmed ? c.success : c.textMuted }]}>{isConfirmed ? t("unconfirm") : t("confirm")}</Text>
                   </TouchableOpacity>
                 </View>
+
+                {/* Nested inside the detail modal's subtree so it presents above it */}
+                <CookedSheet
+                  visible={showCooked}
+                  mealName={meal.name}
+                  ingredients={meal.ingredients ?? []}
+                  onClose={() => setShowCooked(false)}
+                />
               </SafeAreaView>
             </Pressable>
           </Pressable>

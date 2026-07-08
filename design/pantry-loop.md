@@ -1,7 +1,12 @@
 # Design: Closing the Pantry Loop
 
-Status: Phase 1 shipped 2026-07-06. Phases 2 and 3 proposed, not started.
-Written 2026-07-06.
+Status: Phases 1 and 2 shipped (2026-07-06 / 2026-07-07). Phase 3 proposed,
+not started. Written 2026-07-06.
+
+Phase 2 open questions were resolved with the proposed defaults: the category
+heuristic decides staple-vs-perishable pre-checking, and the action lives on
+every meal's detail modal (confirmed or not). Server persistence of the
+cooked event remains deferred to Phase 3 as designed.
 
 ## Problem
 
