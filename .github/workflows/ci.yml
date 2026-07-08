@@ -49,6 +49,8 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npm run lint
+      - name: Unit tests (pure logic)
+        run: npm test
 
   emoji-scan:
     name: No emojis in app source

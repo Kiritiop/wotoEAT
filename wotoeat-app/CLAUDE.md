@@ -24,12 +24,16 @@ IP (`ipconfig getifaddr en0`) instead of localhost.
 ```bash
 npx tsc --noEmit          # must be clean
 npm run lint              # expo lint, must be clean
+npm test                  # unit tests for the pure logic (tsx --test, fast)
 npm run translate:audit   # only if you added/changed locale strings
 ```
 
-There is no frontend unit-test suite. Verification means launching the app
-and exercising the changed screen, on web at minimum. Web is a first-class
-target (the app ships to Vercel), so test web even for "native" features.
+Unit tests live in `tests/unit/*.test.ts` (node:test via `tsx`, which resolves
+the `@/` alias) and cover the pure logic: `utils/pantryMerge.ts` (scan merge,
+done-shopping) and `utils/shopping.ts`. Add cases there when you touch those
+files. Screens have no test suite — verification means launching the app and
+exercising the changed screen, on web at minimum. Web is a first-class target
+(the app ships to Vercel), so test web even for "native" features.
 
 ## Map
 

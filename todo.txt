@@ -83,8 +83,11 @@ CARRY-OVER (from earlier sessions, still open)
   plaintext config; 10 minutes; do this first)
 - Verify on a real phone: "Done shopping" (Shopping tab) and "I cooked
   this" (meal detail) shipped recently and were only verified by tests
-- Frontend unit tests + npm test wiring (another session was mid-way on
-  wotoeat-app/tests/unit/; finish and add the job to CI)
+- [DONE 2026-07-08] Frontend unit tests + npm test wiring: tests/unit/
+  (pantryMerge scan-merge/done-shopping + shopping utils, 16 cases) run via
+  `npm test` (tsx + node:test, resolves @/) and as a CI frontend step.
+  Still open: extract scaleIngredientStr/pantryNameMatches from discover.tsx
+  to make them testable (pairs with A-5/FIX-5).
 - Branch protection on main once CI has been trusted for a while
 
 ════════════════════════════════════════════════════════════════════

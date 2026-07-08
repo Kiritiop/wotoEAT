@@ -14,7 +14,8 @@
     "translate": "node scripts/translate.mjs",
     "translate:audit": "node scripts/translate.mjs --audit",
     "translate:fix": "node scripts/translate.mjs --audit --fix",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test": "tsx --test \"tests/unit/*.test.ts\""
   },
   "dependencies": {
     "@expo-google-fonts/nunito": "^0.4.2",
@@ -52,6 +53,7 @@
     "@types/react": "~19.1.10",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~10.0.0",
+    "tsx": "^4.23.0",
     "typescript": "^5.3.3"
   },
   "private": true
