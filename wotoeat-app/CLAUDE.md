@@ -59,10 +59,11 @@ exercising the changed screen, on web at minimum. Web is a first-class target
 3. **Every user-visible string goes through i18n**: add the key to both
    `locales/en.ts` and `locales/zh.ts`, use `useTranslation()`. Never
    hardcode display text.
-4. **Web parity.** RN `Alert.alert` is a no-op on web, so destructive
-   confirmations need the `window.confirm` branch (see existing pattern in
-   discover/profile). `keyboardType` is ignored on web, so numeric inputs
-   must `parseInt(v, 10)` and reject `NaN` before storing.
+4. **Web parity.** RN `Alert.alert` is a no-op on web — destructive
+   confirmations go through `utils/confirm.ts confirmAction()`, which handles
+   the `window.confirm` fallback; don't hand-roll the Platform branch.
+   `keyboardType` is ignored on web, so numeric inputs must
+   `parseInt(v, 10)` and reject `NaN` before storing.
 5. **Styles are memoized**: `const styles = useMemo(() => makeStyles(c), [c])`.
    Design values come from theme tokens, not ad-hoc numbers.
 6. **Do not add food images to the Today meal cards.** Images load lazily when

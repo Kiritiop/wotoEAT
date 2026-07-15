@@ -32,6 +32,8 @@ const zh = {
   no_meals_for_filter: "没有符合此筛选的餐点，点击“生成”添加一个。",
   clear_meals_title: "清除今天的餐点？",
   clear_meals_confirm: "这将删除今天生成的所有餐点和已确认项，你随时可以重新生成。",
+  shopping_clear_title: "清空购物清单？",
+  shopping_clear_confirm: "这将删除购物清单中的所有项目，包括已勾选的。",
   generate: "生成",
   regenerate: "重新生成",
   saved: "已保存",

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback, memo } from "react";
 import {
   View,
   Text,
@@ -9,8 +9,6 @@ import {
   ActivityIndicator,
   Modal,
   Pressable,
-  Alert,
-  Platform,
 } from "react-native";
 import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -28,6 +26,7 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { useTheme } from "@/hooks/useTheme";
 import { useBatchTranslated, useTranslated, usePantryDisplay } from "@/hooks/useDynamicTranslation";
 import { shareText } from "@/utils/share";
+import { confirmAction } from "@/utils/confirm";
 import FindRecipeModal from "@/components/FindRecipeModal";
 import { searchMealImage } from "@/services/imageSearch";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
@@ -37,6 +36,13 @@ import { PinnedBar } from "@/components/ui/PinnedBar";
 import type { Rating } from "@/store/useAppStore";
 
 type MealTypeTag = "any" | "breakfast" | "lunch" | "dinner";
+
+const MEAL_TYPE_TAGS: { key: MealTypeTag; labelEn: string; labelZh: string }[] = [
+  { key: "any", labelEn: "Auto", labelZh: "自动" },
+  { key: "breakfast", labelEn: "Breakfast", labelZh: "早餐" },
+  { key: "lunch", labelEn: "Lunch", labelZh: "午餐" },
+  { key: "dinner", labelEn: "Dinner", labelZh: "晚餐" },
+];
 
 /** Scales the leading number in an ingredient string (e.g. "100g chicken" → "150g chicken").
  *  N-09: non-numeric quantities (e.g. "a handful") get a ~ prefix to signal approximate. */
@@ -68,12 +74,16 @@ function MacroCell({ label, value, color }: { label: string; value: string; colo
   );
 }
 
-function MealSlotCard({
+// Memoized: the stream of cards is re-rendered by every parent state change
+// (each keystroke in the include-tags input, every filter tap). The parent
+// keeps props stable (meal object identity from the store, useCallback
+// handlers), so unchanged cards bail out entirely (FIX-5).
+const MealSlotCard = memo(function MealSlotCard({
   meal, onRate, onSwap, swapping, onTagPress,
 }: {
   meal: DailyPlanMeal;
-  onRate: (r: Rating) => void;
-  onSwap: () => void;
+  onRate: (mealName: string, r: Rating) => void;
+  onSwap: (meal: DailyPlanMeal) => void;
   swapping: boolean;
   onTagPress: (tag: string) => void;
 }) {
@@ -121,12 +131,23 @@ function MealSlotCard({
   // N-13: derive confirmed from selectedRecipes for bidirectional sync with Shopping/Pantry tab
   const isConfirmed = selectedRecipes.some((r) => r.title === meal.name);
 
-  const ingInPantry = (ing: string) => {
-    const n = ingredientNameFrom(ing);
-    return pantry.some((p) => pantryNameMatches(p.name, n));
-  };
-  const pantryMatches = (meal.ingredients ?? []).filter(ingInPantry);
-  const missingIngredients = (meal.ingredients ?? []).filter((ing) => !ingInPantry(ing));
+  // Word-aware pantry matching is O(ingredients x pantry) — memoize it so a
+  // card only recomputes when the meal or the pantry actually changes (FIX-5).
+  const pantryFlags = useMemo(
+    () => (meal.ingredients ?? []).map((ing) => {
+      const n = ingredientNameFrom(ing);
+      return pantry.some((p) => pantryNameMatches(p.name, n));
+    }),
+    [meal.ingredients, pantry],
+  );
+  const pantryMatches = useMemo(
+    () => (meal.ingredients ?? []).filter((_, i) => pantryFlags[i]),
+    [meal.ingredients, pantryFlags],
+  );
+  const missingIngredients = useMemo(
+    () => (meal.ingredients ?? []).filter((_, i) => !pantryFlags[i]),
+    [meal.ingredients, pantryFlags],
+  );
 
   const [cartBanner, setCartBanner] = useState<string | null>(null);
   const [savedBanner, setSavedBanner] = useState<string | null>(null);
@@ -187,12 +208,15 @@ function MealSlotCard({
   // Meal names are unique within a day (the seen-meals exclusion guarantees it),
   // so a "meal-" prefixed name is a safe, collision-free shopping category key.
   const cartCategory = `meal-${meal.name}`;
-  const cartItems = shoppingList?.groups.find((g) => g.category === cartCategory)?.items ?? [];
   // Normalize both sides so "200g chicken breast" matches cart item "chicken breast"
-  const inCart = (ing: string) => {
-    const n = ingredientNameFrom(ing);
-    return cartItems.some((i) => ingredientNameFrom(i.name) === n);
-  };
+  const cartNames = useMemo(
+    () => new Set(
+      (shoppingList?.groups.find((g) => g.category === cartCategory)?.items ?? [])
+        .map((i) => ingredientNameFrom(i.name)),
+    ),
+    [shoppingList, cartCategory],
+  );
+  const inCart = (ing: string) => cartNames.has(ingredientNameFrom(ing));
   const allInCart = (meal.ingredients ?? []).length > 0 && (meal.ingredients ?? []).every(inCart);
 
   function toggleIngredient(ing: string) {
@@ -302,9 +326,9 @@ function MealSlotCard({
       const result = await saveRecipe(recipe);
       setSavedId(result.id);
       setSavedState("saved");
-      // Saving is the app's only positive taste signal: record it as an "up"
-      // rating so generation's TASTE PROFILE block can lean toward similar dishes.
-      onRate("up");
+      // Saving is a positive taste signal: record it as an "up" rating so
+      // generation's TASTE PROFILE block can lean toward similar dishes.
+      onRate(meal.name, "up");
       // C2/A7: brief toast pointing user to Recipes tab for editing
       setSavedBanner(t("meal_saved_toast"));
       setTimeout(() => setSavedBanner(null), 4000);
@@ -362,7 +386,7 @@ function MealSlotCard({
         <View style={cardStyles.ratingRow}>
           <TouchableOpacity
             style={[cardStyles.dislikeBtn, { borderColor: swapping ? c.error : c.border, backgroundColor: swapping ? c.errorBg : "transparent" }]}
-            onPress={() => { onRate("down"); onSwap(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); }}
+            onPress={() => { onRate(meal.name, "down"); onSwap(meal); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); }}
             disabled={swapping}
             accessibilityRole="button"
             accessibilityLabel={t("swap_meal")}
@@ -604,7 +628,7 @@ function MealSlotCard({
                         const origIng = (meal.ingredients ?? [])[i] ?? ing;
                         const scaledIng = scaleIngredientStr(ing, scaleFactor);
                         const added = inCart(origIng);
-                        const haveIt = ingInPantry(origIng);
+                        const haveIt = pantryFlags[i] ?? false;
                         return (
                           <View key={i} style={cardStyles.ingRow}>
                             <View style={[cardStyles.ingDot, { backgroundColor: haveIt ? "#16A34A" : c.primary }]} />
@@ -682,7 +706,7 @@ function MealSlotCard({
                 <View style={[cardStyles.modalFooter, { borderColor: c.border }]}>
                   <TouchableOpacity
                     style={[cardStyles.modalActionBtn, { borderColor: c.border }]}
-                    onPress={() => { setShowDetail(false); onRate("down"); onSwap(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); }}
+                    onPress={() => { setShowDetail(false); onRate(meal.name, "down"); onSwap(meal); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); }}
                     disabled={swapping}
                   >
                     {swapping ? <ActivityIndicator size={14} color={c.error} /> : <Ionicons name="shuffle-outline" size={16} color={c.textMuted} />}
@@ -730,7 +754,7 @@ function MealSlotCard({
       </Pressable>
     </View>
   );
-}
+});
 
 function CompChip({ icon, label, color }: {
   icon: React.ComponentProps<typeof Ionicons>["name"];
@@ -746,7 +770,7 @@ function CompChip({ icon, label, color }: {
 }
 
 export default function TodayScreen() {
-  const { profile, pantry, meals, seenMeals, addMeal, replaceMeal, clearMeals, addSeenMeals, language, ratings, setRating, servings, setPlanServings, removeRecipe, shoppingList, removeFromShoppingList } = useAppStore();
+  const { profile, pantry, meals, seenMeals, addMeal, replaceMeal, clearMeals, addSeenMeals, language, ratings, setRating, servings, setPlanServings, removeRecipe } = useAppStore();
   const { t } = useTranslation();
   const c = useTheme();
   // Pantry names are stored canonical English; chips display per-language while
@@ -785,17 +809,15 @@ export default function TodayScreen() {
   const { requiredIngredients, setRequiredIngredients, selectedPantryItems, setSelectedPantryItems } = useAppStore();
   const [ingredientDraft, setIngredientDraft] = useState("");
   // Ignore pantry selections whose item has since been deleted from the pantry.
-  const livePantryItems = selectedPantryItems.filter((s) =>
-    pantry.some((p) => p.name.toLowerCase() === s.toLowerCase()),
+  // Memoized: it feeds handleSwap's useCallback, so a fresh array identity per
+  // render would defeat the card memoization.
+  const livePantryItems = useMemo(
+    () => selectedPantryItems.filter((s) =>
+      pantry.some((p) => p.name.toLowerCase() === s.toLowerCase()),
+    ),
+    [selectedPantryItems, pantry],
   );
   const [showFindRecipe, setShowFindRecipe] = useState(false);
-
-  const MEAL_TYPE_TAGS: { key: MealTypeTag; labelEn: string; labelZh: string }[] = [
-    { key: "any", labelEn: "Auto", labelZh: "自动" },
-    { key: "breakfast", labelEn: "Breakfast", labelZh: "早餐" },
-    { key: "lunch", labelEn: "Lunch", labelZh: "午餐" },
-    { key: "dinner", labelEn: "Dinner", labelZh: "晚餐" },
-  ];
 
   function toggleMealType(tag: MealTypeTag) {
     Haptics.selectionAsync();
@@ -808,28 +830,30 @@ export default function TodayScreen() {
   }
 
   // Newest meals first; the meal-type chips act as a visible-list filter.
-  const sortedMeals = meals
-    .slice()
-    .reverse()
-    .filter((m) => selectedSlots.includes("any") || selectedSlots.includes(m.slot as MealTypeTag));
+  const sortedMeals = useMemo(
+    () => meals
+      .slice()
+      .reverse()
+      .filter((m) => selectedSlots.includes("any") || selectedSlots.includes(m.slot as MealTypeTag)),
+    [meals, selectedSlots],
+  );
 
-  const totalProteinG = meals.reduce((s, m) => s + (m.protein_g ?? 0), 0);
+  const totalProteinG = useMemo(() => meals.reduce((s, m) => s + (m.protein_g ?? 0), 0), [meals]);
   const proteinGoal = profile.protein_goal_g;
   const showProtein = totalProteinG > 0 && !!proteinGoal;
 
-  // Clearing wipes today's whole meal stream + confirmations, so confirm first
-  // (web has no RN Alert — fall back to window.confirm). No prompt when empty.
+  // Clearing wipes today's whole meal stream + confirmations, so confirm
+  // first. No prompt when empty.
   function handleClearMeals() {
     if (meals.length === 0) return;
-    const doClear = () => { clearMeals(); Haptics.selectionAsync(); };
-    if (Platform.OS === "web") {
-      if (typeof window !== "undefined" && window.confirm(t("clear_meals_confirm"))) doClear();
-      return;
-    }
-    Alert.alert(t("clear_meals_title"), t("clear_meals_confirm"), [
-      { text: t("cancel"), style: "cancel" },
-      { text: t("clear"), style: "destructive", onPress: doClear },
-    ]);
+    confirmAction({
+      title: t("clear_meals_title"),
+      message: t("clear_meals_confirm"),
+      confirmLabel: t("clear"),
+      cancelLabel: t("cancel"),
+      destructive: true,
+      onConfirm: () => { clearMeals(); Haptics.selectionAsync(); },
+    });
   }
 
   async function handleGenerate() {
@@ -900,7 +924,9 @@ export default function TodayScreen() {
     }
   }
 
-  async function handleSwap(meal: DailyPlanMeal) {
+  // Stable identity (useCallback): passed to every memoized MealSlotCard, so a
+  // fresh function per render would defeat the card memoization (FIX-5).
+  const handleSwap = useCallback(async (meal: DailyPlanMeal) => {
     setSwappingName(meal.name);
     setError(null);
     try {
@@ -921,6 +947,7 @@ export default function TodayScreen() {
       // Clear the old meal's confirmation and shopping list entries
       removeRecipe(meal.name);
       const oldCategory = `meal-${meal.name}`;
+      const { shoppingList, removeFromShoppingList } = useAppStore.getState();
       const oldGroup = shoppingList?.groups.find((g) => g.category === oldCategory);
       if (oldGroup) {
         oldGroup.items.forEach((item) => removeFromShoppingList(oldCategory, item.name));
@@ -945,7 +972,21 @@ export default function TodayScreen() {
     } finally {
       setSwappingName(null);
     }
-  }
+  // t is recreated every render but derives solely from language, which is a
+  // dep — including t itself would invalidate the callback on every render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, pantry, language, cuisines, flavour, maxTime, livePantryItems, requiredIngredients, mealStyle, seenMeals, replaceMeal, addSeenMeals, removeRecipe]);
+
+  // Same stability requirement as handleSwap; reads the live store so it
+  // never goes stale despite the empty dep list.
+  const handleTagPress = useCallback((tag: string) => {
+    setShowSettings(true);
+    const { requiredIngredients: current, setRequiredIngredients: setRequired } = useAppStore.getState();
+    if (!current.includes(tag)) {
+      setRequired([...current, tag]);
+    }
+    Haptics.selectionAsync();
+  }, []);
 
   const styles = useMemo(() => makeStyles(c), [c]);
   const hour = new Date().getHours();
@@ -1203,16 +1244,10 @@ export default function TodayScreen() {
               <MealSlotCard
                 key={meal.name}
                 meal={meal}
-                onRate={(r) => setRating(meal.name, r)}
-                onSwap={() => handleSwap(meal)}
+                onRate={setRating}
+                onSwap={handleSwap}
                 swapping={swappingName === meal.name}
-                onTagPress={(tag) => {
-                  setShowSettings(true);
-                  if (!requiredIngredients.includes(tag)) {
-                    setRequiredIngredients([...requiredIngredients, tag]);
-                  }
-                  Haptics.selectionAsync();
-                }}
+                onTagPress={handleTagPress}
               />
             ))}
 

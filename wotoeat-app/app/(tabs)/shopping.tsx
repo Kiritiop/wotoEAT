@@ -6,8 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   AppState,
-  Alert,
-  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -24,7 +22,8 @@ import { generateShoppingList, saveCurrentShoppingList, getCurrentShoppingList, 
 import { formatShoppingListText, countShoppingItems, displayCategory } from "@/utils/shopping";
 import { computeShoppingDone } from "@/utils/pantryMerge";
 import { shareText } from "@/utils/share";
-import { useTheme } from "@/hooks/useTheme";
+import { confirmAction } from "@/utils/confirm";
+import { useTheme, fontSize } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 
 export default function ShoppingScreen() {
@@ -43,7 +42,9 @@ export default function ShoppingScreen() {
   const { t, strings } = useTranslation();
   const [loading, setLoading] = useState(false);
 
-  // Debounced auto-save: sync shopping list to account 2s after any change
+  // Debounced auto-save: sync shopping list to account 2s after any change.
+  // A cleared list persists as {groups: []} — skipping null would let a
+  // trash-cleared list resurrect from the server on the foreground refetch.
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isFirstRender = useRef(true);
   useEffect(() => {
@@ -51,7 +52,7 @@ export default function ShoppingScreen() {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       saveTimerRef.current = null;
-      if (shoppingList) saveCurrentShoppingList(shoppingList).catch(() => {});
+      saveCurrentShoppingList(shoppingList ?? { groups: [] }).catch(() => {});
     }, 2000);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
   }, [shoppingList]);
@@ -70,7 +71,7 @@ export default function ShoppingScreen() {
         if (saveTimerRef.current) {
           clearTimeout(saveTimerRef.current);
           saveTimerRef.current = null;
-          if (current) saveCurrentShoppingList(current).catch(() => {});
+          saveCurrentShoppingList(current ?? { groups: [] }).catch(() => {});
         }
       } else if (state === "active") {
         if (saveTimerRef.current) {
@@ -140,9 +141,13 @@ export default function ShoppingScreen() {
   // so a failure changes nothing locally.
   const [finishing, setFinishing] = useState(false);
   function handleDoneShopping() {
-    const list = useAppStore.getState().shoppingList;
-    if (!list || checkedItems === 0 || finishing) return;
+    if (!useAppStore.getState().shoppingList || checkedItems === 0 || finishing) return;
     const doMove = async () => {
+      // Re-read at execution time: on native a foreground refetch can land
+      // while the confirm dialog is open, and a list captured before it
+      // would clobber the fresher server state.
+      const list = useAppStore.getState().shoppingList;
+      if (!list) return;
       setError(null);
       setFinishing(true);
       const { merged, remaining } = computeShoppingDone(useAppStore.getState().pantry, list.groups);
@@ -152,10 +157,8 @@ export default function ShoppingScreen() {
         if (remaining.length > 0) {
           setShoppingList({ ...list, groups: remaining });
         } else {
-          // clearShoppingList() alone would leave the old list on the server
-          // (the debounced auto-save skips null) — persist the emptied list.
+          // The debounced auto-save persists the cleared list as {groups: []}.
           clearShoppingList();
-          saveCurrentShoppingList({ groups: [] }).catch(() => {});
         }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch (err: unknown) {
@@ -165,16 +168,13 @@ export default function ShoppingScreen() {
         setFinishing(false);
       }
     };
-    const msg = strings.done_shopping_confirm(checkedItems);
-    if (Platform.OS === "web") {
-      // RN Alert is a no-op on react-native-web
-      if (typeof window !== "undefined" && window.confirm(msg)) void doMove();
-      return;
-    }
-    Alert.alert(t("done_shopping"), msg, [
-      { text: t("cancel"), style: "cancel" },
-      { text: t("done_shopping"), onPress: () => void doMove() },
-    ]);
+    confirmAction({
+      title: t("done_shopping"),
+      message: strings.done_shopping_confirm(checkedItems),
+      confirmLabel: t("done_shopping"),
+      cancelLabel: t("cancel"),
+      onConfirm: () => void doMove(),
+    });
   }
 
   const styles = useMemo(() => makeStyles(c), [c]);
@@ -208,7 +208,18 @@ export default function ShoppingScreen() {
         {shoppingList && (
           <TouchableOpacity
             style={[styles.iconBtn, { backgroundColor: c.surfaceAlt }]}
-            onPress={() => { clearShoppingList(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+            onPress={() =>
+              // Clearing now really persists (the auto-save syncs {groups: []}),
+              // so confirm first like every other destructive action.
+              confirmAction({
+                title: t("shopping_clear_title"),
+                message: t("shopping_clear_confirm"),
+                confirmLabel: t("clear"),
+                cancelLabel: t("cancel"),
+                destructive: true,
+                onConfirm: () => { clearShoppingList(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); },
+              })
+            }
             accessibilityRole="button"
             accessibilityLabel={t("clear")}
           >
@@ -283,11 +294,6 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     safe: { flex: 1, backgroundColor: c.bg },
     actionBar: { flexDirection: "row", alignItems: "center", padding: 16, gap: 10 },
     generateFlex: { flex: 1 },
-    generateBtn: {
-      flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
-      backgroundColor: c.primary, borderRadius: 16, paddingVertical: 14, gap: 8,
-    },
-    generateBtnText: { color: "#FFF", fontSize: 14, fontWeight: "700" },
     iconBtn: {
       width: 46, height: 46, borderRadius: 16,
       alignItems: "center", justifyContent: "center",
@@ -296,11 +302,11 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     emptyState: { flex: 1, alignItems: "center", justifyContent: "center" },
     content: { paddingHorizontal: 16, paddingBottom: 40 },
     summary: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 12 },
-    summaryText: { fontSize: 14, fontWeight: "600" },
-    calorieText: { fontSize: 14, fontWeight: "600" },
+    summaryText: { fontSize: fontSize.sm, fontWeight: "600" },
+    calorieText: { fontSize: fontSize.sm, fontWeight: "600" },
     group: { marginBottom: 20 },
     groupLabel: {
-      fontSize: 13, fontWeight: "700", textTransform: "uppercase",
+      fontSize: fontSize.sm, fontWeight: "700", textTransform: "uppercase",
       letterSpacing: 0.6, marginBottom: 4,
     },
   });

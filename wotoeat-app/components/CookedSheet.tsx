@@ -7,15 +7,10 @@ import { Button } from "@/components/ui/Button";
 import { useAppStore } from "@/store/useAppStore";
 import { replacePantry, apiErrorMessage } from "@/services/api";
 import { pantryItemsUsedBy } from "@/utils/pantryMatch";
-import { categoryForItem } from "@/constants/filters";
+import { categoryForItem, STAPLE_CATEGORIES } from "@/constants/filters";
 import { usePantryDisplay } from "@/hooks/useDynamicTranslation";
-import { useTheme, radius, space } from "@/hooks/useTheme";
+import { useTheme, radius, space, fontSize } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
-
-// Categories the review pre-UNchecks: one dish rarely finishes a staple
-// (soy sauce, rice, oil, spices). Perishables (meat/veg/dairy/fruit/other)
-// default checked — they are what a single cook plausibly uses up.
-const STAPLE_CATEGORIES = new Set(["grains", "condiments", "oils", "herbs", "frozen"]);
 
 interface Props {
   visible: boolean;
@@ -154,8 +149,8 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
       maxHeight: "80%",
       gap: space.sm,
     },
-    title: { fontSize: 18, fontWeight: "700" },
-    hint: { fontSize: 13, lineHeight: 18 },
+    title: { fontSize: fontSize.lg, fontWeight: "700" },
+    hint: { fontSize: fontSize.sm, lineHeight: 18 },
     list: { flexGrow: 0, marginVertical: space.xs },
     restockRow: {
       flexDirection: "row",
@@ -164,6 +159,6 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
       paddingVertical: space.xs,
       gap: space.md,
     },
-    restockLabel: { fontSize: 13, flex: 1 },
+    restockLabel: { fontSize: fontSize.sm, flex: 1 },
   });
 }
