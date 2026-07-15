@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
+  TextInput,
   FlatList,
   TouchableOpacity,
   StyleSheet,
@@ -21,7 +22,7 @@ import { Button } from "@/components/ui/Button";
 import { PinnedBar } from "@/components/ui/PinnedBar";
 import { useAppStore } from "@/store/useAppStore";
 import { generateShoppingList, saveCurrentShoppingList, getCurrentShoppingList, replacePantry, apiErrorMessage } from "@/services/api";
-import { formatShoppingListText, countShoppingItems, displayCategory } from "@/utils/shopping";
+import { formatShoppingListText, countShoppingItems, displayCategory, MANUAL_CATEGORY } from "@/utils/shopping";
 import { computeShoppingDone } from "@/utils/pantryMerge";
 import { shareText } from "@/utils/share";
 import { useTheme } from "@/hooks/useTheme";
@@ -33,6 +34,7 @@ export default function ShoppingScreen() {
     setShoppingList,
     clearShoppingList,
     toggleShoppingItem,
+    addToShoppingList,
     selectedRecipes,
     pantry,
     setPantry,
@@ -119,6 +121,17 @@ export default function ShoppingScreen() {
     } finally {
       setLoading(false);
     }
+  }
+
+  // Manual add: arbitrary items (paper towels, batteries) that never come from
+  // meal confirms or AI generation. Creates the list if none exists yet.
+  const [newItem, setNewItem] = useState("");
+  function handleAddItem() {
+    const name = newItem.trim();
+    if (!name) return;
+    addToShoppingList(MANUAL_CATEGORY, name);
+    setNewItem("");
+    Haptics.selectionAsync();
   }
 
   const [shareCopied, setShareCopied] = useState(false);
@@ -217,6 +230,29 @@ export default function ShoppingScreen() {
         )}
       </View>
 
+      {/* Manual add row */}
+      <View style={styles.addRow}>
+        <TextInput
+          style={[styles.addInput, { backgroundColor: c.surfaceAlt, color: c.text }]}
+          value={newItem}
+          onChangeText={setNewItem}
+          placeholder={t("add_item_placeholder")}
+          placeholderTextColor={c.textPlaceholder}
+          onSubmitEditing={handleAddItem}
+          returnKeyType="done"
+          blurOnSubmit={false}
+        />
+        <TouchableOpacity
+          style={[styles.iconBtn, { backgroundColor: newItem.trim() ? c.primary : c.surfaceAlt }]}
+          onPress={handleAddItem}
+          disabled={!newItem.trim()}
+          accessibilityRole="button"
+          accessibilityLabel={t("add_item")}
+        >
+          <Ionicons name="add" size={24} color={newItem.trim() ? "#FFF" : c.textPlaceholder} />
+        </TouchableOpacity>
+      </View>
+
       {!shoppingList && !loading && (
         <EmptyState
           icon="cart-outline"
@@ -246,7 +282,9 @@ export default function ShoppingScreen() {
           }
           renderItem={({ item: group }) => (
             <View style={styles.group}>
-              <Text style={[styles.groupLabel, { color: c.textPlaceholder }]}>{displayCategory(group.category)}</Text>
+              <Text style={[styles.groupLabel, { color: c.textPlaceholder }]}>
+                {group.category === MANUAL_CATEGORY ? t("other_items") : displayCategory(group.category)}
+              </Text>
               {group.items.map((item) => (
                 <IngredientRow
                   key={item.name}
@@ -281,7 +319,12 @@ export default function ShoppingScreen() {
 function makeStyles(c: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: c.bg },
-    actionBar: { flexDirection: "row", alignItems: "center", padding: 16, gap: 10 },
+    actionBar: { flexDirection: "row", alignItems: "center", padding: 16, paddingBottom: 10, gap: 10 },
+    addRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingBottom: 6, gap: 10 },
+    addInput: {
+      flex: 1, height: 46, borderRadius: 16, paddingHorizontal: 14,
+      fontSize: 15, fontWeight: "500",
+    },
     generateFlex: { flex: 1 },
     generateBtn: {
       flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",

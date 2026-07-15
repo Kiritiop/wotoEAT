@@ -203,6 +203,9 @@ const en = {
       ? "Add 1 checked item to your pantry and remove it from the list?"
       : `Add ${n} checked items to your pantry and remove them from the list?`,
   done_shopping_error: "Couldn't move the items to your pantry. Please try again.",
+  add_item_placeholder: "Add your own item",
+  add_item: "Add item",
+  other_items: "Other items",
 
   // ── Network ───────────────────────────────────────────────────────────────
   no_internet: "No internet connection",

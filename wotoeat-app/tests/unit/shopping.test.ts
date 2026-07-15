@@ -1,7 +1,7 @@
 /** Unit tests for the pure shopping-list helpers. Run: npm test */
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { displayCategory, formatShoppingListText, countShoppingItems } from "../../utils/shopping";
+import { displayCategory, formatShoppingListText, countShoppingItems, MANUAL_CATEGORY } from "../../utils/shopping";
 
 describe("displayCategory", () => {
   it("strips the internal meal- prefix", () => {
@@ -41,5 +41,10 @@ describe("formatShoppingListText", () => {
   });
   it("uses the Chinese title in zh", () => {
     assert.ok(formatShoppingListText(list, "zh").startsWith("wotoEAT 购物清单"));
+  });
+  it("labels the manual-add group per language", () => {
+    const manual = { groups: [{ category: MANUAL_CATEGORY, items: [{ name: "paper towels" }] }] };
+    assert.ok(formatShoppingListText(manual, "en").includes("OTHER ITEMS"));
+    assert.ok(formatShoppingListText(manual, "zh").includes("其他商品"));
   });
 });

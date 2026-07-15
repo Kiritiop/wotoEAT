@@ -446,6 +446,7 @@ Key functions: `generateMeals` (now takes `avoid_meals`), `swapMeal` (no `curren
 ### Shopping Tab
 - The **one** shopping-list surface (reached via the Pantry cart; `ScreenHeader` back → Pantry). Displays `shoppingList` from store (grouped by category).
 - Items can be checked off (`toggleShoppingItem`).
+- **Manual add** (input row under the action bar): type any item (paper towels, batteries) and it lands in a group keyed `MANUAL_CATEGORY` (`"other"`, exported from `utils/shopping.ts`). Displayed via the `other_items` locale key on-screen and mapped by language in `formatShoppingListText`; `addToShoppingList` creates the list if none exists and no-ops on exact duplicates.
 - Share as text, clear list.
 - Also lets you regenerate from confirmed meals.
 - **"Done shopping"** (PinnedBar, visible when ≥1 item is checked): confirms cross-platform, then moves every checked item into the pantry and off the list. Names are normalized via `toCanonicalEnglish` and merged with `computeShoppingDone` (`utils/pantryMerge.ts`, reuses `computeScanMerge` — ci-dedupe, never removes, preserves `category` overrides). The `replacePantry` call is **awaited** (scan-confirm pattern): on failure nothing changes locally and the error banner shows. If the whole list was checked, the emptied list is explicitly saved to the server (`saveCurrentShoppingList({groups: []})`) because the debounced auto-save skips `null` and a foreground refetch would otherwise resurrect it.

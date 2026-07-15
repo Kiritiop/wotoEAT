@@ -200,6 +200,9 @@ const zh = {
   done_shopping: "购物完成",
   done_shopping_confirm: (n: number) => `将 ${n} 项已勾选商品加入食材库，并从清单中移除？`,
   done_shopping_error: "无法将商品移入食材库，请重试。",
+  add_item_placeholder: "自行添加商品",
+  add_item: "添加商品",
+  other_items: "其他商品",
 
   // ── Network ───────────────────────────────────────────────────────────────
   no_internet: "无网络连接",

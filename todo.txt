@@ -7,7 +7,7 @@ RECOMMENDED NEXT FIVE (best value for effort, in order)
 ════════════════════════════════════════════════════════════════════
 1. [DONE 2026-07-14] Desktop web max-width shell (UI-1, components/ui/WebShell.tsx)
 2. [DONE 2026-07-14] Skeleton loading cards for generation (UI-2, components/SkeletonMealCard.tsx)
-3. Manual add item on the shopping list (S, P-1)
+3. [DONE 2026-07-15] Manual add item on the shopping list (S, P-1)
 4. Cook mode (M, P-2)
 5. Motion pass (S-M, UI-4) — UI-3 typography largely landed via the global
    Nunito brand font (lib/fonts.ts); remaining UI-3 is only the optional
@@ -164,11 +164,12 @@ UI-11 (decision) Today-card imagery
 ════════════════════════════════════════════════════════════════════
 PRODUCT FEATURES
 ════════════════════════════════════════════════════════════════════
-P-1 (S) Manual add on the shopping list
-    You cannot add "paper towels" or any arbitrary item to the shopping
-    list by hand; items only arrive via meal confirm or AI generation.
-    One TextInput + addToShoppingList under a "Other items" group. Real
-    daily-use gap, trivial to build.
+P-1 [DONE 2026-07-15] Manual add on the shopping list
+    Input row under the shopping action bar; items land in a group keyed
+    MANUAL_CATEGORY ("other", utils/shopping.ts), shown via the
+    other_items locale key. Note: no per-item delete yet; a typo'd item
+    can only be cleared with the whole list (or checked + Done shopping,
+    which moves it to the pantry). Small follow-up if it annoys.
 
 P-2 (M) Cook mode
     Full-screen step-by-step view from any recipe: one step per screen,
