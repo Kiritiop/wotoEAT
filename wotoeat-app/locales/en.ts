@@ -32,6 +32,8 @@ const en = {
   no_meals_for_filter: "No meals match this filter yet. Tap Generate to add one.",
   clear_meals_title: "Clear today's meals?",
   clear_meals_confirm: "This removes all generated meals and confirmations for today. You can generate new ones anytime.",
+  shopping_clear_title: "Clear the shopping list?",
+  shopping_clear_confirm: "This removes every item from the shopping list, including checked ones.",
   generate: "Generate",
   regenerate: "Regenerate",
   saved: "Saved",

@@ -147,6 +147,9 @@ export interface PantryCategory {
   labelZh: string;
   items: string[];
   itemsZh: string[];
+  /** Staples (rice, soy sauce, oil, spices) are rarely finished by one dish —
+   *  the cooked-consumption review pre-unchecks them. */
+  staple?: boolean;
 }
 
 export const PANTRY_CATEGORIES: PantryCategory[] = [
@@ -161,7 +164,7 @@ export const PANTRY_CATEGORIES: PantryCategory[] = [
     itemsZh: ["洋葱", "大蒜", "番茄", "土豆", "胡萝卜", "西兰花", "菠菜", "彩椒", "蘑菇", "黄瓜", "西葫芦", "茄子", "芹菜", "玉米", "卷心菜", "生菜", "羽衣甘蓝", "葱", "生姜", "韭葱"],
   },
   {
-    key: "grains", label: "Grains & Carbs", labelZh: "谷物 & 主食",
+    key: "grains", label: "Grains & Carbs", labelZh: "谷物 & 主食", staple: true,
     items:   ["rice", "pasta", "bread", "noodles", "oats", "quinoa", "flour", "tortilla", "couscous", "barley", "panko", "cornstarch", "sourdough", "ramen", "soba", "udon", "rice noodles", "pita", "oat flour", "breadcrumbs"],
     itemsZh: ["米饭", "意面", "面包", "面条", "燕麦", "藜麦", "面粉", "玉米饼", "库斯库斯", "大麦", "面包糠", "玉米淀粉", "酸面包", "拉面", "荞麦面", "乌冬面", "米粉", "皮塔饼", "燕麦粉", "面包屑"],
   },
@@ -171,12 +174,12 @@ export const PANTRY_CATEGORIES: PantryCategory[] = [
     itemsZh: ["牛奶", "黄油", "奶酪", "酸奶", "奶油", "奶油奶酪", "酸奶油", "马苏里拉", "帕玛森", "切达奶酪", "淡奶油", "炼乳", "打发奶油", "高达奶酪", "布里奶酪", "瑞可塔", "农家奶酪", "开菲尔", "酥油", "菲达奶酪"],
   },
   {
-    key: "condiments", label: "Condiments & Sauces", labelZh: "调味品 & 酱料",
+    key: "condiments", label: "Condiments & Sauces", labelZh: "调味品 & 酱料", staple: true,
     items:   ["soy sauce", "salt", "sugar", "pepper", "vinegar", "honey", "ketchup", "mustard", "mayo", "hot sauce", "fish sauce", "oyster sauce", "hoisin sauce", "sriracha", "Worcestershire sauce", "coconut milk", "tomato paste", "chicken stock", "baking soda", "baking powder"],
     itemsZh: ["生抽", "盐", "糖", "胡椒", "醋", "蜂蜜", "番茄酱", "芥末", "蛋黄酱", "辣椒酱", "鱼露", "蚝油", "海鲜酱", "是拉差辣酱", "伍斯特酱", "椰浆", "番茄膏", "鸡汤", "小苏打", "泡打粉"],
   },
   {
-    key: "oils", label: "Cooking Oils", labelZh: "烹饪油",
+    key: "oils", label: "Cooking Oils", labelZh: "烹饪油", staple: true,
     items:   ["olive oil", "vegetable oil", "sesame oil", "coconut oil", "canola oil", "sunflower oil", "avocado oil", "peanut oil", "corn oil", "grapeseed oil", "chili oil", "toasted sesame oil", "lard", "shortening", "ghee", "truffle oil", "walnut oil", "flaxseed oil", "garlic oil", "cooking spray"],
     itemsZh: ["橄榄油", "食用油", "芝麻油", "椰子油", "菜籽油", "葵花籽油", "牛油果油", "花生油", "玉米油", "葡萄籽油", "辣椒油", "熟芝麻油", "猪油", "起酥油", "酥油", "松露油", "核桃油", "亚麻籽油", "蒜油", "烹饪喷雾"],
   },
@@ -186,12 +189,12 @@ export const PANTRY_CATEGORIES: PantryCategory[] = [
     itemsZh: ["苹果", "香蕉", "柠檬", "青柠", "橙子", "草莓", "蓝莓", "芒果", "牛油果", "葡萄", "菠萝", "西瓜", "桃子", "梨", "树莓", "樱桃", "猕猴桃", "柚子", "木瓜", "椰子"],
   },
   {
-    key: "herbs", label: "Herbs & Spices", labelZh: "香料 & 调味",
+    key: "herbs", label: "Herbs & Spices", labelZh: "香料 & 调味", staple: true,
     items:   ["basil", "cilantro", "parsley", "thyme", "rosemary", "cumin", "paprika", "chili powder", "turmeric", "oregano", "bay leaf", "coriander", "cinnamon", "cardamom", "cloves", "nutmeg", "star anise", "dill", "mint", "saffron"],
     itemsZh: ["罗勒", "香菜", "欧芹", "百里香", "迷迭香", "孜然", "红椒粉", "辣椒粉", "姜黄", "牛至", "月桂叶", "芫荽", "肉桂", "豆蔻", "丁香", "肉豆蔻", "八角", "莳萝", "薄荷", "藏红花"],
   },
   {
-    key: "frozen", label: "Frozen & Canned", labelZh: "冷冻 & 罐装",
+    key: "frozen", label: "Frozen & Canned", labelZh: "冷冻 & 罐装", staple: true,
     items:   ["frozen peas", "frozen corn", "canned tomatoes", "canned beans", "canned tuna", "canned chickpeas", "frozen edamame", "canned lentils", "canned olives", "frozen spinach", "canned soup", "canned pumpkin", "frozen mixed veg", "canned corn", "frozen shrimp", "frozen fruit", "canned artichokes", "canned sardines", "canned crab", "canned coconut milk"],
     itemsZh: ["速冻豌豆", "速冻玉米", "番茄罐头", "豆类罐头", "金枪鱼罐头", "鹰嘴豆罐头", "速冻毛豆", "扁豆罐头", "橄榄罐头", "速冻菠菜", "汤罐头", "南瓜罐头", "速冻混合蔬菜", "玉米罐头", "速冻虾", "速冻水果", "洋蓟罐头", "沙丁鱼罐头", "蟹肉罐头", "椰浆罐头"],
   },
@@ -199,6 +202,12 @@ export const PANTRY_CATEGORIES: PantryCategory[] = [
 
 /** "other" bucket key for pantry items not in any known category. */
 export const PANTRY_OTHER_KEY = "other";
+
+/** Category keys flagged `staple` above — derived, so a key rename can't
+ *  silently diverge from the categories themselves. */
+export const STAPLE_CATEGORIES: ReadonlySet<string> = new Set(
+  PANTRY_CATEGORIES.filter((c) => c.staple).map((c) => c.key),
+);
 
 export const CATEGORY_LABELS: Record<string, { en: string; zh: string }> = {
   ...Object.fromEntries(PANTRY_CATEGORIES.map((c) => [c.key, { en: c.label, zh: c.labelZh }])),

@@ -32,7 +32,7 @@ import { MealCard } from "@/components/MealCard";
 type RecipeTab = "saved" | "liked" | "mine" | "history";
 
 export default function RecipesScreen() {
-  const { authReady, recipeLabels, addRecipeLabel, removeRecipeLabel, setAllRecipeLabels, language, servings: storeServings } = useAppStore();
+  const { authReady, recipeLabels, addRecipeLabel, removeRecipeLabel, setAllRecipeLabels, language, servings: storeServings, setRating } = useAppStore();
   const c = useTheme();
   const { t, strings } = useTranslation();
   const router = useRouter();
@@ -177,6 +177,8 @@ export default function RecipesScreen() {
       if (isNewRecipe) {
         // Brand new user recipe
         const created = await saveRecipe(recipePayload);
+        // Every saveRecipe success is a positive taste signal (FIX-4)
+        setRating(recipePayload.title, "up");
         setRecipes((prev) => [created, ...prev]);
         setSelectedRecipe(null);
         setActiveTab("mine");
@@ -189,6 +191,7 @@ export default function RecipesScreen() {
       } else {
         // Saved recipe: duplicate to Mine
         const created = await saveRecipe(recipePayload);
+        setRating(recipePayload.title, "up");
         setRecipes((prev) => [created, ...prev]);
         setSelectedRecipe(null);
         setActiveTab("mine");
@@ -332,6 +335,7 @@ export default function RecipesScreen() {
     try {
       const recipe = await generateRecipeByName(historySelected.name, language, storeServings || 1, true);
       await saveRecipe(recipe);
+      setRating(recipe.title, "up");
       setHistoryBannerIsError(false);
       setHistoryBanner(t("history_saved_banner"));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

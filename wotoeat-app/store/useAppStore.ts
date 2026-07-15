@@ -97,6 +97,17 @@ interface AppState {
 
 const DEFAULT_PROFILE: HealthProfile = {};
 
+// Today's stream and everything keyed to it — always reset together (date
+// rollover, clear, language change, sign-out). One spread instead of four
+// hand-maintained field lists that could silently drift apart.
+const DAY_SCOPED_RESET = {
+  meals: [] as DailyPlanMeal[],
+  mealsDate: null as string | null,
+  seenMeals: [] as string[],
+  cookedMeals: [] as string[],
+  selectedRecipes: [] as Recipe[],
+};
+
 export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
@@ -113,7 +124,7 @@ export const useAppStore = create<AppState>()(
       language: "en",
       // Clear meals, seen-history, and shopping selections when language changes —
       // everything was generated in the old language so none of it is reusable.
-      setLanguage: (lang) => set({ language: lang, meals: [], mealsDate: null, seenMeals: [], cookedMeals: [], selectedRecipes: [], shoppingList: null, requiredIngredients: [] }),
+      setLanguage: (lang) => set({ language: lang, ...DAY_SCOPED_RESET, shoppingList: null, requiredIngredients: [] }),
 
       // ── Onboarding ──────────────────────────────────────────────────────
       hasOnboarded: false,
@@ -134,7 +145,7 @@ export const useAppStore = create<AppState>()(
         })),
       removeMeal: (name) =>
         set((state) => ({ meals: state.meals.filter((m) => m.name !== name) })),
-      clearMeals: () => set({ meals: [], mealsDate: null, seenMeals: [], cookedMeals: [], selectedRecipes: [] }),
+      clearMeals: () => set({ ...DAY_SCOPED_RESET }),
 
       // ── Seen meals ───────────────────────────────────────────────────────
       seenMeals: [],
@@ -258,12 +269,8 @@ export const useAppStore = create<AppState>()(
       // logout and are ready immediately on next sign-in.
       resetAll: () =>
         set({
-          meals: [],
-          mealsDate: null,
-          seenMeals: [],
-          cookedMeals: [],
+          ...DAY_SCOPED_RESET,
           ratings: {},
-          selectedRecipes: [],
           pantry: [],
           shoppingList: null,
           requiredIngredients: [],
@@ -291,11 +298,7 @@ export const useAppStore = create<AppState>()(
         if (!state) return;
         const today = new Date().toISOString().slice(0, 10);
         if (state.meals.length > 0 && state.mealsDate !== today) {
-          state.meals = [];
-          state.mealsDate = null;
-          state.seenMeals = [];
-          state.cookedMeals = [];
-          state.selectedRecipes = [];
+          Object.assign(state, DAY_SCOPED_RESET);
         }
       },
       // Only persist user-generated data; authReady is ephemeral (never persisted)

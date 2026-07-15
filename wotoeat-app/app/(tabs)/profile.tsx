@@ -7,8 +7,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   Linking,
-  Alert,
-  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,6 +18,7 @@ import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { Button } from "@/components/ui/Button";
 import { saveProfile, apiErrorMessage } from "@/services/api";
+import { confirmAction } from "@/utils/confirm";
 import { supabase } from "@/lib/supabase";
 import {
   HEALTH_GOAL_OPTIONS,
@@ -117,8 +116,7 @@ export default function ProfileScreen() {
   }
 
   async function handleSignOut() {
-    // Confirm first (cross-platform: RN Alert is a no-op on web), and always
-    // resetAll even if the network sign-out throws — otherwise a flaky
+    // Always resetAll even if the network sign-out throws — otherwise a flaky
     // connection leaves a half-signed-out state with stale local data.
     const doSignOut = async () => {
       try {
@@ -127,14 +125,14 @@ export default function ProfileScreen() {
         useAppStore.getState().resetAll();
       }
     };
-    if (Platform.OS === "web") {
-      if (typeof window !== "undefined" && window.confirm(t("sign_out_confirm"))) void doSignOut();
-      return;
-    }
-    Alert.alert(t("sign_out"), t("sign_out_confirm"), [
-      { text: t("cancel"), style: "cancel" },
-      { text: t("sign_out"), style: "destructive", onPress: () => void doSignOut() },
-    ]);
+    confirmAction({
+      title: t("sign_out"),
+      message: t("sign_out_confirm"),
+      confirmLabel: t("sign_out"),
+      cancelLabel: t("cancel"),
+      destructive: true,
+      onConfirm: () => void doSignOut(),
+    });
   }
 
   const styles = useMemo(() => makeStyles(c), [c]);
