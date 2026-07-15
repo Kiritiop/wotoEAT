@@ -324,6 +324,8 @@ Only 4 tabs are visible in the tab bar: Today, Pantry, My Recipes, Profile.
   - `Chip` — selectable pill (`label, active, onPress, onClose?`); one source for meal-type/cuisine/filter/category chips.
   - `SectionLabel` — the uppercase muted label above grouped content (pantry categories, shopping groups, filter sections).
   - `Card` — soft rounded surface (`c.surface` + `radius.md` + `shadows.soft`), optional `onPress`; for list rows / recipe cards / settings sections.
+  - `WebShell` (`components/ui/WebShell.tsx`) — desktop-web frame: on web ≥768px the whole app renders as a centered 520px column on a `surfaceAlt` backdrop (wrapped around the Stack in `app/_layout.tsx`); native and narrow web pass through untouched. RN Modals portal to the document body on web, so full-screen overlays intentionally cover the whole window.
+- `SkeletonMealCard` (`components/SkeletonMealCard.tsx`) — pulsing placeholder card + rotating status copy (`gen_status_1..3` locale keys) rendered on Today while `loading` (just above the meal stream). Opacity pulse only — no gradients.
 
 ### State (`store/useAppStore.ts`)
 Persisted to AsyncStorage under key `wotoeat-store`. Fields:

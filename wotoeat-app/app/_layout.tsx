@@ -17,6 +17,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { getProfile, setAuthToken, getCurrentShoppingList } from "@/services/api";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { NetworkBanner } from "@/components/NetworkBanner";
+import { WebShell } from "@/components/ui/WebShell";
 import { useTheme } from "@/hooks/useTheme";
 import { applyBrandFont } from "@/lib/fonts";
 import type { Session } from "@supabase/supabase-js";
@@ -133,6 +134,7 @@ export default function RootLayout() {
     <ErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <StatusBar style={theme.statusBar} />
+        <WebShell>
         <NetworkBanner />
         <Stack
           screenOptions={{
@@ -181,6 +183,7 @@ export default function RootLayout() {
             }}
           />
         </Stack>
+        </WebShell>
       </GestureHandlerRootView>
     </ErrorBoundary>
   );

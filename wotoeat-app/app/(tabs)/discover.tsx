@@ -20,6 +20,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { CUISINES, FLAVOUR_OPTIONS, PREP_TIME_PRESETS, SLOT_COLOUR, SLOT_ICON, DIFFICULTY_COLORS, translateTag, translateCuisine, translateDifficulty } from "@/constants/filters";
 import { pantryNameMatches, ingredientNameFrom } from "@/utils/pantryMatch";
 import { CookedSheet } from "@/components/CookedSheet";
+import { SkeletonMealCard } from "@/components/SkeletonMealCard";
 import { Button } from "@/components/ui/Button";
 import { generateMeals, swapMeal, saveRecipe, deleteRecipe, createShare, shareWebUrl, generateRecipeByName, apiErrorMessage } from "@/services/api";
 import type { Recipe, Ingredient , DailyPlanMeal } from "@/services/api";
@@ -1160,6 +1161,9 @@ export default function TodayScreen() {
             </Text>
           </TouchableOpacity>
         )}
+
+        {/* Generation in flight: skeleton card where the new meal will land */}
+        {loading && <SkeletonMealCard />}
 
         {/* ── Meal stream section ── */}
         {meals.length > 0 && (

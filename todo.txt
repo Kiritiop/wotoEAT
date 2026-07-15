@@ -5,11 +5,13 @@ Effort tags: S = one sitting, M = a day-ish, L = multi-day
 ════════════════════════════════════════════════════════════════════
 RECOMMENDED NEXT FIVE (best value for effort, in order)
 ════════════════════════════════════════════════════════════════════
-1. Desktop web max-width shell (S, UI-1)
-2. Skeleton loading cards for generation (M, UI-2)
+1. [DONE 2026-07-14] Desktop web max-width shell (UI-1, components/ui/WebShell.tsx)
+2. [DONE 2026-07-14] Skeleton loading cards for generation (UI-2, components/SkeletonMealCard.tsx)
 3. Manual add item on the shopping list (S, P-1)
 4. Cook mode (M, P-2)
-5. Typography pass with a display font (S-M, UI-3)
+5. Motion pass (S-M, UI-4) — UI-3 typography largely landed via the global
+   Nunito brand font (lib/fonts.ts); remaining UI-3 is only the optional
+   serif display font decision
 
 ════════════════════════════════════════════════════════════════════
 FIX QUEUE — confirmed by code review + audit (2026-07-08)
