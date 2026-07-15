@@ -16,44 +16,34 @@ RECOMMENDED NEXT FIVE (best value for effort, in order)
 ════════════════════════════════════════════════════════════════════
 FIX QUEUE — confirmed by code review + audit (2026-07-08)
 ════════════════════════════════════════════════════════════════════
-Bugs (in severity order):
-- FIX-1 (S) Rate limiting is broken in production: Procfile runs uvicorn
-  without --proxy-headers, so request.client.host is Railway's internal
-  proxy IP (100.64.0.x in the logs), not the user. All anonymous users
-  share a handful of IP buckets: one heavy user exhausts image-search
-  (100/hr) and recipe-parse (20/hr) for EVERYONE, and per-IP abuse
-  attribution is meaningless. Fix: add --proxy-headers
-  --forwarded-allow-ips="*" to the Procfile uvicorn line.
-- FIX-2 (S) Clearing the shopping list never persists: the debounced
-  auto-save in shopping.tsx skips null lists, so a trash-cleared list
-  resurrects on foreground refetch or another device. Fix the mechanism
-  (persist null as {groups: []}), then delete the Done-shopping
-  special-case save that papered over it.
-- FIX-3 (S) handleDoneShopping (shopping.tsx:143) captures the list in a
-  closure before the confirm dialog; on native a foreground refetch can
-  land while the Alert is open and gets overwritten. Re-read
-  getState().shoppingList inside doMove.
-- FIX-4 (S) Up-rating only fires on the Today card save; FindRecipeModal
-  and the three recipes.tsx save paths record nothing, so the TASTE
-  PROFILE learns from one of four save flows. Wire setRating(title,"up")
-  into each saveRecipe success (or one saveAndRate helper).
-- FIX-5 (M) MealSlotCard perf: pantry matching, cart scans, and the
-  detail-modal rows recompute unmemoized on every render of every card
-  (each keystroke in the include-tags input re-renders the whole
-  stream). useMemo the derived lists, React.memo the card.
-Cleanups:
-- FIX-6 (S) Extract the cross-platform confirm pattern (3 copies:
-  shopping/discover/profile) into utils/confirm.ts.
-- FIX-7 (S) Move STAPLE_CATEGORIES next to PANTRY_CATEGORIES in
-  constants/filters.ts (staple flag or exported set) so category renames
-  cannot silently diverge.
-- FIX-8 (S) CookedSheet fontSizes 18/13/13 -> fontSize tokens (rule in
-  wotoeat-app/CLAUDE.md; do the same sweep in FindRecipeModal and
-  shopping.tsx while there).
-- FIX-9 (S) Delete the dead computeScanMerge re-export in scan.tsx.
-- FIX-10 (S) Single DAY_SCOPED_RESET spread for meals/seenMeals/
-  cookedMeals/selectedRecipes instead of four hand-maintained reset
-  sites in useAppStore.ts.
+[DONE 2026-07-15] FIX-1 through FIX-10 all shipped in one pass:
+- FIX-1 Procfile runs uvicorn with --proxy-headers
+  --forwarded-allow-ips="*" so per-IP rate limits see real client IPs.
+- FIX-2 shopping.tsx auto-save persists a cleared list as {groups: []}
+  (never skips null); the Done-shopping special-case save is deleted.
+  Because clearing now really persists, the trash button confirms first
+  (new keys shopping_clear_title/confirm).
+- FIX-3 handleDoneShopping re-reads getState().shoppingList inside
+  doMove, so a foreground refetch during the dialog is not clobbered.
+- FIX-4 setRating(title, "up") fires on every saveRecipe success:
+  FindRecipeModal, recipes.tsx new/duplicate/history-generate paths.
+  (recipe/upload.tsx deliberately left out — importing a URL is a
+  weaker signal than choosing to save a dish by name.)
+- FIX-5 MealSlotCard is React.memo'd; pantry matching + cart lookups are
+  useMemo'd; parent passes stable handlers (setRating direct, handleSwap
+  and handleTagPress via useCallback), so typing in the include-tags
+  input no longer re-renders/recomputes the whole stream.
+- FIX-6 utils/confirm.ts confirmAction(); shopping/discover/profile use it.
+- FIX-7 PANTRY_CATEGORIES has a staple flag; STAPLE_CATEGORIES is derived
+  from it in constants/filters.ts and imported by CookedSheet.
+- FIX-8 CookedSheet/FindRecipeModal/shopping.tsx font sizes on fontSize
+  tokens (off-scale 10/11/16/19 left as-is); dead pre-Button styles
+  removed from FindRecipeModal and shopping.tsx.
+- FIX-9 dead computeScanMerge re-export removed from scan.tsx.
+- FIX-10 one DAY_SCOPED_RESET spread in useAppStore.ts replaces the four
+  hand-maintained reset lists.
+Still to verify on a real phone: FIX-2/FIX-3 (cross-device shopping
+sync paths) — added to CARRY-OVER below.
 
 Backend/infra audit findings (same date):
 - A-1 (M) Sync Supabase calls inside async endpoints block the
@@ -83,8 +73,10 @@ CARRY-OVER (from earlier sessions, still open)
 ════════════════════════════════════════════════════════════════════
 - Rotate the Railway Postgres password and UWaterloo API key (leaked to
   plaintext config; 10 minutes; do this first)
-- Verify on a real phone: "Done shopping" (Shopping tab) and "I cooked
-  this" (meal detail) shipped recently and were only verified by tests
+- Verify on a real phone: "Done shopping" (Shopping tab), "I cooked
+  this" (meal detail), and the FIX-2/FIX-3 shopping-sync changes
+  (clear list on device A, foreground device B; background mid-dialog)
+  shipped recently and were only verified by tests/web
 - [DONE 2026-07-08] Frontend unit tests + npm test wiring: tests/unit/
   (pantryMerge scan-merge/done-shopping + shopping utils, 16 cases) run via
   `npm test` (tsx + node:test, resolves @/) and as a CI frontend step.
