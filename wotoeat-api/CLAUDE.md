@@ -91,6 +91,15 @@ Railway (backend vars live there in production, not in the repo).
 
 **Change the model:** Groq models are env-overridable (`GROQ_TEXT_MODEL`,
 `GROQ_VISION_MODEL`). Prefer changing the env default over hardcoding.
+Current defaults: `openai/gpt-oss-120b` (text) and `qwen/qwen3.6-27b` (vision,
+the only image-input model Groq offers). Groq decommissions models without
+notice, and a removed model 404s into a blanket 503 on every AI endpoint, so
+when everything 503s at once list the models first:
+`curl -s https://api.groq.com/openai/v1/models -H "Authorization: Bearer $GROQ_API_KEY"`.
+After any model swap, re-run `test_clean_json.py` and the live
+`test_receipt_normalize.py`, and check the new model's output actually parses:
+both current models are reasoning models whose `<think>` preamble `_clean_json`
+strips.
 
 ## Deployment
 

@@ -59,6 +59,15 @@ open ends of the product loop):
 
 **Operational notes:** Groq free/dev tiers have daily token limits; when
 generation starts 503ing check the Groq console before debugging code.
+**A blanket 503 across every AI feature usually means a decommissioned model,
+not capacity**. Groq removed `llama-3.3-70b-versatile` and Llama 4 Scout in
+Aug 2026, and a removed model returns 404 `model_not_found`, which arrives as
+`APIStatusError`, which is inside `GroqTransientError`, which every router maps
+to 503. Diagnose with
+`curl -s https://api.groq.com/openai/v1/models -H "Authorization: Bearer $GROQ_API_KEY"`
+and check the current default is still listed; the fix is an env/default swap,
+not code. Check Railway's `GROQ_TEXT_MODEL`/`GROQ_VISION_MODEL` too: an
+override there wins over the code default and can be stale.
 Backend secrets live only in Railway; Vercel gets only `EXPO_PUBLIC_*` vars
 (they are public); EAS needs its env vars set separately or store builds ship
 broken (see Deployment below).
@@ -135,7 +144,7 @@ wotoEAT/
 
 ### Stack
 - **Python 3.12+**, FastAPI, Uvicorn
-- **AI**: Groq API (`llama-3.3-70b-versatile`) via `groq` async client
+- **AI**: Groq API (`openai/gpt-oss-120b` text, `qwen/qwen3.6-27b` vision) via `groq` async client
 - **Database**: Supabase (Postgres) via `supabase-py` with service-role key
 - **Auth**: Supabase JWT — extracted from `Authorization: Bearer <token>` header
 - **Cache**: SQLite TTL cache (`ai/sqlite_cache.py`) — reduces AI calls, survives restarts. Default TTL 3600s (env `CACHE_TTL_SECONDS`).
@@ -164,7 +173,7 @@ vars the code reads via `os.getenv`). Note: `wotoeat-api/.gitignore` needs the
 
 | Variable | Purpose |
 |---|---|
-| `GROQ_API_KEY` | Groq API key (llama-3.3-70b-versatile) |
+| `GROQ_API_KEY` | Groq API key (powers all text + vision calls) |
 | `SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_KEY` | Supabase service-role key |
 | `SUPABASE_JWT_SECRET` | **Required for legacy (HS256) Supabase projects** — the shared JWT secret used to verify user access tokens in `routers/auth.py`. Not needed for projects using asymmetric (ES256/RS256) signing keys (those verify against the JWKS at `{SUPABASE_URL}/auth/v1/.well-known/jwks.json`). If a project is on HS256 and this is unset, all authenticated requests return 401 (fail-closed). |
@@ -172,8 +181,9 @@ vars the code reads via `os.getenv`). Note: `wotoeat-api/.gitignore` needs the
 | `CACHE_TTL_SECONDS` | AI response cache TTL (default 3600) |
 | `PEXELS_API_KEY` | Pexels image search API key (image-cascade fallback; set in Railway) |
 | `UNSPLASH_ACCESS_KEY` | Unsplash access key (optional last-resort image fallback) |
-| `GROQ_VISION_MODEL` | Optional override of the receipt-scan vision model (default `meta-llama/llama-4-scout-17b-16e-instruct`; swap here if Groq deprecates it) |
-| `GROQ_TEXT_MODEL` | Optional override of the main text model (default `llama-3.3-70b-versatile`) — powers all meal/recipe/shopping generation; swap here if Groq deprecates it |
+| `GROQ_VISION_MODEL` | Optional override of the receipt-scan vision model (default `qwen/qwen3.6-27b`; swap here if Groq deprecates it). **Leave unset unless deliberately pinning**: a stale pin at a removed model 503s every AI call |
+| `GROQ_TEXT_MODEL` | Optional override of the main text model (default `openai/gpt-oss-120b`) — powers all meal/recipe/shopping generation; swap here if Groq deprecates it. **Leave unset unless deliberately pinning** (same reason as above) |
+| `GROQ_REASONING_EFFORT` | Reasoning budget for models that support it (default `low`). gpt-oss bills reasoning as completion tokens; at Groq's default effort an elaborate recipe spent ~2500 of its 4500-token budget thinking and truncated mid-JSON (a 422). `low` roughly halves cost and latency with no measured quality loss. Blank disables; models that reject the param self-heal at runtime |
 
 ### Router/Endpoint Map
 
@@ -217,7 +227,7 @@ vars the code reads via `os.getenv`). Note: `wotoeat-api/.gitignore` needs the
 
 **`_tag_note()`** — Injected into every prompt that returns recipes. Instructs AI to produce **as many English tags as needed** (no upper limit) covering: key ingredients (each as its own tag), dietary labels, flavour profile, cooking style, occasion/lifestyle. Tags are always English; the frontend translates them via `TAG_ZH` lookup table in `constants/filters.ts`.
 
-**`ai/claude.py`** — Async wrappers around the Groq client (`llama-3.3-70b-versatile`):
+**`ai/claude.py`** — Async wrappers around the Groq client (`openai/gpt-oss-120b`):
 - `generate_meal_plan(filters)` → `(dict, cached_bool)` — raises `ValueError` if AI returns `{"error": "no_match", ...}` (unsatisfiable required tags)
 - `parse_recipe(html)` → `dict` (no `language` arg — recipes are parsed in their source language and localized client-side by the dynamic-translation layer; `ParseRecipeRequest.language` is still accepted for API-contract compatibility but unused)
 - `generate_recipe_by_name(dish_name, language, servings, force_refresh)` → `dict` (cached 7 days; `force_refresh=True` bypasses cache — used by the Regenerate button)
@@ -232,7 +242,7 @@ Internal helpers:
 - `_create_with_retry(**kwargs)` — wraps the Groq completion call with a bounded retry (up to 3 attempts) on `RateLimitError`, honouring the `Retry-After` header (skips the wait if >8s so it never outlives the client's 45s timeout). All three `_generate*` helpers route through it. Recovers the bursty 429→503 failures Groq throws when several meal/recipe calls land in the same minute.
 - `_meal_max_tokens(n_slots)` — `min(6000, 1200 + 2400*n_slots)`. Right-sizes the meal generation/swap completion budget so Groq's TPM reservation isn't blown (a single meal needs ~1.5–2k output tokens, not 6000). See Token limits below.
 - `_generate_text(prompt, max_tokens)` — calls Groq with temperature 0.3; used by receipt normalization
-- `_generate_vision(prompt, image_b64, max_tokens)` — calls `_VISION_MODEL` (env `GROQ_VISION_MODEL`, default Llama 4 Scout) with temperature 0.2 and a base64 JPEG data-URL content part
+- `_generate_vision(prompt, image_b64, max_tokens)` — calls `_VISION_MODEL` (env `GROQ_VISION_MODEL`, default `qwen/qwen3.6-27b`) with temperature 0.2 and a base64 JPEG data-URL content part
 - `GroqTransientError` — tuple `(RateLimitError, APIConnectionError, APIStatusError)` used by routers to catch transient AI failures and return 503
 
 **`ai/sqlite_cache.py`** — MD5-keyed SQLite TTL cache + rate-limit counters.
@@ -384,7 +394,7 @@ Key functions: `generateMeals` (now takes `avoid_meals`), `swapMeal` (no `curren
 2. `handleGenerate()` in `discover.tsx`:
    - Resolves target slot (always exactly **one**): "Auto" → infers from current hour (5–11 → breakfast, 11–15 → lunch, else dinner); otherwise uses the single selected slot.
    - Calls `generateMeals(profile, pantry, cuisines, maxTime, language, ratings, servings, [slot], flavour, requiredIngredients+pantryItems, mealStyle, seenMeals)`.
-3. Backend `POST /meals/generate` → `generate_meal_plan(filters)` → Groq (`llama-3.3-70b-versatile`, `_meal_max_tokens(n_slots)` ≈ 3600 for the usual single slot). `avoid_meals` (=`seenMeals`) is in the cache key, so a growing list forces a fresh, non-repeating result.
+3. Backend `POST /meals/generate` → `generate_meal_plan(filters)` → Groq (`openai/gpt-oss-120b`, `_meal_max_tokens(n_slots)` ≈ 3600 for the usual single slot). `avoid_meals` (=`seenMeals`) is in the cache key, so a growing list forces a fresh, non-repeating result.
 4. Each returned meal is **appended** to the `meals` stream (`addMeal`) and its name added to `seenMeals` (`addSeenMeals`) — old cards stay visible.
 5. Meal cards render newest-first; the meal-type chips filter the visible list. Slot colour coding (breakfast=amber, lunch=green, dinner=indigo) still styles each card.
 
@@ -462,8 +472,8 @@ Key functions: `generateMeals` (now takes `avoid_meals`), `swapMeal` (no `curren
 Closes the input side of the pantry loop: photograph a grocery receipt → AI extracts the purchased food items → user reviews/edits → items merge into the pantry.
 
 ### Pipeline (two-stage, both on Groq)
-1. **Stage 1 — vision transcription** (`transcribe_receipt`, model `_VISION_MODEL` = Llama 4 Scout, temp 0.2): the photo is transcribed verbatim into raw text lines. No interpretation. Isolated and swappable — if Groq deprecates Scout (it's preview; Maverick was killed Feb 2026), set env `GROQ_VISION_MODEL` or replace this one function (e.g. with AWS Textract).
-2. **Stage 2 — text normalization** (`normalize_receipt_items`, existing `llama-3.3-70b-versatile`, temp 0.3): raw lines + the user's current pantry (fetched server-side) → items with `name` (**always canonical English** regardless of receipt/user language — same convention as tags; abbreviations expanded: "ORG BNLS CKN BRST" → "chicken breast"; brands stripped; foreign lines translated), `name_zh` (Simplified Chinese display name, always provided), `raw_text`, `is_food` (paper towels/detergent → false), display-only `quantity`, and `matches_pantry` (semantic cross-language match against an existing pantry item, e.g. scanned 鸡蛋 ↔ existing "eggs"; guarded server-side against hallucinated values). The `language` request param is intentionally unused by this prompt. Tax/totals/coupons/deposits/payment lines are omitted entirely. Contract test: `wotoeat-api/tests/test_receipt_normalize.py` (live-LLM, crossed-language fixtures — run from `wotoeat-api/` with `venv/bin/python tests/test_receipt_normalize.py`).
+1. **Stage 1 — vision transcription** (`transcribe_receipt`, model `_VISION_MODEL` = `qwen/qwen3.6-27b`, temp 0.2): the photo is transcribed verbatim into raw text lines. No interpretation. Isolated and swappable — Groq has already killed Maverick (Feb 2026) and Scout (Aug 2026), and qwen3.6 is currently the ONLY image-input model they offer, so assume this one will go too: set env `GROQ_VISION_MODEL` or replace this one function (e.g. with AWS Textract).
+2. **Stage 2 — text normalization** (`normalize_receipt_items`, the main text model, temp 0.3): raw lines + the user's current pantry (fetched server-side) → items with `name` (**always canonical English** regardless of receipt/user language — same convention as tags; abbreviations expanded: "ORG BNLS CKN BRST" → "chicken breast"; brands stripped; foreign lines translated), `name_zh` (Simplified Chinese display name, always provided), `raw_text`, `is_food` (paper towels/detergent → false), display-only `quantity`, and `matches_pantry` (semantic cross-language match against an existing pantry item, e.g. scanned 鸡蛋 ↔ existing "eggs"; guarded server-side against hallucinated values). The `language` request param is intentionally unused by this prompt. Tax/totals/coupons/deposits/payment lines are omitted entirely. Contract test: `wotoeat-api/tests/test_receipt_normalize.py` (live-LLM, crossed-language fixtures — run from `wotoeat-api/` with `venv/bin/python tests/test_receipt_normalize.py`).
 
 ### Endpoint
 `POST /pantry/scan-receipt` — body `{image_base64, language}`; `require_user_id`; rate-limited 10/hr per user (`receipt-scan`); **no caching**; **annotate-only** (writes nothing). Errors: oversized/invalid image and AI error tokens (`no_receipt`, `no_food_items`, `unreadable_receipt`) → 422 (client localizes the tokens); `GroqTransientError` → 503; generic → 500.
@@ -555,10 +565,11 @@ Meals and recipes can be shared as browsable links anyone can open.
 - **Pantry writes must preserve `category`**: any code path that rebuilds the pantry list for `replacePantry` (picker save, scan merge) must carry each surviving item's `category` override through — bare `{name}` rows silently wipe user-assigned categories locally AND server-side. `PantryTagPicker` selection is case-insensitive (ci name → exact stored name) so an existing "Chicken Breast" lights up the built-in "chicken breast" chip instead of saving a case-variant duplicate.
 - **SSRF guard on URL fetch**: `utils/scraper.py` (`/recipes/parse`) accepts a user-supplied URL, so `_assert_public_http_url()` enforces an http(s)-only scheme allowlist and resolves the host, rejecting any answer in loopback/private/link-local/reserved/multicast ranges (blocks cloud metadata `169.254.169.254`, `localhost`, internal hosts). Redirects are followed **manually** (`follow_redirects=False`, max 5 hops) so every hop is re-validated — a public URL can't 30x-redirect into an internal address.
 - **Cache key**: MD5 of sorted JSON of the filters dict (excluding `recent_ratings` for plan cache keys to avoid thrashing). **`avoid_meals` is NOT excluded** — it must stay in the key so a growing exclusion list forces fresh, non-repeating results.
+- **Reasoning tokens count as output**: both current Groq models reason before answering, and those tokens are billed as completion tokens AND spend the `max_tokens` budget. `_create_with_retry` applies `reasoning_effort` (env `GROQ_REASONING_EFFORT`, default `low`) to every call; models that 400 on the parameter are remembered in `_no_reasoning_effort` and retried without it, so pointing `GROQ_TEXT_MODEL` at a non-reasoning model still works. If recipe generation starts 422ing with "response was incomplete", check this is still being applied **before** raising any `max_tokens` — at default effort the elaborate dishes truncate, at `low` they use ~40% of budget.
 - **Token limits**: budgets are right-sized to the response so Groq's per-minute token (TPM) reservation — which counts the *requested* `max_tokens`, not just what's generated — isn't blown on every call (the old flat 6000 was a 3-meal-era leftover and caused 429→503 rate-limit storms now that generation is one meal per call). `generate_meal_plan`/`swap_meal` use `_meal_max_tokens(n_slots)` (≈3600 for one slot); `generate_recipe_by_name` uses 4500; `parse_recipe` uses 4000. A single rich meal/recipe response is ~1.5–2k output tokens, so these are comfortably above the truncation threshold. Don't raise them back toward 6000 — that reintroduces the rate-limit storms. If a response ever truncates (→ 422 on JSON parse), bump that one call's budget by ~1000, don't blanket-raise.
 - **CORS**: `main.py` allows `GET, POST, PUT, PATCH, DELETE, OPTIONS`. `PATCH` is required for `/recipes/{id}/labels`.
 - **Pantry replace**: frontend calls `POST /pantry/` (not `/pantry/replace`) with body `{ items: [...] }`.
-- **AI JSON cleaning**: `_clean_json()` strips markdown fences that some models prepend.
+- **AI JSON cleaning**: `_clean_json()` strips markdown fences that some models prepend, **and any `<think>…</think>` reasoning preamble** (it keeps everything after the last `</think>`, which also survives a swallowed opening tag). Both current Groq models are reasoning models; qwen always emits a think block before the JSON, and without the strip every receipt scan fails as `unreadable_receipt` and every recipe/shopping call 422s as "response was incomplete". Locked by `tests/test_clean_json.py`.
 - **Semantic pantry matching**: `_MATCHING_RULES` in `prompts.py` teaches the AI to match ingredient types (e.g. "巴沙鱼" satisfies "white fish").
 - **Shopping list category**: meals use `meal-{meal.name}` as the shopping list category key (names are unique within a day via seen-meals exclusion).
 - **Pantry priority**: `meal_generate_prompt` has a `PANTRY PRIORITY` block instructing the AI to prefer dishes that reuse pantry ingredients and to fill `uses_pantry_items` (without violating other filters). The pantry list is surfaced explicitly (no longer buried in `display_filters`).

@@ -14,9 +14,54 @@ RECOMMENDED NEXT FIVE (best value for effort, in order)
    serif display font decision
 
 ════════════════════════════════════════════════════════════════════
+INCIDENT 2026-08-17: Groq decommissioned both models (RESOLVED)
+════════════════════════════════════════════════════════════════════
+Every AI endpoint returned 503. Cause was not capacity: Groq removed
+llama-3.3-70b-versatile AND meta-llama/llama-4-scout-17b-16e-instruct
+from the account. A removed model 404s as model_not_found -> APIStatusError
+-> GroqTransientError -> the routers' blanket 503. Meal generation, swap,
+recipe generate/parse, shopping generation and receipt scanning were all
+down; only the non-AI paths still worked.
+Fixed by: text default -> openai/gpt-oss-120b, vision default ->
+qwen/qwen3.6-27b (the only image-input model Groq still offers), plus
+_clean_json now strips <think> preambles (both new models are reasoning
+models; qwen always emits one, which broke every JSON parse).
+Verified live against all six AI paths + the live receipt test.
+Second-order problem found while measuring: gpt-oss bills reasoning as
+completion tokens, so at Groq's default effort an elaborate recipe
+(cassoulet, 6 servings) spent ~2500 of its 4500 budget thinking and
+truncated mid-JSON into a 422. Raising the budget did not help, it just
+expanded to fill it. Fixed properly with reasoning_effort=low
+(GROQ_REASONING_EFFORT), which dropped worst-case budget use from 98% to
+42% and roughly halved cost and latency. Models that reject the param
+(qwen, compound, allam) self-heal at runtime so a model swap still works.
+Measured after: meal generate 1.9s avg uncached, recipe generate 4.0s,
+text flows 0.4-0.6x the old cost. Receipt scan is ~4x the old cost
+(qwen output is $3/M vs Scout's $0.34/M) but it is capped at 10/hr/user.
+Follow-ups this exposed:
+- E-4 (Groq model fallback chain) is no longer hypothetical. Promote it.
+- Nothing alerts on this. Every AI feature was dead until a user
+  reported it. Pairs with E-1 (error monitoring).
+- Check Railway does NOT pin GROQ_TEXT_MODEL / GROQ_VISION_MODEL to the
+  dead models; an env override there beats the code default.
+
+════════════════════════════════════════════════════════════════════
 FIX QUEUE — confirmed by code review + audit (2026-07-08)
 ════════════════════════════════════════════════════════════════════
 Bugs (in severity order):
+- FIX-0 (S) Hydration mismatch on every route except "/" (React error
+  #418 in the browser console). app.json sets web.output:"static", so
+  the build emits one prerendered HTML per route (dist/discover.html is
+  42.5KB of real Today screen), but vercel.json rewrites /(.*) to
+  /index.html, so Vercel serves the 28KB landing shell for every URL.
+  Verified: production /discover and / return byte-identical HTML.
+  React hydrates the landing markup as Today, mismatches, and throws the
+  tree away to re-render client-side. Costs the prerender and flashes.
+  Careful: share/[id].html and meal/[id].html export with literal
+  brackets, so the catch-all is presumably what makes /share/<id> work.
+  Fix shape: targeted rewrites for those two dynamic routes only
+  (/share/:id -> /share/[id].html, /meal/:id -> /meal/[id].html) and let
+  the filesystem serve the rest. Re-test a share link after changing it.
 - FIX-1 (S) Rate limiting is broken in production: Procfile runs uvicorn
   without --proxy-headers, so request.client.host is Railway's internal
   proxy IP (100.64.0.x in the logs), not the user. All anonymous users
@@ -233,10 +278,16 @@ E-3 (M) Staging environment
     step would make risky changes safe. Alternative smaller step: turn on
     branch protection and work through PRs.
 
-E-4 (S) Groq model fallback chain
+E-4 (S) Groq model fallback chain  ** PROMOTED: this outage happened **
     _create_with_retry handles 429s, but a model deprecation or outage
     is a hard 503. Env-driven ordered fallback list (text + vision) in
     ai/claude.py; log when running on fallback.
+    2026-08-17: Groq removed both models at once and took every AI
+    feature down (see INCIDENT above). A fallback list would have
+    degraded instead of dying. Note the vision side has no real
+    fallback today: qwen3.6 is the only image-input model Groq offers,
+    so a second vision provider (AWS Textract) is the honest answer
+    there. Pair with E-1 so the next one pages us instead of a user.
 
 E-5 (S) Schema hygiene
     Drop the dead user_preferences and daily_plans tables from schema.sql

@@ -32,6 +32,14 @@ CASES = [
     ('{"calories": 100}', {"calories": 100}),
     # expression in an array element position
     ('{"vals": [10 / 4, 3]}', {"vals": [2, 3]}),  # round(2.5) == 2 (banker's rounding)
+    # reasoning model preamble stripped (qwen emits <think>…</think> before the JSON)
+    ('<think>\nI should list the lines.\n</think>\n{"a": 1}', {"a": 1}),
+    # …including when the reasoning itself contains braces and fences
+    ('<think>maybe {"lines": []} or ```json</think>\n{"a": 1}', {"a": 1}),
+    # …and when the reasoning is followed by a fenced block
+    ('<think>x</think>\n```json\n{"b": 2}\n```', {"b": 2}),
+    # a dangling close tag (opening tag swallowed by the API) still parses
+    ('reasoning text</think>\n{"c": 3}', {"c": 3}),
 ]
 
 

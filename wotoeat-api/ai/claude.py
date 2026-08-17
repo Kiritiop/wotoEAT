@@ -9,7 +9,7 @@ import os
 import re
 import hashlib
 import logging
-from groq import AsyncGroq, APIStatusError, APIConnectionError, RateLimitError
+from groq import AsyncGroq, APIStatusError, APIConnectionError, RateLimitError, BadRequestError
 from dotenv import load_dotenv
 
 from ai.sqlite_cache import cache_get, cache_set
@@ -34,13 +34,30 @@ _client = AsyncGroq(api_key=_api_key)
 
 # Env-overridable like the vision model, so a Groq model deprecation can be
 # handled with a config change instead of a deploy (every AI feature uses this).
-_MODEL = os.getenv("GROQ_TEXT_MODEL", "llama-3.3-70b-versatile")
+# Was llama-3.3-70b-versatile until Groq decommissioned it (2026-08); a removed
+# model 404s as APIStatusError, which surfaces to users as a blanket 503.
+_MODEL = os.getenv("GROQ_TEXT_MODEL", "openai/gpt-oss-120b")
 
-# Only vision-capable model on Groq (preview status) — overridable so a
-# deprecation can be handled with an env change instead of a deploy.
-_VISION_MODEL = os.getenv("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+# Only vision-capable model on Groq — overridable so a deprecation can be
+# handled with an env change instead of a deploy. Was llama-4-scout, removed in
+# the same 2026-08 cull. Emits a <think> block, which _clean_json strips.
+_VISION_MODEL = os.getenv("GROQ_VISION_MODEL", "qwen/qwen3.6-27b")
 
 _CACHE_TTL = int(os.getenv("CACHE_TTL_SECONDS", "3600"))
+
+# gpt-oss reasons before answering, and those reasoning tokens are billed and
+# counted as completion tokens. At Groq's default effort an elaborate recipe
+# spent ~2500 of its 4500-token budget thinking and truncated mid-JSON (which
+# surfaces as a 422). "low" cuts that to ~170 tokens with no quality loss on
+# these prompts: roughly half the output tokens, half the cost, half the wait.
+# Blank disables it. Models that reject the parameter are handled below.
+_REASONING_EFFORT = os.getenv("GROQ_REASONING_EFFORT", "low").strip()
+
+# Models that 400 on `reasoning_effort` (qwen, compound, allam all do). Learned
+# at runtime and remembered per model, so pointing GROQ_TEXT_MODEL at one of
+# them still works — the escape hatch for a decommissioned model must not be
+# blocked by this optimisation.
+_no_reasoning_effort: set[str] = set()
 
 
 # Matches a bare arithmetic expression sitting in a JSON *value* position, e.g.
@@ -63,6 +80,12 @@ def _resolve_num_expr(m: "re.Match") -> str:
 
 def _clean_json(text: str) -> str:
     text = text.strip()
+    # Reasoning models (qwen, and gpt-oss when it inlines its scratchpad) prefix
+    # the answer with a <think>…</think> block, which is not JSON. Everything
+    # after the LAST close tag is the actual answer; splitting on the close tag
+    # rather than matching a pair also survives a swallowed opening tag.
+    if "</think>" in text:
+        text = text.rsplit("</think>", 1)[-1].strip()
     if text.startswith("```"):
         text = text.split("\n", 1)[-1]
         if text.endswith("```"):
@@ -114,10 +137,24 @@ async def _create_with_retry(**kwargs):
     bursts of requests momentarily 429; a short backoff usually clears it well
     within the client's 45s timeout. Non-rate-limit errors propagate immediately.
     """
+    model = kwargs.get("model", "")
+    if _REASONING_EFFORT and model not in _no_reasoning_effort:
+        kwargs["reasoning_effort"] = _REASONING_EFFORT
+
     last: RateLimitError | None = None
     for attempt in range(3):
         try:
             return await _client.chat.completions.create(**kwargs)
+        except BadRequestError as exc:
+            # This model doesn't take reasoning_effort. Drop it, remember, retry
+            # once. Without this the parameter would turn a model swap into a
+            # hard 400 (BadRequestError subclasses APIStatusError, so it would
+            # reach the router as GroqTransientError and 503 every call).
+            if "reasoning_effort" not in kwargs or "reasoning_effort" not in str(exc):
+                raise
+            kwargs.pop("reasoning_effort")
+            _no_reasoning_effort.add(model)
+            logger.warning("[ai] %s rejects reasoning_effort; continuing without it", model)
         except RateLimitError as exc:
             last = exc
             wait = _retry_after_seconds(exc, fallback=1.5 * (attempt + 1))
@@ -209,6 +246,10 @@ async def generate_recipe_by_name(dish_name: str, language: str = "en", servings
         if cached is not None:
             return cached
 
+    # Stays at 4500 (see the token-budget rule): the elaborate dishes that used
+    # to run this to 98% were spending it on reasoning, which _REASONING_EFFORT
+    # now caps. Cassoulet at 6 servings lands ~2200. If this ever truncates
+    # again, check reasoning_effort is still being applied before raising it.
     text = await _generate(generate_recipe_prompt(dish_name, language, servings), max_tokens=4500)
     result = _parse_ai_json(text)
     if "error" in result:
