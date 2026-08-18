@@ -13,12 +13,13 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAppStore } from "@/store/useAppStore";
 import { useTranslation } from "@/hooks/useTranslation";
-import { useTheme } from "@/hooks/useTheme";
-import { generateRecipeByName, saveRecipe, apiErrorMessage } from "@/services/api";
+import { useTheme, fontSize } from "@/hooks/useTheme";
+import { generateRecipeByName, apiErrorMessage } from "@/services/api";
 import type { Recipe, SavedRecipe } from "@/services/api";
 import { translateTag } from "@/constants/filters";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
+import { saveRecipeAndRate } from "@/utils/saveAndRate";
 
 const SUGGESTIONS_EN = [
   "Pasta Carbonara", "Kung Pao Chicken", "Beef Tacos",
@@ -99,7 +100,7 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
       })),
     };
     try {
-      const saved = await saveRecipe(recipeToSave);
+      const saved = await saveRecipeAndRate(recipeToSave);
       onSaved?.(saved);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       handleClose();
@@ -326,22 +327,22 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
       paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth,
     },
     headerIcon: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
-    headerTitle: { fontSize: 17, fontWeight: "800", flex: 1 },
+    headerTitle: { fontSize: fontSize.lg, fontWeight: "800", flex: 1 },
     content: { padding: 20, paddingBottom: 48 },
     inputSection: { gap: 14 },
-    hint: { fontSize: 13, lineHeight: 19 },
+    hint: { fontSize: fontSize.sm, lineHeight: 19 },
     inputRow: {
       flexDirection: "row", alignItems: "center", gap: 10,
       borderRadius: 14, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12,
     },
-    input: { flex: 1, fontSize: 15 },
+    input: { flex: 1, fontSize: fontSize.md },
     errorRow: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 10, padding: 10 },
-    errorText: { fontSize: 13, flex: 1 },
+    errorText: { fontSize: fontSize.sm, flex: 1 },
     suggestLabel: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.4 },
     suggestGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     servingsStepper: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
-    servingsStepperLabel: { fontSize: 12, fontWeight: "600", flex: 1 },
-    servingsCount: { fontSize: 15, fontWeight: "700", minWidth: 72, textAlign: "center" },
+    servingsStepperLabel: { fontSize: fontSize.xs, fontWeight: "600", flex: 1 },
+    servingsCount: { fontSize: fontSize.md, fontWeight: "700", minWidth: 72, textAlign: "center" },
     generateBtn: {
       flexDirection: "row", alignItems: "center", justifyContent: "center",
       borderRadius: 16, paddingVertical: 16, gap: 8, marginTop: 6,
@@ -359,7 +360,7 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     recipeTitle: { fontSize: 19, fontWeight: "800", lineHeight: 24 },
     recipeMeta: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     metaChip: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
-    metaChipText: { fontSize: 12, fontWeight: "600" },
+    metaChipText: { fontSize: fontSize.xs, fontWeight: "600" },
     sectionLabel: {
       fontSize: 10, fontWeight: "700", textTransform: "uppercase",
       letterSpacing: 0.5, marginTop: 4,
@@ -369,16 +370,16 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
       paddingVertical: 7, borderBottomWidth: StyleSheet.hairlineWidth,
     },
     ingDot: { width: 6, height: 6, borderRadius: 3, flexShrink: 0 },
-    ingName: { fontSize: 13, flex: 1 },
-    ingAmt: { fontSize: 12 },
-    moreHint: { fontSize: 12, fontStyle: "italic", marginTop: 4 },
+    ingName: { fontSize: fontSize.sm, flex: 1 },
+    ingAmt: { fontSize: fontSize.xs },
+    moreHint: { fontSize: fontSize.xs, fontStyle: "italic", marginTop: 4 },
     stepRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 8 },
     stepNum: {
       width: 22, height: 22, borderRadius: 11,
       alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1,
     },
     stepNumText: { fontSize: 11, fontWeight: "800", color: "#FFF" },
-    stepText: { fontSize: 13, lineHeight: 19, flex: 1 },
+    stepText: { fontSize: fontSize.sm, lineHeight: 19, flex: 1 },
     tags: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
     tag: { borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4 },
     tagText: { fontSize: 11 },

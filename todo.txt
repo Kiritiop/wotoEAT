@@ -5,13 +5,12 @@ Effort tags: S = one sitting, M = a day-ish, L = multi-day
 ════════════════════════════════════════════════════════════════════
 RECOMMENDED NEXT FIVE (best value for effort, in order)
 ════════════════════════════════════════════════════════════════════
-1. [DONE 2026-07-14] Desktop web max-width shell (UI-1, components/ui/WebShell.tsx)
-2. [DONE 2026-07-14] Skeleton loading cards for generation (UI-2, components/SkeletonMealCard.tsx)
-3. [DONE 2026-07-15] Manual add item on the shopping list (S, P-1)
-4. Cook mode (M, P-2)
-5. Motion pass (S-M, UI-4) — UI-3 typography largely landed via the global
-   Nunito brand font (lib/fonts.ts); remaining UI-3 is only the optional
-   serif display font decision
+1. Cook mode (M, P-2): the one moment the app still abandons the user
+2. A-5 (M) split discover.tsx / recipes.tsx before they get harder to touch
+3. E-1 (S-M) error monitoring: the Aug 17 outage was reported by a user,
+   not by us; this is the gap that made that possible
+4. UI-5 (S) unify the four ad-hoc toast patterns
+5. UI-6 (S) dark mode decision: an unaudited surface users already land on
 
 ════════════════════════════════════════════════════════════════════
 INCIDENT 2026-08-17: Groq decommissioned both models (RESOLVED)
@@ -46,79 +45,26 @@ Follow-ups this exposed:
   dead models; an env override there beats the code default.
 
 ════════════════════════════════════════════════════════════════════
-FIX QUEUE — confirmed by code review + audit (2026-07-08)
+OPEN ENGINEERING DEBT (from the 2026-07-08 review + audit)
 ════════════════════════════════════════════════════════════════════
-Bugs (in severity order):
-- FIX-0 (S) Hydration mismatch on every route except "/" (React error
-  #418 in the browser console). app.json sets web.output:"static", so
-  the build emits one prerendered HTML per route (dist/discover.html is
-  42.5KB of real Today screen), but vercel.json rewrites /(.*) to
-  /index.html, so Vercel serves the 28KB landing shell for every URL.
-  Verified: production /discover and / return byte-identical HTML.
-  React hydrates the landing markup as Today, mismatches, and throws the
-  tree away to re-render client-side. Costs the prerender and flashes.
-  Careful: share/[id].html and meal/[id].html export with literal
-  brackets, so the catch-all is presumably what makes /share/<id> work.
-  Fix shape: targeted rewrites for those two dynamic routes only
-  (/share/:id -> /share/[id].html, /meal/:id -> /meal/[id].html) and let
-  the filesystem serve the rest. Re-test a share link after changing it.
-- FIX-1 (S) Rate limiting is broken in production: Procfile runs uvicorn
-  without --proxy-headers, so request.client.host is Railway's internal
-  proxy IP (100.64.0.x in the logs), not the user. All anonymous users
-  share a handful of IP buckets: one heavy user exhausts image-search
-  (100/hr) and recipe-parse (20/hr) for EVERYONE, and per-IP abuse
-  attribution is meaningless. Fix: add --proxy-headers
-  --forwarded-allow-ips="*" to the Procfile uvicorn line.
-- FIX-2 (S) Clearing the shopping list never persists: the debounced
-  auto-save in shopping.tsx skips null lists, so a trash-cleared list
-  resurrects on foreground refetch or another device. Fix the mechanism
-  (persist null as {groups: []}), then delete the Done-shopping
-  special-case save that papered over it.
-- FIX-3 (S) handleDoneShopping (shopping.tsx:143) captures the list in a
-  closure before the confirm dialog; on native a foreground refetch can
-  land while the Alert is open and gets overwritten. Re-read
-  getState().shoppingList inside doMove.
-- FIX-4 (S) Up-rating only fires on the Today card save; FindRecipeModal
-  and the three recipes.tsx save paths record nothing, so the TASTE
-  PROFILE learns from one of four save flows. Wire setRating(title,"up")
-  into each saveRecipe success (or one saveAndRate helper).
-- FIX-5 (M) MealSlotCard perf: pantry matching, cart scans, and the
-  detail-modal rows recompute unmemoized on every render of every card
-  (each keystroke in the include-tags input re-renders the whole
-  stream). useMemo the derived lists, React.memo the card.
-Cleanups:
-- FIX-6 (S) Extract the cross-platform confirm pattern (3 copies:
-  shopping/discover/profile) into utils/confirm.ts.
-- FIX-7 (S) Move STAPLE_CATEGORIES next to PANTRY_CATEGORIES in
-  constants/filters.ts (staple flag or exported set) so category renames
-  cannot silently diverge.
-- FIX-8 (S) CookedSheet fontSizes 18/13/13 -> fontSize tokens (rule in
-  wotoeat-app/CLAUDE.md; do the same sweep in FindRecipeModal and
-  shopping.tsx while there).
-- FIX-9 (S) Delete the dead computeScanMerge re-export in scan.tsx.
-- FIX-10 (S) Single DAY_SCOPED_RESET spread for meals/seenMeals/
-  cookedMeals/selectedRecipes instead of four hand-maintained reset
-  sites in useAppStore.ts.
+FIX-1..FIX-10, A-2 and A-4 all shipped 2026-08-18 and have been removed
+from this file; see git history for what they were. What is left is the
+work that needs a real design decision rather than a patch:
 
-Backend/infra audit findings (same date):
 - A-1 (M) Sync Supabase calls inside async endpoints block the
   single-worker event loop during DB I/O (every routers/*.py db.* call).
   One slow query stalls all concurrent requests. Wrap in
   run_in_threadpool, or make those endpoints plain def so FastAPI
-  threads them.
-- A-2 (S) services/api.ts silently falls back to http://localhost:8000
-  when EXPO_PUBLIC_API_URL is missing; a misbuilt production bundle
-  looks like "network error" instead of failing loudly. Log/throw in
-  production builds.
+  threads them. Deliberately not done in the 08-18 sweep: it touches
+  every router and wants load testing, not a blind refactor.
 - A-3 (M) Dynamic zh translation scrapes an unofficial Google endpoint
   (services/translate.ts) with MyMemory fallback; either can break any
   day. Sturdier: a backend /translate endpoint on Groq with the SQLite
   cache and a rate limit, frontend falls back to passthrough.
-- A-4 (S) CORS default string includes localhost origins; make sure
-  Railway sets ALLOWED_ORIGINS explicitly so prod does not inherit them.
-- A-5 (M) discover.tsx (1416 lines) and recipes.tsx (1214) are
+- A-5 (M) discover.tsx (~1450 lines) and recipes.tsx (1214) are
   monoliths; extract MealSlotCard + detail modal + filter panel into
-  components/ before they get harder to touch. Pairs well with FIX-5.
+  components/. MealSlotCard is now memoized with stable callbacks from
+  the parent, so it is a cleaner cut than it was.
 - A-6 (note) SQLite cache/rate counters live at /tmp: wiped per deploy
   (acceptable) and per-process (fine at 1 worker; revisit if workers
   are ever added).
@@ -130,42 +76,24 @@ CARRY-OVER (from earlier sessions, still open)
   plaintext config; 10 minutes; do this first)
 - Verify on a real phone: "Done shopping" (Shopping tab) and "I cooked
   this" (meal detail) shipped recently and were only verified by tests
-- [DONE 2026-07-08] Frontend unit tests + npm test wiring: tests/unit/
-  (pantryMerge scan-merge/done-shopping + shopping utils, 16 cases) run via
-  `npm test` (tsx + node:test, resolves @/) and as a CI frontend step.
-  Still open: extract scaleIngredientStr/pantryNameMatches from discover.tsx
-  to make them testable (pairs with A-5/FIX-5).
+- Extract scaleIngredientStr from discover.tsx so it is unit-testable
+  (pantryNameMatches already moved to utils/pantryMatch.ts). Pairs with A-5.
 - Branch protection on main once CI has been trusted for a while
 
 ════════════════════════════════════════════════════════════════════
 UI / UX PLAN
 ════════════════════════════════════════════════════════════════════
-UI-1 (S) Desktop web shell
-    The app has no max-width anywhere, so on a desktop browser every
-    screen stretches edge to edge and looks broken. Wrap the app in a
-    centered column (~520px) on web widths >768px, cream page background
-    behind it, subtle shadow. Single change in the root layout, instantly
-    makes the Vercel app presentable on laptops.
-
-UI-2 (M) Skeleton loading for meal generation
-    Generation takes seconds and today shows a spinner. Render a skeleton
-    meal card (shimmering title/chips/macro placeholders, reanimated is
-    already installed) plus rotating status copy ("Reading your pantry",
-    "Asking the chef", "Plating up"). Biggest perceived-quality win
-    available; the wait becomes part of the experience.
-
 UI-3 (S-M) Typography ramp
     Everything is the system font. Add one display font for screen titles
     and meal names (expo-google-fonts; candidates: Fraunces, DM Serif
     Display, warm food-brand feel), keep system font for body. Define the
     ramp in useTheme fontSize tokens so it applies everywhere at once.
 
-UI-4 (S-M) Motion pass (reanimated already installed, barely used)
-    - New meal card animates in (fade + slide up) when appended
-    - Filter panel expand/collapse with layout animation, not a jump cut
-    - Button press scale feedback on the shared Button primitive
-    - Checkmark morph when checking off shopping items
-    Small, cheap, and the app currently feels static.
+UI-4 shipped 2026-08-18: FadeSlideIn on appended/swapped meal cards,
+    Collapsible on the filter panel (animates both ways now), press-scale
+    on the shared Button, spring pop on the shopping checkbox. Not done:
+    a shared-element transition into the detail sheet, which would need
+    the modal restructured.
 
 UI-5 (S) Unify toasts
     cartBanner, savedBanner, share-copied checkmarks, and ErrorBanner are
@@ -209,13 +137,6 @@ UI-11 (decision) Today-card imagery
 ════════════════════════════════════════════════════════════════════
 PRODUCT FEATURES
 ════════════════════════════════════════════════════════════════════
-P-1 [DONE 2026-07-15] Manual add on the shopping list
-    Input row under the shopping action bar; items land in a group keyed
-    MANUAL_CATEGORY ("other", utils/shopping.ts), shown via the
-    other_items locale key. Note: no per-item delete yet; a typo'd item
-    can only be cleared with the whole list (or checked + Done shopping,
-    which moves it to the pantry). Small follow-up if it annoys.
-
 P-2 (M) Cook mode
     Full-screen step-by-step view from any recipe: one step per screen,
     big text readable from a counter, swipe to advance, keep-awake, and

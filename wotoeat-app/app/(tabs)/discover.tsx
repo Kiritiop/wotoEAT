@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback, memo } from "react";
 import {
   View,
   Text,
@@ -9,8 +9,6 @@ import {
   ActivityIndicator,
   Modal,
   Pressable,
-  Alert,
-  Platform,
 } from "react-native";
 import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -21,8 +19,11 @@ import { CUISINES, FLAVOUR_OPTIONS, PREP_TIME_PRESETS, SLOT_COLOUR, SLOT_ICON, D
 import { pantryNameMatches, ingredientNameFrom } from "@/utils/pantryMatch";
 import { CookedSheet } from "@/components/CookedSheet";
 import { SkeletonMealCard } from "@/components/SkeletonMealCard";
+import { FadeSlideIn } from "@/components/ui/FadeSlideIn";
+import { Collapsible } from "@/components/ui/Collapsible";
+import { confirmAction } from "@/utils/confirm";
 import { Button } from "@/components/ui/Button";
-import { generateMeals, swapMeal, saveRecipe, deleteRecipe, createShare, shareWebUrl, generateRecipeByName, apiErrorMessage } from "@/services/api";
+import { generateMeals, swapMeal, deleteRecipe, createShare, shareWebUrl, generateRecipeByName, apiErrorMessage } from "@/services/api";
 import type { Recipe, Ingredient , DailyPlanMeal } from "@/services/api";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useTheme } from "@/hooks/useTheme";
@@ -35,6 +36,7 @@ import { Chip } from "@/components/ui/Chip";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { PinnedBar } from "@/components/ui/PinnedBar";
 import type { Rating } from "@/store/useAppStore";
+import { saveRecipeAndRate } from "@/utils/saveAndRate";
 
 type MealTypeTag = "any" | "breakfast" | "lunch" | "dinner";
 
@@ -68,12 +70,14 @@ function MacroCell({ label, value, color }: { label: string; value: string; colo
   );
 }
 
-function MealSlotCard({
+function MealSlotCardInner({
   meal, onRate, onSwap, swapping, onTagPress,
 }: {
   meal: DailyPlanMeal;
-  onRate: (r: Rating) => void;
-  onSwap: () => void;
+  // Both take the meal they act on so the parent can hand every card the same
+  // stable callback instance (see React.memo at the end of this component).
+  onRate: (mealName: string, r: Rating) => void;
+  onSwap: (meal: DailyPlanMeal) => void;
   swapping: boolean;
   onTagPress: (tag: string) => void;
 }) {
@@ -119,14 +123,29 @@ function MealSlotCard({
     }
   }
   // N-13: derive confirmed from selectedRecipes for bidirectional sync with Shopping/Pantry tab
-  const isConfirmed = selectedRecipes.some((r) => r.title === meal.name);
+  const isConfirmed = useMemo(
+    () => selectedRecipes.some((r) => r.title === meal.name),
+    [selectedRecipes, meal.name],
+  );
 
-  const ingInPantry = (ing: string) => {
-    const n = ingredientNameFrom(ing);
-    return pantry.some((p) => pantryNameMatches(p.name, n));
-  };
-  const pantryMatches = (meal.ingredients ?? []).filter(ingInPantry);
-  const missingIngredients = (meal.ingredients ?? []).filter((ing) => !ingInPantry(ing));
+  // Pantry matching is O(ingredients x pantry) with a word-aware comparison per
+  // pair, and it feeds the "In pantry" badges, the shopping auto-add, and the
+  // detail rows. Memoized so it recomputes only when the pantry or the dish
+  // changes, not on every render of every card in the stream (FIX-5).
+  const ingInPantry = useCallback(
+    (ing: string) => {
+      const n = ingredientNameFrom(ing);
+      return pantry.some((p) => pantryNameMatches(p.name, n));
+    },
+    [pantry],
+  );
+  const { pantryMatches, missingIngredients } = useMemo(() => {
+    const all = meal.ingredients ?? [];
+    const matches: string[] = [];
+    const missing: string[] = [];
+    for (const ing of all) (ingInPantry(ing) ? matches : missing).push(ing);
+    return { pantryMatches: matches, missingIngredients: missing };
+  }, [meal.ingredients, ingInPantry]);
 
   const [cartBanner, setCartBanner] = useState<string | null>(null);
   const [savedBanner, setSavedBanner] = useState<string | null>(null);
@@ -187,13 +206,20 @@ function MealSlotCard({
   // Meal names are unique within a day (the seen-meals exclusion guarantees it),
   // so a "meal-" prefixed name is a safe, collision-free shopping category key.
   const cartCategory = `meal-${meal.name}`;
-  const cartItems = shoppingList?.groups.find((g) => g.category === cartCategory)?.items ?? [];
+  const cartItems = useMemo(
+    () => shoppingList?.groups.find((g) => g.category === cartCategory)?.items ?? [],
+    [shoppingList, cartCategory],
+  );
   // Normalize both sides so "200g chicken breast" matches cart item "chicken breast"
-  const inCart = (ing: string) => {
-    const n = ingredientNameFrom(ing);
-    return cartItems.some((i) => ingredientNameFrom(i.name) === n);
-  };
-  const allInCart = (meal.ingredients ?? []).length > 0 && (meal.ingredients ?? []).every(inCart);
+  const cartNames = useMemo(
+    () => new Set(cartItems.map((i) => ingredientNameFrom(i.name))),
+    [cartItems],
+  );
+  const inCart = useCallback((ing: string) => cartNames.has(ingredientNameFrom(ing)), [cartNames]);
+  const allInCart = useMemo(() => {
+    const all = meal.ingredients ?? [];
+    return all.length > 0 && all.every(inCart);
+  }, [meal.ingredients, inCart]);
 
   function toggleIngredient(ing: string) {
     if (inCart(ing)) removeFromShoppingList(cartCategory, ingredientNameFrom(ing));
@@ -299,12 +325,11 @@ function MealSlotCard({
         warnings: [],
         source_name: "wotoEAT Plan",
       };
-      const result = await saveRecipe(recipe);
+      // saveRecipeAndRate records the "up" rating that feeds generation's
+      // TASTE PROFILE block (the app's only positive taste signal).
+      const result = await saveRecipeAndRate(recipe);
       setSavedId(result.id);
       setSavedState("saved");
-      // Saving is the app's only positive taste signal: record it as an "up"
-      // rating so generation's TASTE PROFILE block can lean toward similar dishes.
-      onRate("up");
       // C2/A7: brief toast pointing user to Recipes tab for editing
       setSavedBanner(t("meal_saved_toast"));
       setTimeout(() => setSavedBanner(null), 4000);
@@ -362,7 +387,7 @@ function MealSlotCard({
         <View style={cardStyles.ratingRow}>
           <TouchableOpacity
             style={[cardStyles.dislikeBtn, { borderColor: swapping ? c.error : c.border, backgroundColor: swapping ? c.errorBg : "transparent" }]}
-            onPress={() => { onRate("down"); onSwap(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); }}
+            onPress={() => { onRate(meal.name, "down"); onSwap(meal); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); }}
             disabled={swapping}
             accessibilityRole="button"
             accessibilityLabel={t("swap_meal")}
@@ -682,7 +707,7 @@ function MealSlotCard({
                 <View style={[cardStyles.modalFooter, { borderColor: c.border }]}>
                   <TouchableOpacity
                     style={[cardStyles.modalActionBtn, { borderColor: c.border }]}
-                    onPress={() => { setShowDetail(false); onRate("down"); onSwap(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); }}
+                    onPress={() => { setShowDetail(false); onRate(meal.name, "down"); onSwap(meal); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); }}
                     disabled={swapping}
                   >
                     {swapping ? <ActivityIndicator size={14} color={c.error} /> : <Ionicons name="shuffle-outline" size={16} color={c.textMuted} />}
@@ -731,6 +756,15 @@ function MealSlotCard({
     </View>
   );
 }
+
+/**
+ * Memoized: the parent re-renders on every keystroke in the filter panel, and
+ * without this every card in the stream re-ran its pantry matching and cart
+ * scans each time (FIX-5). The parent passes referentially stable callbacks
+ * (see `latestCardHandlers` in TodayScreen), so the default shallow prop
+ * comparison is enough: `meal` and `swapping` are the only props that move.
+ */
+const MealSlotCard = memo(MealSlotCardInner);
 
 function CompChip({ icon, label, color }: {
   icon: React.ComponentProps<typeof Ionicons>["name"];
@@ -817,19 +851,17 @@ export default function TodayScreen() {
   const proteinGoal = profile.protein_goal_g;
   const showProtein = totalProteinG > 0 && !!proteinGoal;
 
-  // Clearing wipes today's whole meal stream + confirmations, so confirm first
-  // (web has no RN Alert — fall back to window.confirm). No prompt when empty.
+  // Clearing wipes today's whole meal stream + confirmations, so confirm first.
+  // No prompt when empty.
   function handleClearMeals() {
     if (meals.length === 0) return;
-    const doClear = () => { clearMeals(); Haptics.selectionAsync(); };
-    if (Platform.OS === "web") {
-      if (typeof window !== "undefined" && window.confirm(t("clear_meals_confirm"))) doClear();
-      return;
-    }
-    Alert.alert(t("clear_meals_title"), t("clear_meals_confirm"), [
-      { text: t("cancel"), style: "cancel" },
-      { text: t("clear"), style: "destructive", onPress: doClear },
-    ]);
+    confirmAction({
+      title: t("clear_meals_title"),
+      message: t("clear_meals_confirm"),
+      confirmLabel: t("clear"),
+      cancelLabel: t("cancel"),
+      destructive: true,
+    }, () => { clearMeals(); Haptics.selectionAsync(); });
   }
 
   async function handleGenerate() {
@@ -947,6 +979,28 @@ export default function TodayScreen() {
     }
   }
 
+  // MealSlotCard is memoized, which only pays off if its callbacks keep a stable
+  // identity. Each wrapper below is created once and reads the current closure
+  // from this ref, which the parent refreshes on every render, so the handlers
+  // are never stale even though their identity never changes (FIX-5).
+  const latestCardHandlers = useRef({ handleSwap, setRating, setShowSettings, requiredIngredients, setRequiredIngredients });
+  latestCardHandlers.current = { handleSwap, setRating, setShowSettings, requiredIngredients, setRequiredIngredients };
+
+  const handleCardRate = useCallback((mealName: string, r: Rating) => {
+    latestCardHandlers.current.setRating(mealName, r);
+  }, []);
+  const handleCardSwap = useCallback((m: DailyPlanMeal) => {
+    void latestCardHandlers.current.handleSwap(m);
+  }, []);
+  const handleCardTagPress = useCallback((tag: string) => {
+    const h = latestCardHandlers.current;
+    h.setShowSettings(true);
+    if (!h.requiredIngredients.includes(tag)) {
+      h.setRequiredIngredients([...h.requiredIngredients, tag]);
+    }
+    Haptics.selectionAsync();
+  }, []);
+
   const styles = useMemo(() => makeStyles(c), [c]);
   const hour = new Date().getHours();
   const greeting =
@@ -1006,8 +1060,9 @@ export default function TodayScreen() {
           ))}
         </View>
 
-        {/* ── Collapsible filters panel ── */}
-        {showSettings && (
+        {/* ── Collapsible filters panel: animates both directions (UI-4). Kept
+             mounted so closing can animate too, and so the tag draft survives. ── */}
+        <Collapsible open={showSettings}>
           <View style={[styles.settingsPanel, { backgroundColor: c.surface, borderColor: c.border }]}>
 
             {/* Meal style */}
@@ -1140,7 +1195,7 @@ export default function TodayScreen() {
               })}
             </View>
           </View>
-        )}
+        </Collapsible>
 
         <FindRecipeModal visible={showFindRecipe} onClose={() => setShowFindRecipe(false)} />
 
@@ -1198,22 +1253,18 @@ export default function TodayScreen() {
               </View>
             )}
 
-            {/* Meal cards */}
+            {/* Meal cards — keyed by name, so a new/swapped meal remounts and
+                animates in while existing cards stay still */}
             {sortedMeals.map((meal) => (
-              <MealSlotCard
-                key={meal.name}
-                meal={meal}
-                onRate={(r) => setRating(meal.name, r)}
-                onSwap={() => handleSwap(meal)}
-                swapping={swappingName === meal.name}
-                onTagPress={(tag) => {
-                  setShowSettings(true);
-                  if (!requiredIngredients.includes(tag)) {
-                    setRequiredIngredients([...requiredIngredients, tag]);
-                  }
-                  Haptics.selectionAsync();
-                }}
-              />
+              <FadeSlideIn key={meal.name}>
+                <MealSlotCard
+                  meal={meal}
+                  onRate={handleCardRate}
+                  onSwap={handleCardSwap}
+                  swapping={swappingName === meal.name}
+                  onTagPress={handleCardTagPress}
+                />
+              </FadeSlideIn>
             ))}
 
           </View>

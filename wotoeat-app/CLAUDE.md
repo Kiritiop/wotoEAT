@@ -41,13 +41,15 @@ exercising the changed screen, on web at minimum. Web is a first-class target
 |---|---|
 | `app/` | Screens (Expo Router, file-based). `(tabs)/` are the 4 main tabs plus hidden ones. |
 | `app/_layout.tsx` | Root layout: auth listener, date-rollover reset, redirects |
-| `components/ui/` | Shared primitives: Button, Chip, Card, SectionLabel, ScreenHeader, PinnedBar. Use these, never re-declare a green pill. |
+| `components/ui/` | Shared primitives: Button, Chip, Card, SectionLabel, ScreenHeader, PinnedBar, FadeSlideIn, Collapsible. Use these, never re-declare a green pill. |
 | `components/` | Feature components (MealCard, PantryTagPicker, ...) |
 | `store/useAppStore.ts` | The one Zustand store, persisted to AsyncStorage |
 | `services/api.ts` | All HTTP. Auth/401/429 interceptors live here. |
 | `hooks/useTheme.ts` | Design tokens: palette, space, radius, fontSize, shadows |
 | `hooks/useDynamicTranslation.ts` | AI-content translation + pantry display names |
-| `constants/filters.ts` | Cuisines, tags, TAG_ZH translation table, pantry categories |
+| `constants/filters.ts` | Cuisines, tags, TAG_ZH translation table, pantry categories (incl. the `staple` flag) |
+| `utils/confirm.ts` | `confirmAction()`, the one cross-platform destructive confirm |
+| `utils/saveAndRate.ts` | `saveRecipeAndRate()`, which every recipe save goes through so the taste signal is recorded |
 | `locales/en.ts`, `locales/zh.ts` | Static UI strings. Both files must have identical keys. |
 
 ## Rules that are not optional
@@ -60,17 +62,21 @@ exercising the changed screen, on web at minimum. Web is a first-class target
    `locales/en.ts` and `locales/zh.ts`, use `useTranslation()`. Never
    hardcode display text.
 4. **Web parity.** RN `Alert.alert` is a no-op on web, so destructive
-   confirmations need the `window.confirm` branch (see existing pattern in
-   discover/profile). `keyboardType` is ignored on web, so numeric inputs
-   must `parseInt(v, 10)` and reject `NaN` before storing.
+   confirmations go through `confirmAction()` in `utils/confirm.ts`; never
+   hand-roll another `Platform.OS === "web"` branch. `keyboardType` is ignored
+   on web, so numeric inputs must `parseInt(v, 10)` and reject `NaN` before
+   storing.
 5. **Styles are memoized**: `const styles = useMemo(() => makeStyles(c), [c])`.
    Design values come from theme tokens, not ad-hoc numbers.
 6. **Do not add food images to the Today meal cards.** Images load lazily when
    a detail sheet opens; this is a deliberate performance decision.
-7. **Pantry writes must carry `category` through.** Any `replacePantry` payload
+7. **Save recipes with `saveRecipeAndRate()`**, not `saveRecipe()` directly.
+   Saving is the app's only positive taste signal, and calling the raw API
+   function silently skips it.
+8. **Pantry writes must carry `category` through.** Any `replacePantry` payload
    built from the existing list must preserve each item's `category` or user
    categorization is silently wiped.
-8. **Sharing goes through `utils/share.ts shareText()`**, never raw
+9. **Sharing goes through `utils/share.ts shareText()`**, never raw
    `Share.share` (desktop browsers lack `navigator.share`).
 
 ## Things that look like bugs but are features

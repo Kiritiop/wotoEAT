@@ -50,10 +50,6 @@ interface ReviewRow {
 
 const MAX_EDGE = 1600;
 
-// Merge logic lives in utils/pantryMerge (shared with the Shopping tab's
-// "Done shopping" flow); re-exported here for existing importers.
-export { computeScanMerge } from "@/utils/pantryMerge";
-
 export default function ScanReceiptScreen() {
   const c = useTheme();
   const { t, strings, language } = useTranslation();

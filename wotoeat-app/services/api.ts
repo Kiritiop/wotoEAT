@@ -4,7 +4,21 @@
 import axios from "axios";
 import { supabase } from "@/lib/supabase";
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8000";
+// A production bundle built without EXPO_PUBLIC_API_URL would quietly point at
+// localhost and surface as "network error" on every screen, which looks like an
+// outage rather than a misconfigured build. Fall back only in dev, and say so
+// loudly (A-2). __DEV__ is false in `expo export` output, so a bad Vercel or EAS
+// build fails with a clear message instead of a mystery.
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? (() => {
+  if (__DEV__) {
+    console.warn("[api] EXPO_PUBLIC_API_URL is unset; falling back to http://localhost:8000");
+    return "http://localhost:8000";
+  }
+  throw new Error(
+    "EXPO_PUBLIC_API_URL is not set. This build cannot reach the backend: " +
+    "set it in the Vercel/EAS environment and rebuild.",
+  );
+})();
 
 const api = axios.create({ baseURL: BASE_URL, timeout: 45_000 });
 

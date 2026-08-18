@@ -15,7 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { getMealHistory, generateRecipeByName, saveRecipe, apiErrorMessage } from "@/services/api";
+import { getMealHistory, generateRecipeByName, apiErrorMessage } from "@/services/api";
 import type { MealSuggestion, MealHistoryEntry } from "@/services/api";
 import { MealCard } from "@/components/MealCard";
 import { DIFFICULTY_COLORS, translateTag, translateDifficulty } from "@/constants/filters";
@@ -24,6 +24,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { useAppStore } from "@/store/useAppStore";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
+import { saveRecipeAndRate } from "@/utils/saveAndRate";
 
 /** Group batches by date, merge meals, deduplicate by name within each day. */
 function groupByDay(entries: MealHistoryEntry[]): { date: string; meals: MealSuggestion[] }[] {
@@ -94,7 +95,7 @@ export default function HistoryScreen() {
     setGenBanner(null);
     try {
       const recipe = await generateRecipeByName(selected.name, language, storeServings || 1, true);
-      await saveRecipe(recipe);
+      await saveRecipeAndRate(recipe);
       setGenBannerIsError(false);
       setGenBanner(t("history_saved_banner"));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

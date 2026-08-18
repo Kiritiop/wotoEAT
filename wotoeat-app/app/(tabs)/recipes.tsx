@@ -16,7 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { getSavedRecipes, deleteRecipe, updateRecipe, saveRecipe, getMealHistory, generateRecipeByName, updateRecipeLabels, createShare, shareWebUrl, apiErrorMessage } from "@/services/api";
+import { getSavedRecipes, deleteRecipe, updateRecipe, getMealHistory, generateRecipeByName, updateRecipeLabels, createShare, shareWebUrl, apiErrorMessage } from "@/services/api";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { shareText } from "@/utils/share";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -28,6 +28,7 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { translateTag, DIFFICULTY_COLORS, translateDifficulty } from "@/constants/filters";
 import type { SavedRecipe, Ingredient, MealHistoryEntry, MealSuggestion } from "@/services/api";
 import { MealCard } from "@/components/MealCard";
+import { saveRecipeAndRate } from "@/utils/saveAndRate";
 
 type RecipeTab = "saved" | "liked" | "mine" | "history";
 
@@ -176,7 +177,7 @@ export default function RecipesScreen() {
 
       if (isNewRecipe) {
         // Brand new user recipe
-        const created = await saveRecipe(recipePayload);
+        const created = await saveRecipeAndRate(recipePayload);
         setRecipes((prev) => [created, ...prev]);
         setSelectedRecipe(null);
         setActiveTab("mine");
@@ -188,7 +189,7 @@ export default function RecipesScreen() {
         setSelectedRecipe(updated);
       } else {
         // Saved recipe: duplicate to Mine
-        const created = await saveRecipe(recipePayload);
+        const created = await saveRecipeAndRate(recipePayload);
         setRecipes((prev) => [created, ...prev]);
         setSelectedRecipe(null);
         setActiveTab("mine");
@@ -331,7 +332,7 @@ export default function RecipesScreen() {
     setHistoryBanner(null);
     try {
       const recipe = await generateRecipeByName(historySelected.name, language, storeServings || 1, true);
-      await saveRecipe(recipe);
+      await saveRecipeAndRate(recipe);
       setHistoryBannerIsError(false);
       setHistoryBanner(t("history_saved_banner"));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

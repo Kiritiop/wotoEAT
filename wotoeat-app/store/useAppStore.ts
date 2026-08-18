@@ -13,6 +13,24 @@ import type {
 export type Language = "en" | "zh";
 export type Rating = "up" | "down";
 
+/**
+ * The day-scoped slice: everything tied to today's meal stream. Four places
+ * clear it (language change, manual clear, sign-out, date rollover) and they
+ * must agree, so they share this one definition instead of four hand-maintained
+ * field lists. A function, not a constant, so no two call sites can ever end up
+ * holding the same array instance.
+ */
+const dayScopedReset = (): Pick<
+  AppState,
+  "meals" | "mealsDate" | "seenMeals" | "cookedMeals" | "selectedRecipes"
+> => ({
+  meals: [],
+  mealsDate: null,
+  seenMeals: [],
+  cookedMeals: [],
+  selectedRecipes: [],
+});
+
 interface AppState {
   // ── Auth ready (getSession has resolved, token is set) ────────────────────
   authReady: boolean;
@@ -113,7 +131,7 @@ export const useAppStore = create<AppState>()(
       language: "en",
       // Clear meals, seen-history, and shopping selections when language changes —
       // everything was generated in the old language so none of it is reusable.
-      setLanguage: (lang) => set({ language: lang, meals: [], mealsDate: null, seenMeals: [], cookedMeals: [], selectedRecipes: [], shoppingList: null, requiredIngredients: [] }),
+      setLanguage: (lang) => set({ language: lang, ...dayScopedReset(), shoppingList: null, requiredIngredients: [] }),
 
       // ── Onboarding ──────────────────────────────────────────────────────
       hasOnboarded: false,
@@ -134,7 +152,7 @@ export const useAppStore = create<AppState>()(
         })),
       removeMeal: (name) =>
         set((state) => ({ meals: state.meals.filter((m) => m.name !== name) })),
-      clearMeals: () => set({ meals: [], mealsDate: null, seenMeals: [], cookedMeals: [], selectedRecipes: [] }),
+      clearMeals: () => set(dayScopedReset()),
 
       // ── Seen meals ───────────────────────────────────────────────────────
       seenMeals: [],
@@ -258,12 +276,8 @@ export const useAppStore = create<AppState>()(
       // logout and are ready immediately on next sign-in.
       resetAll: () =>
         set({
-          meals: [],
-          mealsDate: null,
-          seenMeals: [],
-          cookedMeals: [],
+          ...dayScopedReset(),
           ratings: {},
-          selectedRecipes: [],
           pantry: [],
           shoppingList: null,
           requiredIngredients: [],
@@ -291,11 +305,7 @@ export const useAppStore = create<AppState>()(
         if (!state) return;
         const today = new Date().toISOString().slice(0, 10);
         if (state.meals.length > 0 && state.mealsDate !== today) {
-          state.meals = [];
-          state.mealsDate = null;
-          state.seenMeals = [];
-          state.cookedMeals = [];
-          state.selectedRecipes = [];
+          Object.assign(state, dayScopedReset());
         }
       },
       // Only persist user-generated data; authReady is ephemeral (never persisted)

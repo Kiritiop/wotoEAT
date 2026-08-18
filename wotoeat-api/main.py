@@ -3,10 +3,13 @@ import warnings
 # pyiceberg dependency. It's a third-party library issue, not our code.
 warnings.filterwarnings("ignore", category=UserWarning, module="pyparsing")
 
+import logging
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import meals, recipes, shopping, pantry, profile, images, share
+
+logger = logging.getLogger("wotoeat")
 
 app = FastAPI(
     title="wotoEAT API",
@@ -14,10 +17,19 @@ app = FastAPI(
     description="AI-powered meal discovery, recipe parsing, and shopping list engine.",
 )
 
-_origins_env = os.getenv(
-    "ALLOWED_ORIGINS",
-    "http://localhost:8081,http://localhost:19006,https://wotoeat.com,https://wotoeat.vercel.app",
-)
+# The fallback exists so a fresh local checkout works with no .env. It includes
+# localhost, which a deployed service should never accept, so an unset
+# ALLOWED_ORIGINS in production is a misconfiguration worth seeing in the logs
+# rather than a silent inheritance (A-4).
+_DEFAULT_ORIGINS = "http://localhost:8081,http://localhost:19006,https://wotoeat.com,https://wotoeat.vercel.app"
+
+_origins_env = os.getenv("ALLOWED_ORIGINS")
+if not _origins_env:
+    logger.warning(
+        "[cors] ALLOWED_ORIGINS is unset; falling back to the dev default, which "
+        "allows localhost. Set it explicitly in Railway for production."
+    )
+    _origins_env = _DEFAULT_ORIGINS
 _allowed_origins = [o.strip() for o in _origins_env.split(",") if o.strip()]
 
 app.add_middleware(

@@ -1,7 +1,10 @@
 import { TouchableOpacity, Text, ActivityIndicator, StyleSheet } from "react-native";
 import type { ViewStyle } from "react-native";
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme, radius, space, fontSize } from "@/hooks/useTheme";
+
+const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 type Variant = "primary" | "secondary" | "ghost";
 
@@ -36,6 +39,11 @@ export function Button({
   const c = useTheme();
   const isDisabled = disabled || loading;
 
+  // Press feedback (UI-4 motion pass): a quick scale dip alongside the
+  // existing activeOpacity fade. pressIn/pressOut don't fire when disabled.
+  const scale = useSharedValue(1);
+  const pressStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
   const bg =
     variant === "primary" ? (isDisabled ? c.disabled : c.primary) : "transparent";
   const borderColor = variant === "secondary" ? c.primary : "transparent";
@@ -44,8 +52,10 @@ export function Button({
   const iconEl = icon ? <Ionicons name={icon} size={18} color={fg} /> : null;
 
   return (
-    <TouchableOpacity
+    <AnimatedTouchable
       onPress={onPress}
+      onPressIn={() => { scale.value = withTiming(0.97, { duration: 80 }); }}
+      onPressOut={() => { scale.value = withTiming(1, { duration: 140 }); }}
       disabled={isDisabled}
       activeOpacity={0.85}
       accessibilityRole="button"
@@ -58,6 +68,7 @@ export function Button({
         variant === "ghost" && styles.ghost,
         isDisabled && variant !== "primary" && { opacity: 0.5 },
         style,
+        pressStyle,
       ]}
     >
       {loading ? (
@@ -72,7 +83,7 @@ export function Button({
           {iconRight && iconEl}
         </>
       )}
-    </TouchableOpacity>
+    </AnimatedTouchable>
   );
 }
 

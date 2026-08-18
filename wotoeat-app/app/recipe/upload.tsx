@@ -14,11 +14,12 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { parseRecipe, saveRecipe, apiErrorMessage } from "@/services/api";
+import { parseRecipe, apiErrorMessage } from "@/services/api";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Button } from "@/components/ui/Button";
 import type { Recipe } from "@/services/api";
+import { saveRecipeAndRate } from "@/utils/saveAndRate";
 
 export default function UploadRecipeScreen() {
   const c = useTheme();
@@ -79,7 +80,7 @@ export default function UploadRecipeScreen() {
     setSaveStatus("idle");
     setSaveError(null);
     try {
-      await saveRecipe(recipe);
+      await saveRecipeAndRate(recipe);
       setSaveStatus("saved");
       setTimeout(() => router.back(), 1200);
     } catch (err: unknown) {

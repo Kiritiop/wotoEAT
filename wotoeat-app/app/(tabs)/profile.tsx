@@ -7,8 +7,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   Linking,
-  Alert,
-  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -32,6 +30,7 @@ import { CUISINES, FLAVOUR_OPTIONS, PREP_TIME_PRESETS, translateCuisine } from "
 import type { Language } from "@/store/useAppStore";
 
 import type { ActivityLevelValue } from "@/constants/profileOptions";
+import { confirmAction } from "@/utils/confirm";
 
 export default function ProfileScreen() {
   const { profile, setProfile, language, setLanguage } = useAppStore();
@@ -127,14 +126,13 @@ export default function ProfileScreen() {
         useAppStore.getState().resetAll();
       }
     };
-    if (Platform.OS === "web") {
-      if (typeof window !== "undefined" && window.confirm(t("sign_out_confirm"))) void doSignOut();
-      return;
-    }
-    Alert.alert(t("sign_out"), t("sign_out_confirm"), [
-      { text: t("cancel"), style: "cancel" },
-      { text: t("sign_out"), style: "destructive", onPress: () => void doSignOut() },
-    ]);
+    confirmAction({
+      title: t("sign_out"),
+      message: t("sign_out_confirm"),
+      confirmLabel: t("sign_out"),
+      cancelLabel: t("cancel"),
+      destructive: true,
+    }, () => void doSignOut());
   }
 
   const styles = useMemo(() => makeStyles(c), [c]);

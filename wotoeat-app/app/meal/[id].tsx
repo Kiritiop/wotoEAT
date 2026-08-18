@@ -20,11 +20,12 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { RecipeSource } from "@/components/RecipeSource";
 import { DIFFICULTY_COLORS, translateDifficulty } from "@/constants/filters";
-import { parseRecipe, saveRecipe, apiErrorMessage } from "@/services/api";
+import { parseRecipe, apiErrorMessage } from "@/services/api";
 import { useAppStore } from "@/store/useAppStore";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import type { MealSuggestion, Recipe } from "@/services/api";
+import { saveRecipeAndRate } from "@/utils/saveAndRate";
 
 // Sites to suggest searching for this meal
 const RECIPE_SITES = [
@@ -87,7 +88,7 @@ export default function MealDetailScreen() {
     setSaveStatus("idle");
     setSaveError(null);
     try {
-      await Promise.all(parsedRecipes.map((r) => saveRecipe(r)));
+      await Promise.all(parsedRecipes.map((r) => saveRecipeAndRate(r)));
       setSaveStatus("saved");
     } catch (err: unknown) {
       setSaveError(apiErrorMessage(err, "Could not save."));
