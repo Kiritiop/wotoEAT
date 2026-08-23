@@ -100,6 +100,13 @@ interface AppState {
   removeRecipeLabel: (recipeId: string, label: string) => void;
   setAllRecipeLabels: (labels: Record<string, string[]>) => void;
 
+  // ── Saved-recipes freshness ───────────────────────────────────────────────
+  // Bumped by every successful recipe save (see utils/saveAndRate.ts). The
+  // Recipes tab compares it against the version it last fetched, so a recipe
+  // saved from another screen shows up when that tab is focused.
+  savedRecipesVersion: number;
+  markSavedRecipesStale: () => void;
+
   // ── Servings preference ───────────────────────────────────────────────────
   servings: number;
   setServings: (n: number) => void;
@@ -261,6 +268,12 @@ export const useAppStore = create<AppState>()(
           return { recipeLabels: { ...state.recipeLabels, [recipeId]: existing.filter((l) => l !== label) } };
         }),
       setAllRecipeLabels: (labels) => set({ recipeLabels: labels }),
+
+      // ── Saved-recipes freshness ───────────────────────────────────────────
+      // Ephemeral (never persisted) — same as authReady.
+      savedRecipesVersion: 0,
+      markSavedRecipesStale: () =>
+        set((state) => ({ savedRecipesVersion: state.savedRecipesVersion + 1 })),
 
       // ── Servings ──────────────────────────────────────────────────────────
       servings: 1,

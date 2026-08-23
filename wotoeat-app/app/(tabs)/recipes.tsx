@@ -39,7 +39,10 @@ export default function RecipesScreen() {
   const router = useRouter();
 
   const [recipes, setRecipes] = useState<SavedRecipe[]>([]);
-  const hasFetchedRef = useRef(false);
+  // Version of the saved-recipe list this screen last fetched. -1 = never.
+  // Compared against the store's savedRecipesVersion so a save made on another
+  // screen (recipe search, URL import, history) un-skips the next focus fetch.
+  const fetchedVersionRef = useRef(-1);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
@@ -194,6 +197,9 @@ export default function RecipesScreen() {
         setSelectedRecipe(null);
         setActiveTab("mine");
       }
+      // The list already holds the new recipe, so absorb the staleness bump
+      // saveRecipeAndRate just made instead of refetching on the next focus.
+      fetchedVersionRef.current = useAppStore.getState().savedRecipesVersion;
       setIsEditing(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
@@ -208,8 +214,10 @@ export default function RecipesScreen() {
 
   const loadRecipes = useCallback(async (isRefresh = false) => {
     if (!authReady) return;
-    // BUG-16: skip redundant fetches on every modal open/close; only refetch on explicit refresh
-    if (!isRefresh && hasFetchedRef.current) return;
+    // BUG-16: skip redundant fetches on every modal open/close; refetch on an
+    // explicit refresh, or when a save elsewhere bumped savedRecipesVersion.
+    const version = useAppStore.getState().savedRecipesVersion;
+    if (!isRefresh && fetchedVersionRef.current === version) return;
     if (isRefresh) setRefreshing(true); else setLoading(true);
     setLoadError(null);
     try {
@@ -219,7 +227,7 @@ export default function RecipesScreen() {
       const labelsFromBackend: Record<string, string[]> = {};
       data.forEach((r) => { labelsFromBackend[r.id] = r.labels ?? []; });
       setAllRecipeLabels(labelsFromBackend);
-      hasFetchedRef.current = true;
+      fetchedVersionRef.current = version;
     } catch (err) {
       setLoadError(apiErrorMessage(err, "Could not load recipes."));
     } finally {

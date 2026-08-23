@@ -72,7 +72,10 @@ exercising the changed screen, on web at minimum. Web is a first-class target
    a detail sheet opens; this is a deliberate performance decision.
 7. **Save recipes with `saveRecipeAndRate()`**, not `saveRecipe()` directly.
    Saving is the app's only positive taste signal, and calling the raw API
-   function silently skips it.
+   function silently skips it. It also bumps `savedRecipesVersion` in the
+   store, which is what makes the Recipes tab refetch on its next focus (that
+   tab skips the focus fetch otherwise), so a save that bypasses the helper
+   also never shows up in the list.
 8. **Pantry writes must carry `category` through.** Any `replacePantry` payload
    built from the existing list must preserve each item's `category` or user
    categorization is silently wiped.
