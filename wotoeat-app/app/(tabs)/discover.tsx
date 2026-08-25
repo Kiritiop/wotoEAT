@@ -11,6 +11,7 @@ import {
   Pressable,
 } from "react-native";
 import { Image } from "expo-image";
+import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -34,6 +35,7 @@ import { searchMealImage } from "@/services/imageSearch";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { Chip } from "@/components/ui/Chip";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
+import { GuestBanner } from "@/components/GuestBanner";
 import { PinnedBar } from "@/components/ui/PinnedBar";
 import type { Rating } from "@/store/useAppStore";
 import { saveRecipeAndRate } from "@/utils/saveAndRate";
@@ -89,7 +91,8 @@ function MealSlotCardInner({
   const isConfirming = useRef(false);
   const c = useTheme();
   const { t, strings } = useTranslation();
-  const { language, servings: storeServings, planServings, pantry, shoppingList, addToShoppingList, removeFromShoppingList, addRecipe, removeRecipe, selectedRecipes, replaceMeal, cookedMeals } = useAppStore();
+  const { language, servings: storeServings, planServings, pantry, shoppingList, addToShoppingList, removeFromShoppingList, addRecipe, removeRecipe, selectedRecipes, replaceMeal, cookedMeals, isGuest } = useAppStore();
+  const router = useRouter();
   const isCooked = cookedMeals.includes(meal.name);
 
   // Lazy step loading: the meal card is generated light (no steps/chef_tips) to
@@ -251,9 +254,12 @@ function MealSlotCardInner({
     if (!showDetail || fetchedImageFor.current === meal.name) return;
     fetchedImageFor.current = meal.name;
     let active = true;
-    searchMealImage(meal.name).then((url) => { if (active) setMealImageUrl(url); });
+    searchMealImage(meal.name, meal.image_query).then((url) => { if (active) setMealImageUrl(url); });
     return () => { active = false; };
-  }, [showDetail, meal.name]);
+    // image_query travels with the meal, so it never changes without the name
+    // changing too; it is listed only to satisfy exhaustive-deps. The
+    // fetchedImageFor guard is what actually prevents a refetch.
+  }, [showDetail, meal.name, meal.image_query]);
 
   const [sharing, setSharing] = useState(false);
   async function handleShareMeal() {
@@ -297,6 +303,14 @@ function MealSlotCardInner({
 
   async function handleSaveMeal() {
     if (savedState === "saving" || savedState === "unsaving") return;
+    // Saving is the one card action a guest cannot do — /recipes/save is
+    // require_user_id. Send them to sign-up instead of firing a request that
+    // can only come back 401 and buzz an error with no explanation.
+    if (isGuest) {
+      Haptics.selectionAsync();
+      router.push("/auth/sign-up");
+      return;
+    }
     if (savedState === "saved" && savedId) {
       setSavedState("unsaving");
       try {
@@ -1026,6 +1040,9 @@ export default function TodayScreen() {
         }
       />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+
+        {/* Renders nothing unless the visitor is browsing without an account. */}
+        <GuestBanner />
 
         {/* ── Search + refresh ── */}
         <View style={styles.topBar}>

@@ -71,6 +71,25 @@ p_flip = meal_generate_prompt(dict(BASE, recent_ratings={"Pad Thai": "up"}, avoi
 check("avoid/disliked wins over liked", "TASTE PROFILE" not in p_flip)
 
 
+# ── image_query (photo search term) ─────────────────────────────────────────
+# Display names are marketing copy and search badly against stock-photo APIs
+# ("Coq au Vin" matches nothing that looks like braised chicken). The generator
+# supplies a plain-English visual description alongside the name; /images/search
+# passes it through as the `hint`. Both the field rule and the JSON key must
+# survive prompt edits, or the field silently stops arriving and every hero
+# image quietly regresses to guessing from the display name.
+_img = meal_generate_prompt(BASE, "en")
+check("image_query field rule is present", "- image_query:" in _img)
+check("image_query is in the response schema", '"image_query": "string"' in _img)
+check(
+    "image_query is pinned to English regardless of response language",
+    "Always in English" in meal_generate_prompt(BASE, "zh"),
+)
+check(
+    "image_query survives main-dish mode",
+    '"image_query"' in meal_generate_prompt(dict(BASE, meal_style="main_dish"), "en"),
+)
+
 def main() -> int:
     passed = sum(1 for _, ok in checks if ok)
     failed = len(checks) - passed

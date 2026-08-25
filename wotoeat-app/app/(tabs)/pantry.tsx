@@ -14,6 +14,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAppStore } from "@/store/useAppStore";
+import { GuestGate } from "@/components/GuestGate";
 import { getPantry, replacePantry, deletePantryItem, apiErrorMessage } from "@/services/api";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -27,7 +28,7 @@ import { usePantryDisplay } from "@/hooks/useDynamicTranslation";
 import { categoryForItem, toCanonicalEnglish, CATEGORY_LABELS, PANTRY_CATEGORIES, PANTRY_OTHER_KEY } from "@/constants/filters";
 import type { PantryItem } from "@/services/api";
 
-export default function PantryScreen() {
+function PantryScreen() {
   const {
     pantry, setPantry, authReady, language, selectedRecipes,
   } = useAppStore();
@@ -370,4 +371,51 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     itemName: { flex: 1, fontSize: 15, fontWeight: "500", textTransform: "capitalize" },
     itemEditInput: { flex: 1, fontSize: 15, fontWeight: "500", paddingVertical: 0, marginRight: 12 },
   });
+}
+
+/**
+ * Guests never mount PantryScreen — getPantry / replacePantry are all
+ * require_user_id on the API, so the screen would render a wall of 401s. The
+ * gate is the default export so the inner component's hooks only ever run for
+ * a signed-in user.
+ *
+ * The cart is passed through to the gate's header on purpose: the shopping
+ * list is only reachable from here, and a guest CAN build one (confirming a
+ * meal fills it locally, and /shopping/generate is anonymous). Dropping the
+ * cart would leave them with a list they had no way to open.
+ */
+export default function PantryTab() {
+  const isGuest = useAppStore((s) => s.isGuest);
+  const selectedRecipes = useAppStore((s) => s.selectedRecipes);
+  const { t } = useTranslation();
+  const c = useTheme();
+  const router = useRouter();
+  const styles = useMemo(() => makeStyles(c), [c]);
+
+  if (isGuest) {
+    return (
+      <GuestGate
+        headerTitle={t("tab_pantry")}
+        headerRight={
+          <TouchableOpacity
+            style={[styles.cartBtn, { backgroundColor: c.surfaceAlt }]}
+            onPress={() => { router.push("/(tabs)/shopping"); Haptics.selectionAsync(); }}
+            accessibilityRole="button"
+            accessibilityLabel={t("shopping_list")}
+          >
+            <Ionicons name="cart-outline" size={22} color={c.primary} />
+            {selectedRecipes.length > 0 && (
+              <View style={[styles.cartBadge, { backgroundColor: c.primary }]}>
+                <Text style={styles.cartBadgeText}>{selectedRecipes.length}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        }
+        icon="nutrition"
+        title={t("guest_pantry_title")}
+        body={t("guest_pantry_body")}
+      />
+    );
+  }
+  return <PantryScreen />;
 }

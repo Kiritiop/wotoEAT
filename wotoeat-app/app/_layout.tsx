@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -14,7 +14,10 @@ import {
 } from "@expo-google-fonts/nunito";
 import { supabase } from "@/lib/supabase";
 import { useAppStore } from "@/store/useAppStore";
-import { getProfile, setAuthToken, getCurrentShoppingList } from "@/services/api";
+import {
+  getProfile, setAuthToken, getCurrentShoppingList, getPantry,
+  saveProfile, saveCurrentShoppingList, replacePantry,
+} from "@/services/api";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { NetworkBanner } from "@/components/NetworkBanner";
 import { WebShell } from "@/components/ui/WebShell";
@@ -27,7 +30,7 @@ export default function RootLayout() {
   const [ready, setReady] = useState(false);
   const router = useRouter();
   const segments = useSegments();
-  const { setProfile, setHasOnboarded, hasOnboarded, setAuthReady, setShoppingList, clearMeals } = useAppStore();
+  const { setProfile, setHasOnboarded, hasOnboarded, setAuthReady, setShoppingList, clearMeals, isGuest, setIsGuest } = useAppStore();
   const theme = useTheme();
   const [fontsLoaded] = useFonts({
     Nunito_400Regular,
@@ -82,10 +85,74 @@ export default function RootLayout() {
     return () => sub.remove();
   }, []);
 
+  // ── Guest → account handoff ───────────────────────────────────────────────
+  // A guest's work lives entirely in persisted local state, and the account
+  // they land in may be brand new (nothing on the server) or one they already
+  // had (everything on the server). Those need opposite syncs, so each store is
+  // checked before it is touched:
+  //
+  //   server empty  → push the guest's local copy up; it is the only copy.
+  //   server has it → adopt the server's copy; it is the one they signed in for.
+  //
+  // Guessing either way loses data: pushing blindly overwrites an existing
+  // account with a throwaway guest session, and pulling blindly greets a new
+  // user by wiping everything that convinced them to sign up.
+  //
+  // isGuest clears only after all three settle, so the guest guards elsewhere
+  // (shopping auto-save, profile save, the gated tabs) stay consistent for the
+  // whole handoff instead of flipping mid-flight.
+  const migratingRef = useRef(false);
+  const [migrating, setMigrating] = useState(false);
+  useEffect(() => {
+    if (!session || !ready || !isGuest || migratingRef.current) return;
+    migratingRef.current = true;
+    setMigrating(true);
+    const local = useAppStore.getState();
+    void (async () => {
+      // Each store is independent: a failed pantry sync must not cost them
+      // their profile. Nothing is deleted locally on failure either, so the
+      // worst case leaves them exactly where a guest was — not worse.
+      try {
+        const serverProfile = await getProfile();
+        if (Object.keys(serverProfile).length > 0) {
+          setProfile(serverProfile);
+        } else {
+          await saveProfile(local.profile);
+        }
+        setHasOnboarded(true);
+      } catch { /* keep the local copy; the profile screen can retry */ }
+
+      try {
+        const serverList = await getCurrentShoppingList();
+        if (serverList) {
+          setShoppingList(serverList);
+        } else if (local.shoppingList) {
+          await saveCurrentShoppingList(local.shoppingList);
+        }
+      } catch { /* the debounced auto-save retries on the next edit */ }
+
+      try {
+        const serverPantry = await getPantry();
+        if (serverPantry.length > 0) {
+          local.setPantry(serverPantry);
+        } else if (local.pantry.length > 0) {
+          await replacePantry(local.pantry);
+        }
+      } catch { /* the pantry screen refetches on focus */ }
+
+      setIsGuest(false);
+      setMigrating(false);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.id, ready, isGuest]);
+
   // Load profile from backend whenever a session is established.
   // Wait for `ready` so onAuthStateChange has fired and setAuthToken() is guaranteed.
   useEffect(() => {
     if (!session || !ready) return;
+    // Skip while a guest's local state is being pushed up — pulling the new
+    // (empty) account's profile here would race the push.
+    if (isGuest || migrating) return;
     getProfile()
       .then((p) => {
         if (Object.keys(p).length > 0) {
@@ -100,18 +167,28 @@ export default function RootLayout() {
     // Keyed on the user id (not the whole session object) so a token refresh
     // doesn't refetch the profile; the store setters are stable. Intentional.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.user?.id, ready]);
+  }, [session?.user?.id, ready, isGuest, migrating]);
 
   // Redirect based on auth + onboarding state
   useEffect(() => {
     if (!ready) return;
+    // Hold still during the guest → account handoff. hasOnboarded is false for
+    // a guest (they never saw onboarding), so redirecting on it mid-migration
+    // would bounce a brand-new account through onboarding and straight back
+    // out the moment saveProfile lands.
+    if (migrating) return;
     const seg0 = segments[0] as string | undefined;
     const inAuth = seg0 === "auth";
     const inOnboarding = seg0 === "onboarding";
     // Root index (landing page) — valid unauthenticated destination
     const atLanding = seg0 === undefined || seg0 === "index";
+    // A guest is unauthenticated but has explicitly asked to look around, so
+    // the app treats them like a signed-in user for routing. Every screen they
+    // can reach either works anonymously (discover, shopping) or swaps itself
+    // for a sign-up prompt (pantry, recipes, history) — see GuestGate.
+    const admitted = !!session || isGuest;
 
-    if (!session && !inAuth && !atLanding) {
+    if (!admitted && !inAuth && !atLanding) {
       router.replace("/");
     } else if (session && (inAuth || atLanding)) {
       // Signed-in users skip the landing page entirely (web reopens land on "/")
@@ -125,10 +202,13 @@ export default function RootLayout() {
 
       router.replace("/onboarding" as any);
     }
+    // Guests are deliberately absent from the two branches above: they must be
+    // able to reach /auth (that is the whole point of the sign-up prompts), and
+    // onboarding writes to the profile endpoint, which 401s without a session.
     // `router` is a stable expo-router singleton; including it would add churn
     // without changing behaviour. The listed deps are the real redirect inputs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session, ready, segments, hasOnboarded]);
+  }, [session, ready, segments, hasOnboarded, isGuest, migrating]);
 
   return (
     <ErrorBoundary>

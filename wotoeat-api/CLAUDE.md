@@ -30,7 +30,14 @@ venv/bin/python tests/test_clean_json.py
 venv/bin/python tests/test_models.py
 venv/bin/python tests/test_profile_constraints.py
 venv/bin/python tests/test_meal_prompt.py
+venv/bin/python tests/test_image_match.py
+venv/bin/python tests/test_image_endpoint.py
+venv/bin/python tests/test_guest_endpoints.py
 ```
+
+`test_guest_endpoints.py` is the one to watch when adding auth: it pins which
+endpoints must stay anonymous (the app's guest mode runs on them) and which must
+keep returning 401.
 
 `tests/test_receipt_normalize.py` needs a live `GROQ_API_KEY` and can flake;
 only run it when you changed the receipt prompts.

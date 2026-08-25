@@ -36,6 +36,15 @@ interface AppState {
   authReady: boolean;
   setAuthReady: (v: boolean) => void;
 
+  // ── Guest mode ────────────────────────────────────────────────────────────
+  // Set when someone taps "Try it without an account" on the landing page.
+  // A guest has no Supabase session, so anything the API gates behind a user id
+  // (pantry, saved recipes, history, profile sync) is unavailable to them; the
+  // discover → swap → shopping loop runs entirely on optional-auth endpoints
+  // and local state. Persisted so a reload doesn't bounce them back to landing.
+  isGuest: boolean;
+  setIsGuest: (v: boolean) => void;
+
   // ── Health profile ────────────────────────────────────────────────────────
   profile: HealthProfile;
   setProfile: (profile: Partial<HealthProfile>) => void;
@@ -128,6 +137,9 @@ export const useAppStore = create<AppState>()(
       // ── Auth ready ───────────────────────────────────────────────────────
       authReady: false,
       setAuthReady: (v) => set({ authReady: v }),
+
+      isGuest: false,
+      setIsGuest: (v) => set({ isGuest: v }),
 
       // ── Health profile ──────────────────────────────────────────────────
       profile: DEFAULT_PROFILE,
@@ -295,6 +307,7 @@ export const useAppStore = create<AppState>()(
           shoppingList: null,
           requiredIngredients: [],
           selectedPantryItems: [],
+          isGuest: false,
         }),
     }),
     {
@@ -326,6 +339,7 @@ export const useAppStore = create<AppState>()(
         profile: state.profile,
         language: state.language,
         hasOnboarded: state.hasOnboarded,
+        isGuest: state.isGuest,
         meals: state.meals,
         mealsDate: state.mealsDate,
         seenMeals: state.seenMeals,

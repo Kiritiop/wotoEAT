@@ -22,6 +22,7 @@ import { DIFFICULTY_COLORS, translateTag, translateDifficulty } from "@/constant
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useAppStore } from "@/store/useAppStore";
+import { GuestGate } from "@/components/GuestGate";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { saveRecipeAndRate } from "@/utils/saveAndRate";
@@ -42,7 +43,7 @@ function groupByDay(entries: MealHistoryEntry[]): { date: string; meals: MealSug
     .map(([date, mealMap]) => ({ date, meals: Array.from(mealMap.values()) }));
 }
 
-export default function HistoryScreen() {
+function HistoryScreen() {
   const { authReady, language, servings: storeServings } = useAppStore();
   const locale = language === "zh" ? "zh-CN" : "en-US";
   const [entries, setEntries] = useState<MealHistoryEntry[]>([]);
@@ -310,4 +311,25 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     },
     bannerText: { fontSize: 13, fontWeight: "600" },
   });
+}
+
+/**
+ * Guests never mount HistoryScreen — /meals/history is require_user_id,
+ * so the screen would render a wall of 401s. The gate is the default export so
+ * the inner component's hooks only ever run for a signed-in user.
+ */
+export default function HistoryTab() {
+  const isGuest = useAppStore((s) => s.isGuest);
+  const { t } = useTranslation();
+  if (isGuest) {
+    return (
+      <GuestGate
+        headerTitle={t("tab_history")}
+        icon="time"
+        title={t("guest_history_title")}
+        body={t("guest_history_body")}
+      />
+    );
+  }
+  return <HistoryScreen />;
 }

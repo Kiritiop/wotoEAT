@@ -188,6 +188,10 @@ class GeneratedMeal(BaseModel):
     calories_per_serving: int
     difficulty: str
     components: MealComponent = Field(default_factory=MealComponent)
+    # Plain-English photo search term supplied by the generator, e.g.
+    # "braised chicken red wine" for Coq au Vin. Display names are marketing
+    # copy and search badly; this is what /images/search actually queries.
+    image_query: Optional[str] = None
     uses_pantry_items: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
     ingredients: list[str] = Field(default_factory=list)

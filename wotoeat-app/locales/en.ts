@@ -406,6 +406,19 @@ const en = {
   landing_cta_signin: "Already have an account?",
   landing_fine_print: "No credit card required · Free to use",
   landing_learn_more: "Learn more",
+
+  // ── Guest mode ────────────────────────────────────────────────────────────
+  landing_cta_guest: "Look around first",
+  guest_banner: "You're browsing as a guest",
+  guest_banner_cta: "Create account",
+  guest_keeps_progress: "Everything you've made so far comes with you",
+  guest_gate_cta: "Create a free account",
+  guest_pantry_title: "Your pantry lives in your account",
+  guest_pantry_body: "Track what's in your fridge, scan receipts, and let meal suggestions build around what you already own.",
+  guest_recipes_title: "Save the ones you love",
+  guest_recipes_body: "Keep a private cookbook of the dishes you want again, with your own edits and labels.",
+  guest_history_title: "See what you've cooked",
+  guest_history_body: "Your meal history builds up over time so suggestions get sharper the more you use wotoEAT.",
 } as const;
 
 export type TranslationKey = keyof typeof en;

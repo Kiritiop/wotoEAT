@@ -16,6 +16,7 @@ import { useRouter, Redirect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { supabase } from "@/lib/supabase";
+import { useAppStore } from "@/store/useAppStore";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageToggle } from "@/components/LanguageToggle";
@@ -44,6 +45,7 @@ export default function LandingScreen() {
   const { t } = useTranslation();
   const styles = useMemo(() => makeStyles(c), [c]);
   const [showMore, setShowMore] = useState(false);
+  const { isGuest, setIsGuest } = useAppStore();
   // Landing is for new/signed-out users only. Returning users with a persisted
   // session auto-login and go straight to the app — hold rendering (blank cream
   // screen) until the stored session is read so they never see a landing flash.
@@ -67,6 +69,9 @@ export default function LandingScreen() {
   if (hasSession === null) return <SafeAreaView style={styles.safe} />;
   // Onboarding (if needed) is handled by the root layout's redirect effect.
   if (hasSession) return <Redirect href="/(tabs)/discover" />;
+  // A guest who reloads the page lands back here; send them on rather than
+  // making them tap "Look around first" again.
+  if (isGuest) return <Redirect href="/(tabs)/discover" />;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -127,6 +132,23 @@ export default function LandingScreen() {
               <Text style={[styles.signinLink, { color: c.primary }]}>{t("sign_in")}</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Guests get the discover → swap → shopping loop with no account.
+              Deliberately placed under sign-in, and styled quietly, so it reads
+              as the low-commitment option rather than competing with sign-up. */}
+          <TouchableOpacity
+            style={styles.guestBtn}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setIsGuest(true);
+              router.replace("/(tabs)/discover");
+            }}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="eye-outline" size={16} color={c.textMuted} />
+            <Text style={[styles.guestLabel, { color: c.textMuted }]}>{t("landing_cta_guest")}</Text>
+          </TouchableOpacity>
 
           {/* ── Learn More dropdown ── */}
           <TouchableOpacity
@@ -200,6 +222,11 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     signinRow: { flexDirection: "row", alignItems: "center", gap: 6 },
     signinLabel: { fontSize: 14 },
     signinLink: { fontSize: 14, fontWeight: "700" },
+    guestBtn: {
+      flexDirection: "row", alignItems: "center", justifyContent: "center",
+      gap: 6, paddingVertical: 8, paddingHorizontal: 14,
+    },
+    guestLabel: { fontSize: 13.5, fontWeight: "600", textDecorationLine: "underline" },
     finePrint: { fontSize: 12, textAlign: "center" },
     learnMoreToggle: {
       flexDirection: "row", alignItems: "center", justifyContent: "center",

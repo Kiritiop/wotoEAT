@@ -403,6 +403,19 @@ const zh = {
   landing_cta_signin: "已有账号？",
   landing_fine_print: "无需信用卡 · 免费使用",
   landing_learn_more: "了解更多",
+
+  // ── 访客模式 ──────────────────────────────────────────────────────────────
+  landing_cta_guest: "先随便看看",
+  guest_banner: "你正在以访客身份浏览",
+  guest_banner_cta: "创建账号",
+  guest_keeps_progress: "你已经做的一切都会一起带过去",
+  guest_gate_cta: "免费创建账号",
+  guest_pantry_title: "食材库需要账号才能保存",
+  guest_pantry_body: "记录冰箱里有什么、扫描小票，让每一道推荐都围绕你已有的食材来搭配。",
+  guest_recipes_title: "收藏你喜欢的那些",
+  guest_recipes_body: "把想再做一次的菜存进专属菜谱，连同你的修改和标签一起保留。",
+  guest_history_title: "回看你做过的菜",
+  guest_history_body: "做饭记录会慢慢累积，用得越久，推荐就越懂你。",
 } as const;
 
 export default zh;

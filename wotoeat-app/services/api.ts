@@ -157,6 +157,8 @@ export interface DailyPlanMeal {
   calories_per_serving: number;
   difficulty: "easy" | "medium" | "hard";
   components: MealComponent;
+  /** Plain-English photo search term from the generator, e.g. "braised chicken red wine". */
+  image_query?: string | null;
   uses_pantry_items: string[];
   tags: string[];
   ingredients: string[];

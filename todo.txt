@@ -13,6 +13,52 @@ RECOMMENDED NEXT FIVE (best value for effort, in order)
 5. UI-6 (S) dark mode decision: an unaudited surface users already land on
 
 ════════════════════════════════════════════════════════════════════
+SHIPPED 2026-08-25: recipe image matching + guest mode
+════════════════════════════════════════════════════════════════════
+Recipe hero images were "never right, frequently something completely
+random". Not a generation problem: /images/search matches a dish name to
+an existing stock photo, and both rungs of the cascade took whatever came
+back first.
+  - TheMealDB search.php?s= is a substring LIKE over meal titles and the
+    code used meals[0] unverified. Confirmed against the live API:
+    s=Beef Stew -> "Lemongrass beef stew with noodles" (a Vietnamese
+    noodle bowl); s=Chicken Curry -> "Katsu Chicken curry"; s=Chicken ->
+    30 hits, first is "Chicken Handi".
+  - Pexels: per_page=1 on a loose multi-word query, used unconditionally.
+  - Wrong URLs were cached 7 days, so one bad match served every user for
+    a week.
+Fixed by verifying every candidate: MealDB titles must be a word-subset
+of our dish name (exact match wins; one-word titles must match exactly);
+Pexels returns 15 and each is scored against its own alt text with a 0.5
+floor plus a narrowed retry; below the floor we return {url: null} and
+show the placeholder. Cache key prefixed img:v2: so the poisoned week
+clears on deploy - bump _CACHE_VERSION on any future matching change.
+The root cause was that AI dish names are marketing copy, so the
+generator now emits image_query ("Coq au Vin" -> "braised chicken red
+wine") which the app passes as ?hint=; MealDB still searches the real
+name. Locked by tests/test_image_match.py (17) and
+tests/test_image_endpoint.py (16), both offline and in CI.
+
+Guest mode: "Look around first" on the landing page lets people try the
+app with no account. The backend already allowed the core loop
+anonymously; only the frontend router blocked it. One API change:
+/recipes/generate was require_user_id and is the "show me the steps" call
+behind every meal card, so it dead-ended guests - it writes nothing, and
+the user id was only ever the rate-limit key, so it now falls back to IP
+like /meals/generate does. Pantry, saved recipes and history swap to
+GuestGate; profile stays usable (it is local state that feeds generation)
+with the server save skipped. Sign-up runs a server-aware handoff: empty
+account -> push local up, existing account -> adopt the server's copy.
+Locked by tests/test_guest_endpoints.py (15) and a Playwright pass over
+the production web build (27 checks).
+Caught during that browser pass: gating Pantry orphaned the shopping
+list, because the shopping tab is href:null and only reachable from the
+Pantry header cart. GuestGate now takes a headerRight slot and Pantry
+passes its cart through.
+Open follow-ups: Pexels attribution is still not shown (their terms ask
+for it); guests are invisible server-side, so there is no funnel data.
+
+════════════════════════════════════════════════════════════════════
 INCIDENT 2026-08-17: Groq decommissioned both models (RESOLVED)
 ════════════════════════════════════════════════════════════════════
 Every AI endpoint returned 503. Cause was not capacity: Groq removed

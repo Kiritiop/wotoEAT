@@ -88,9 +88,15 @@ exercising the changed screen, on web at minimum. Web is a first-class target
   (prevents same-day repeats). It resets only at date rollover or sign-out.
 - Matched receipt-scan rows defaulting to unchecked is intentional (they are
   already in the pantry).
-- The landing page not showing for signed-in users is intentional.
+- The landing page not showing for signed-in users is intentional. It is also
+  skipped for guests (`isGuest`), who have no session but have opted in.
 - `shopping.tsx` and `history.tsx` are real screens but hidden tabs
-  (`href: null`), reached programmatically.
+  (`href: null`), reached programmatically. Shopping is reachable ONLY from the
+  Pantry header cart — which is why the guest Pantry gate still renders that
+  cart. Removing it silently orphans the shopping list for guests.
+- Pantry / Recipes / History export a `GuestGate` wrapper as their default and
+  the real screen as a plain function. That ordering is load-bearing: it keeps
+  the real screen's hooks (and its authed fetches) from running for a guest.
 
 ## Common tasks
 
@@ -101,6 +107,12 @@ add strings to both locale files, add the screen to the root CLAUDE.md map.
 **Call a new backend endpoint:** add the function to `services/api.ts` (the
 axios instance handles auth and retries), surface errors with
 `apiErrorMessage(err, fallback)`.
+
+**Add a call that writes to the user's account:** guard it with `isGuest` if the
+screen is reachable in guest mode (Today, Shopping, Profile). A guest has no
+session, so the call returns 401 and the user gets an error they cannot act on;
+either skip the write (Profile's save, the shopping auto-save) or route them to
+sign-up (the Today card's Save).
 
 **Add persisted state:** extend `store/useAppStore.ts`. Think about when it
 resets: language change, sign-out, and date rollover each clear specific

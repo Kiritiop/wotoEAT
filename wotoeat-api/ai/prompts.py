@@ -341,6 +341,11 @@ RULES:
 - description: 1–2 sentences capturing the dish's flavor profile and what makes it special — written warmly.
 - ingredients: flat list scaled for {servings} serving(s), e.g. ["300g chicken breast", "2 tbsp soy sauce"]
 - components.vegetable / .protein / .staple: short component names (e.g. "broccoli", "chicken", "rice")
+- image_query: 2-4 plain English words naming what the finished dish LOOKS LIKE on a plate,
+  for searching a stock photo library. Lowercase, no adjectives that describe taste or origin,
+  no dish name flourishes. Examples: "Coq au Vin" -> "braised chicken red wine";
+  "Shakshuka" -> "eggs poached tomato sauce"; "Bibimbap" -> "korean rice bowl vegetables";
+  "Pad Thai" -> "thai stir fried noodles". Always in English even when the response language is not.
 - uses_pantry_items: ingredient names that match items in the pantry filter
 - {tag_note}
 - calories_per_serving: realistic estimate per serving — only null for genuinely unusual dishes
@@ -361,6 +366,7 @@ Respond with ONLY valid JSON, no markdown:
       "calories_per_serving": integer,
       "difficulty": "easy|medium|hard",
       "components": {{"vegetable": "string", "protein": "string", "staple": "string"}},
+      "image_query": "string",
       "uses_pantry_items": ["string"],
       "tags": ["string"],
       "ingredients": ["string"],

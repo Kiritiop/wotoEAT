@@ -9,6 +9,7 @@ import {
   Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useAppStore } from "@/store/useAppStore";
@@ -33,7 +34,8 @@ import type { ActivityLevelValue } from "@/constants/profileOptions";
 import { confirmAction } from "@/utils/confirm";
 
 export default function ProfileScreen() {
-  const { profile, setProfile, language, setLanguage } = useAppStore();
+  const { profile, setProfile, language, setLanguage, isGuest } = useAppStore();
+  const router = useRouter();
   const { t } = useTranslation();
   const c = useTheme();
   const [saving, setSaving] = useState(false);
@@ -101,6 +103,15 @@ export default function ProfileScreen() {
   }
 
   async function handleSave() {
+    // A guest's profile lives in local state and is sent inline with every
+    // /meals/generate call, so it already shapes their suggestions. There is
+    // just no account to persist it to — /profile is require_user_id — so skip
+    // the request rather than showing them a 401 they can do nothing about.
+    if (isGuest) {
+      setSaved(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -629,11 +640,34 @@ export default function ProfileScreen() {
           loading={saving}
         />
 
-        {/* Sign out */}
-        <TouchableOpacity style={[styles.signOutBtn, { backgroundColor: c.errorBg }]} onPress={handleSignOut}>
-          <Ionicons name="log-out-outline" size={18} color={c.error} />
-          <Text style={[styles.signOutText, { color: c.error }]}>{t("sign_out")}</Text>
-        </TouchableOpacity>
+        {/* Sign out — or, for a guest, the account that would make any of this
+            stick. Showing "Sign out" to someone who never signed in would be
+            nonsense, and there is no session to end. */}
+        {isGuest ? (
+          <View style={{ gap: 9, marginTop: 4 }}>
+            <Button
+              label={t("guest_gate_cta")}
+              icon="person-add"
+              onPress={() => {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                router.push("/auth/sign-up");
+              }}
+            />
+            <Button
+              label={t("sign_in")}
+              variant="secondary"
+              onPress={() => {
+                Haptics.selectionAsync();
+                router.push("/auth/sign-in");
+              }}
+            />
+          </View>
+        ) : (
+          <TouchableOpacity style={[styles.signOutBtn, { backgroundColor: c.errorBg }]} onPress={handleSignOut}>
+            <Ionicons name="log-out-outline" size={18} color={c.error} />
+            <Text style={[styles.signOutText, { color: c.error }]}>{t("sign_out")}</Text>
+          </TouchableOpacity>
+        )}
 
         {/* About the Creator */}
         <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border, marginTop: 10 }]}>

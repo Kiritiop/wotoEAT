@@ -53,6 +53,9 @@ export default function ShoppingScreen() {
   const isFirstRender = useRef(true);
   useEffect(() => {
     if (isFirstRender.current) { isFirstRender.current = false; return; }
+    // A guest has no account to sync to (/shopping/current is require_user_id)
+    // and their list lives in persisted local state, so skip the round trip.
+    if (useAppStore.getState().isGuest) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       saveTimerRef.current = null;
@@ -70,6 +73,8 @@ export default function ShoppingScreen() {
   //   made on another device show up instead of being clobbered.
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
+      // Cross-device sync is an account feature; a guest's list is device-local.
+      if (useAppStore.getState().isGuest) return;
       const current = useAppStore.getState().shoppingList;
       if (state === "background" || state === "inactive") {
         if (saveTimerRef.current) {
@@ -167,7 +172,10 @@ export default function ShoppingScreen() {
       setFinishing(true);
       const { merged, remaining } = computeShoppingDone(useAppStore.getState().pantry, list.groups);
       try {
-        await replacePantry(merged);
+        // Guests keep the pantry locally — /pantry is require_user_id, and
+        // failing the whole "done shopping" move over a write they can't make
+        // would strand the checked items on the list.
+        if (!useAppStore.getState().isGuest) await replacePantry(merged);
         setPantry(merged);
         if (remaining.length > 0) {
           setShoppingList({ ...list, groups: remaining });

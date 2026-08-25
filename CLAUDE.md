@@ -54,8 +54,11 @@ open ends of the product loop):
   for reference; zero code references.
 - The landing logo PNG has a baked-in cream background; a transparent export
   would be the ideal polish.
-- Frontend has no unit tests; the backend's offline scripts (run locally and
-  in CI) are the only automated tests.
+- Pexels attribution is not shown anywhere. Their API terms ask for it; worth
+  adding under the hero image before the app is promoted publicly.
+- Guests are device-local by design: their meals, list and profile live only in
+  AsyncStorage until they create an account. Nothing on the server knows they
+  exist, so there is no funnel data on how many try it.
 
 **Operational notes:** Groq free/dev tiers have daily token limits; when
 generation starts 503ing check the Groq console before debugging code.
@@ -74,9 +77,10 @@ broken (see Deployment below).
 
 **Known open issues:** `todo.txt` has the authoritative queue. The 2026-07-08
 review's FIX-1 through FIX-10, plus A-2 and A-4, all shipped on 2026-08-18;
-what remains there is the larger architectural work (A-1 event-loop blocking,
-A-3 translation scraping, A-5 splitting the two monolith screens) and the
-product roadmap. Nothing in the queue is a known live defect right now.
+recipe-image matching and guest mode shipped on 2026-08-25. What remains is the
+larger architectural work (A-1 event-loop blocking, A-3 translation scraping,
+A-5 splitting the two monolith screens) and the product roadmap. Nothing in the
+queue is a known live defect right now.
 When any item ships, update todo.txt and this section together.
 
 ## Overview
@@ -156,6 +160,9 @@ Plain runnable scripts (no pytest dependency); each exits non-zero on failure.
   - `venv/bin/python tests/test_models.py` — Pydantic validators that sanitize LLM output: `Ingredient.coerce_amount` (fraction parsing, non-positive/unparseable → None) and `ScannedItem.empty_to_none` ("null"/"none"/"" → None).
   - `venv/bin/python tests/test_profile_constraints.py` — `_profile_constraints_block`: allergies/restrictions emit the ABSOLUTE-hard-constraint block + `no_match` override; goals/calorie/protein emit the tailoring block; empty/blank profiles emit nothing; and the block is actually injected into `meal_generate_prompt`. Guards that meal generation can't silently stop honouring allergies.
   - `venv/bin/python tests/test_meal_prompt.py` — `meal_generate_prompt`'s other behavioural blocks: AUTHENTICITY (always present, bans invented/generic dishes), the prep-time hard-cap rule, required-tags enforcement + `no_match` contract (iff set), PANTRY PRIORITY (iff pantry given), MAIN DISH mode (no staples), and avoid_meals folding into the disliked list.
+  - `venv/bin/python tests/test_image_match.py` — `/images/search` matching helpers: the MealDB subset rule (rejects the real "Beef Stew" → "Lemongrass beef stew with noodles" hit), the Pexels relevance floor, and query cleaning. **Keep green if you touch the cascade** — the failure mode is silent and user-visible.
+  - `venv/bin/python tests/test_image_endpoint.py` — the images router end to end with TheMealDB/Pexels mocked: cascade order, the `hint` parameter, cache keying, and the never-return-a-wrong-image contract.
+  - `venv/bin/python tests/test_guest_endpoints.py` — the anonymous-access contract guest mode depends on: which endpoints must work without a session (generate/swap/recipe-steps/shopping/images) and which must keep 401ing (pantry, profile, saved recipes, history, shopping sync). Adding `require_user_id` to one of the first group breaks guest mode silently.
 - **Live-LLM** (needs `GROQ_API_KEY`, mild flake): `venv/bin/python tests/test_receipt_normalize.py` — receipt Stage-2 prompt contract.
 
 ### Environment Variables (`wotoeat-api/.env`)
@@ -186,7 +193,7 @@ vars the code reads via `os.getenv`). Note: `wotoeat-api/.gitignore` needs the
 | `POST /meals/swap` | `routers/meals.py` | Swap one slot in an existing plan. Optional auth; shares the 150/hr `meal-ai` budget |
 | `GET /meals/history` | `routers/meals.py` | User's past meal history (requires auth) |
 | `POST /recipes/parse` | `routers/recipes.py` | Parse recipe from URL (rate-limited 20/hr per IP) |
-| `POST /recipes/generate` | `routers/recipes.py` | Generate full recipe for a named dish (rate-limited 30/hr per user) |
+| `POST /recipes/generate` | `routers/recipes.py` | Generate full recipe for a named dish. **Optional auth** — this is the "show me the steps" call behind every meal card, so gating it would dead-end guests; it writes nothing. Rate-limited 30/hr per user, else per IP |
 | `POST /recipes/save` | `routers/recipes.py` | Save recipe to user account |
 | `GET /recipes/saved` | `routers/recipes.py` | List user's saved recipes |
 | `GET /recipes/{id}` | `routers/recipes.py` | Get single saved recipe |
@@ -203,7 +210,7 @@ vars the code reads via `os.getenv`). Note: `wotoeat-api/.gitignore` needs the
 | `PUT /shopping/current` | `routers/shopping.py` | Upsert the "current" shopping list (requires auth; debounced 2s save from the Shopping tab). Cross-device sync via AppState in `shopping.tsx`: going to background **flushes** a pending debounced save (JS timers don't run backgrounded); returning to foreground **drops any stale pending save and re-fetches** the server's latest so another device's check-offs aren't clobbered. |
 | `GET /shopping/history` | `routers/shopping.py` | List saved shopping lists (optional auth; **no frontend caller**) |
 | `PATCH /recipes/{id}/labels` | `routers/recipes.py` | Update recipe labels (favorite, mine, etc.) |
-| `GET /images/search` | `routers/images.py` | Food image cascade — TheMealDB → Pexels → Unsplash (returns `{url}`; SQLite-cached; rate-limited 100 novel lookups/hr per IP) |
+| `GET /images/search` | `routers/images.py` | Food image cascade — TheMealDB → Pexels → Unsplash. Takes `q` (dish name) + optional `hint` (the generator's `image_query`). Every candidate is verified against the dish; returns `{url: null}` rather than a wrong photo. SQLite-cached; rate-limited 100 novel lookups/hr per IP |
 | `POST /share` | `routers/share.py` | Create a public share (`{kind:"recipe"\|"meal", payload}`) → `{id}`; optional auth; rate-limited 30/hr per client |
 | `GET /share/{id}` | `routers/share.py` | **Public, no auth** — fetch a shared meal/recipe payload (404 if missing) |
 
@@ -293,7 +300,7 @@ npx expo start --web  # browser
 
 | File | Route | Description |
 |---|---|---|
-| `app/index.tsx` | `/` | Splash / root redirect |
+| `app/index.tsx` | `/` | Landing page for signed-out visitors; "Look around first" enters guest mode |
 | `app/onboarding.tsx` | `/onboarding` | First-run profile setup |
 | `app/auth/sign-in.tsx` | `/auth/sign-in` | Email + password sign-in |
 | `app/auth/sign-up.tsx` | `/auth/sign-up` | Registration |
@@ -487,13 +494,21 @@ Closes the input side of the pantry loop: photograph a grocery receipt → AI ex
 
 ## Image Search
 
-- `services/imageSearch.ts` → calls `GET /images/search?q=<meal name>`.
-- Backend runs a **food-specific cascade** (`routers/images.py`): **TheMealDB** (real photographed dish when the name matches a known recipe — free, no key) → **Pexels** (food-tuned stock query; needs `PEXELS_API_KEY`) → **Unsplash** (optional, needs `UNSPLASH_ACCESS_KEY`). Returns `{url}` or `{url: null}`.
-- **Results are cached** in the SQLite TTL cache (key `img:<lowercased query>`): a found URL for 7 days, a miss for 6 hours (so a transient upstream failure — e.g. a rate-limited Pexels call — recovers on the next request). The same dish name never re-hits the external APIs within the TTL.
-- **Rate-limited** 100 novel lookups/hour per IP (`image-search`). The cache is checked **before** the limiter, so cache hits/misses don't count — only genuine new external lookups do; normal browsing is never limited, but a flood of distinct queries (key-burning abuse) is capped. On limit it degrades to `{url: null}` (placeholder) and does **not** cache that, since the cap is transient. The endpoint is unauthenticated, so the limit is per-IP via `request.client.host`.
-- **Wikipedia was removed** — its loose title-matching returned unrelated images ("random stuff"). Returning `{url: null}` (→ placeholder) is preferred over a wrong image.
+Hero photos are **searched, not generated**. Nothing in this stack makes an image;
+`/images/search` matches a dish name to an existing photo.
+
+- `services/imageSearch.ts` → `GET /images/search?q=<meal name>&hint=<image_query>`.
+- Backend runs a **food-specific cascade** (`routers/images.py`): **TheMealDB** (real photographed dish when the name genuinely matches — free, no key) → **Pexels** (scored stock search; needs `PEXELS_API_KEY`) → **Unsplash** (optional, needs `UNSPLASH_ACCESS_KEY`). Returns `{url}` or `{url: null}`.
+- **Every candidate is verified before it is returned.** This is the whole point of the module, and it was the bug: the old code took TheMealDB's `meals[0]` on faith, but `search.php?s=` is a substring LIKE over meal titles — verified live, `s=Beef Stew` returns only "Lemongrass beef stew with noodles" and `s=Chicken Curry` returns "Katsu Chicken curry" first. Pexels had the same shape of bug (`per_page=1`, used unconditionally). Users saw unrelated photos on most cards.
+  - **MealDB rule**: every content word in the MealDB title must also appear in our dish name. Extra words in OUR name are fine ("Classic Beef Bourguignon" still matches "Beef Bourguignon"); extra words in THEIRS are not — those are what make it a different dish. An exact normalized match wins outright; a one-word title only ever matches exactly (so "Fish" can't swallow "Fish Tacos").
+  - **Pexels rule**: request `per_page=15`, score each photo's own `alt` text against the query's content words, and require `_PEXELS_FLOOR` (0.5). If nothing clears it, retry narrowed to the two leading words, then give up. **Returning `{url: null}` (→ placeholder) is always preferred over a confidently wrong image** — same principle that got Wikipedia removed earlier.
+- **`image_query` is the real fix.** AI dish names are marketing copy and search badly, so `meal_generate_prompt` asks for a plain visual description alongside the name ("Coq au Vin" → "braised chicken red wine"), carried on `GeneratedMeal.image_query` and passed as `hint`. MealDB is still searched by the **real dish name**; the hint only steers the stock-photo fallback. Old cached meals have no `image_query` and fall back to the name.
+- **Results are cached** in the SQLite TTL cache (key `img:<version>:<query>|<hint>`): a found URL for 7 days, a miss for 6 hours (so a transient upstream failure — e.g. a rate-limited Pexels call — recovers on the next request). The same dish never re-hits the external APIs within the TTL. **Bump `_CACHE_VERSION` whenever the matching logic changes** — a wrong URL is otherwise served to every user for a week, which is what made the original bug so visible.
+- **Rate-limited** 100 novel lookups/hour per IP (`image-search`). The cache is checked **before** the limiter, so cache hits/misses don't count — only genuine new external lookups do; normal browsing is never limited, but a flood of distinct queries (key-burning abuse) is capped. On limit it degrades to `{url: null}` and does **not** cache that, since the cap is transient. The endpoint is unauthenticated, so the limit is per-IP via `request.client.host`.
 - Images shown as hero in the meal detail modal, rendered via **`expo-image`** (`contentFit="cover"`, `cachePolicy="memory-disk"`, 200ms fade) for memory+disk caching.
 - **Fetched lazily**: each `MealSlotCard` only calls `searchMealImage` once its detail modal is first opened (guarded by a `fetchedImageFor` ref keyed on `meal.name`), not on card mount — so the growing meal stream no longer fires an image search per card up-front.
+- Tests: `tests/test_image_match.py` (matching helpers, using real MealDB responses) and `tests/test_image_endpoint.py` (the router end to end, upstreams mocked). Both offline.
+- **Pexels attribution** is requested by their API terms and the app does not currently show it. Open item if the app goes properly public.
 
 ---
 
@@ -518,6 +533,40 @@ Meals and recipes can be shared as browsable links anyone can open.
 - Onboarding: first-run screen (`hasOnboarded` flag in store) prompts profile setup before sending to the main tabs.
 - **Landing is for signed-out users only**: a returning user with a persisted session auto-logs-in and goes straight to Discover. `app/index.tsx` holds rendering (blank cream screen) until `supabase.auth.getSession()` resolves, then `<Redirect>`s to `/(tabs)/discover` if a session exists (no landing flash); the root layout's redirect effect also sends `session && atLanding` → discover/onboarding as a backstop.
 - Sign-out calls `supabase.auth.signOut()` then `resetAll()` to clear store.
+
+### Guest mode (try before signing up)
+
+"Look around first" on the landing page sets `isGuest` in the store (persisted;
+cleared by `resetAll`, so signing out never leaves someone in it). A guest is
+unauthenticated but is treated as admitted by the root layout's redirect, so
+they reach the tabs.
+
+- **Works anonymously**: generate, swap, recipe steps, confirm, shopping list,
+  sharing, images. All of those endpoints already took `get_optional_user_id`;
+  only `/recipes/generate` had to change (it was `require_user_id` purely for
+  its rate-limit key). Locked by `tests/test_guest_endpoints.py`.
+- **Gated** (`components/GuestGate.tsx`): pantry, saved recipes, history. Each
+  screen exports a thin wrapper that renders the gate for guests — **the wrapper
+  is the default export so the real screen's hooks never run for a guest**; do
+  not turn this into an early return inside the screen.
+- **The Pantry gate keeps its cart button.** Shopping is `href: null` and only
+  reachable from the Pantry header, so dropping the cart would strand a guest
+  with a list they built and cannot open. `GuestGate` takes `headerRight` for
+  exactly this.
+- **Profile stays fully usable** — it is local state sent inline with every
+  generate call, so it really does shape suggestions. `handleSave` skips the
+  server round trip for guests, and the sign-out button becomes account CTAs.
+- Any new account-bound write reachable from Today or Shopping needs an
+  `isGuest` guard (see `handleSaveMeal`, `handleDoneShopping`, the shopping
+  auto-save and AppState sync).
+- **Guest → account handoff** (`app/_layout.tsx`): on the first session after
+  guest mode, each store is checked on the server before being touched —
+  **server empty → push the local copy up; server has data → adopt it.** Never
+  push blindly (that overwrites a real account with a throwaway guest session)
+  and never pull blindly (that wipes what convinced them to sign up). `isGuest`
+  clears only after profile, shopping list and pantry all settle, and the
+  redirect effect holds while `migrating` is true so a new account is not
+  bounced through onboarding and straight back out.
 
 ---
 

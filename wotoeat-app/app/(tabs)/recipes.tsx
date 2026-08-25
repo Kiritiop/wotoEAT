@@ -23,6 +23,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { Button } from "@/components/ui/Button";
 import { useAppStore } from "@/store/useAppStore";
+import { GuestGate } from "@/components/GuestGate";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { translateTag, DIFFICULTY_COLORS, translateDifficulty } from "@/constants/filters";
@@ -32,7 +33,7 @@ import { saveRecipeAndRate } from "@/utils/saveAndRate";
 
 type RecipeTab = "saved" | "liked" | "mine" | "history";
 
-export default function RecipesScreen() {
+function RecipesScreen() {
   const { authReady, recipeLabels, addRecipeLabel, removeRecipeLabel, setAllRecipeLabels, language, servings: storeServings } = useAppStore();
   const c = useTheme();
   const { t, strings } = useTranslation();
@@ -1220,4 +1221,25 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     histBanner: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
     histBannerText: { fontSize: 13, fontWeight: "600" },
   });
+}
+
+/**
+ * Guests never mount RecipesScreen — every /recipes route except parse is require_user_id,
+ * so the screen would render a wall of 401s. The gate is the default export so
+ * the inner component's hooks only ever run for a signed-in user.
+ */
+export default function RecipesTab() {
+  const isGuest = useAppStore((s) => s.isGuest);
+  const { t } = useTranslation();
+  if (isGuest) {
+    return (
+      <GuestGate
+        headerTitle={t("tab_my_recipes")}
+        icon="heart"
+        title={t("guest_recipes_title")}
+        body={t("guest_recipes_body")}
+      />
+    );
+  }
+  return <RecipesScreen />;
 }

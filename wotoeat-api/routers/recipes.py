@@ -6,7 +6,7 @@ from ai.sqlite_cache import rate_limit_check
 from utils.scraper import fetch_page_html
 from db import supabase_client as db
 from utils.errors import server_error
-from .auth import require_user_id
+from .auth import get_optional_user_id, require_user_id
 
 router = APIRouter(tags=["recipes"])
 
@@ -46,13 +46,20 @@ async def parse(req: ParseRecipeRequest, request: Request):
 async def generate(
     req: GenerateRecipeRequest,
     request: Request,
-    user_id: str = Depends(require_user_id),
+    user_id: str | None = Depends(get_optional_user_id),
 ):
     """
     POST /recipes/generate  { "dish_name": "Kung Pao Chicken", "language": "en" }
     Asks the AI to generate a full recipe for any named dish.
+
+    Optional auth. This is the "show me the steps" call behind every meal card,
+    so requiring an account here would have made the whole discover flow a dead
+    end for signed-out visitors trying the app. It writes nothing — the user id
+    was only ever the rate-limit key, and an IP works for that, exactly as it
+    does on /meals/generate and /recipes/parse.
     """
-    if not rate_limit_check(f"gen:{user_id}", "recipe-generate", _GENERATE_MAX, _PARSE_WINDOW):
+    limit_key = user_id or (request.client.host if request.client else "anon")
+    if not rate_limit_check(f"gen:{limit_key}", "recipe-generate", _GENERATE_MAX, _PARSE_WINDOW):
         raise HTTPException(status_code=429, detail=f"Rate limit: max {_GENERATE_MAX} recipe generations per hour.")
     try:
         recipe_dict = await generate_recipe_by_name(req.dish_name, req.language, req.servings, req.force_refresh)
