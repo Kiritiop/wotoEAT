@@ -67,8 +67,36 @@ claimed it falls back to the best scorer rather than showing nothing.
 per_page raised 15 -> 30 so an unclaimed alternative usually exists.
 Locked by tests/test_image_distinct.py (8), built from the real payloads.
 
+Second follow-up: 红烧排骨 (braised pork RIBS) was shown a braised pork
+BELLY photo. Scoring counted every query word the same, so `braised` and
+`pork` matched and `ribs`, the only word that makes it that dish, counted
+for no more than either: 0.67, accepted. Same class of miss was live for
+chicken tikka masala, which was being served a photo of chicken biryani.
+Fixed by weighting: cooking method, staple, vessel, broad protein and
+cuisine count 1, anything that actually identifies a dish counts 4. Pork
+belly now scores 0.33 and biryani 0.38, both rejected, while the right
+photo scores 1.0 and outranks the near misses. A query with no
+distinctive word behaves exactly as before.
+Found while fixing it: the narrow-and-retry step scored candidates
+against its own shortened term list, so retrying "braised pork ribs" as
+"braised pork" re-accepted the very photo the first pass rejected. Query
+terms and scoring terms are now separate arguments; a retry broadens what
+we ASK Pexels (now "ribs food", the distinctive words only) and never
+what we ACCEPT.
+Also confirmed: _normalize keeps [a-z0-9], so a Chinese dish name yields
+no tokens at all and returns null. image_query being English is not a
+nicety for zh users, it is their only search signal. The prompt's old
+examples actively taught the model to throw the identifying word away
+("Bibimbap" -> "korean rice bowl vegetables"); it now must keep the cut,
+form or dish name and is forbidden from swapping it for a broader word.
+Locked by tests/test_image_specificity.py (8) and 9 more checks in
+test_image_match.py.
+
 Open follow-ups: Pexels attribution is still not shown (their terms ask
 for it); guests are invisible server-side, so there is no funnel data.
+Stricter matching means more dishes legitimately get no photo. The hero
+is conditional so a blank reads fine, but if too many come back empty the
+lever is _DISTINCT_WEIGHT (4) or _PEXELS_FLOOR (0.5), not the retry.
 
 ════════════════════════════════════════════════════════════════════
 INCIDENT 2026-08-17: Groq decommissioned both models (RESOLVED)

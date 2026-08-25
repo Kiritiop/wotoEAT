@@ -21,7 +21,7 @@ _IMG_TTL_MISS = 6 * 3600
 # Bump when the matching logic changes. The old cache held wrong-but-confident
 # URLs for a week at a time; a new prefix retires them on deploy instead of
 # leaving every user staring at the same bad photo until it expires.
-_CACHE_VERSION = "v3"
+_CACHE_VERSION = "v4"
 
 # This endpoint is unauthenticated and proxies external image APIs that burn
 # our Pexels/Unsplash quota. Cap *novel* lookups per IP (cache hits don't count,
@@ -46,6 +46,43 @@ _FILLER = {
     "favourite", "hearty", "delicious", "tasty", "healthy", "fresh",
     "recipe", "dish", "meal", "serving", "portion", "made",
 }
+
+# Words that are true of thousands of different dishes: how it was cooked, what
+# it is served on or with, and the broad family of protein. They belong in the
+# search query -- dropping them makes it useless -- but they must not be able to
+# outvote the one word that actually identifies the dish.
+#
+# The case that forced this: "braised pork ribs" scored 0.67 against a photo
+# alt-texted "braised pork BELLY with sauce and greens", because `braised` and
+# `pork` matched and `ribs` -- the only word that makes it that dish -- counted
+# for exactly as much as either. The app duly showed pork belly for 红烧排骨.
+_GENERIC = {
+    # how it was cooked
+    "braised", "grilled", "roasted", "roast", "fried", "stir", "steamed",
+    "baked", "seared", "boiled", "sauteed", "smoked", "poached", "glazed",
+    "marinated", "stewed", "simmered", "charred", "crispy", "creamy",
+    # what it is served on / in / with
+    "rice", "noodles", "noodle", "pasta", "bread", "bun", "buns", "potato",
+    "potatoes", "salad", "soup", "stew", "broth", "sauce", "gravy",
+    "vegetables", "vegetable", "veggies", "greens", "bowl", "plate", "platter",
+    "skillet", "pan", "pot", "board", "table",
+    # the broad family, not the cut or the species
+    "meat", "poultry", "seafood", "fish", "pork", "beef", "chicken", "lamb",
+    "protein",
+    # where it is from -- helpful in a query, but it does not name the dish
+    "chinese", "korean", "japanese", "thai", "vietnamese", "indian", "italian",
+    "french", "spanish", "greek", "mexican", "turkish", "asian", "western",
+}
+
+# A word that identifies the dish is worth this many generic ones. Four means a
+# query's defining word cannot be outvoted by three background words, which is
+# exactly the pork-belly case above.
+_DISTINCT_WEIGHT = 4
+
+
+def _weight(word: str) -> int:
+    """How much this word counts toward believing a photo shows the dish."""
+    return 1 if word in _GENERIC else _DISTINCT_WEIGHT
 
 
 def _normalize(text: str) -> str:
@@ -213,30 +250,54 @@ _PEXELS_PER_PAGE = 30
 
 
 def _pexels_score(alt: str, wanted: list[str]) -> float:
-    """Share of the query's content words that appear in the photo's alt text."""
+    """How well a photo's own description matches the query, weighted so the
+    word that identifies the dish carries the decision.
+
+    An unweighted share of matched words lets background terms carry a photo
+    over the line on their own: "braised pork ribs" scored 0.67 against a
+    braised-pork-BELLY photo, because two of its three words were true of both
+    dishes. Weighting makes the missing `ribs` decisive (0.33, rejected) while
+    a real ribs photo scores 1.0 and outranks every near miss.
+
+    A query with no distinctive word (say "thai stir fried noodles") weights
+    everything equally, so this degrades to the old plain fraction.
+    """
     if not alt or not wanted:
         return 0.0
     alt_tokens = set(_tokens(alt))
     if not alt_tokens:
         return 0.0
-    hits = 0
+    matched = 0
+    total = 0
     for word in wanted:
+        weight = _weight(word)
+        total += weight
         # Substring covers singular/plural and compounds ("noodle"/"noodles",
         # "chickpea"/"chickpeas") without dragging in a stemmer.
         if any(word in token or token in word for token in alt_tokens):
-            hits += 1
-    return hits / len(wanted)
+            matched += weight
+    return matched / total if total else 0.0
 
 
-async def _pexels_try(terms: list[str], client: httpx.AsyncClient) -> list[dict]:
-    """One Pexels search, scored. Returns every candidate above the floor."""
-    if not terms:
+async def _pexels_try(
+    query_terms: list[str], score_terms: list[str], client: httpx.AsyncClient
+) -> list[dict]:
+    """One Pexels search, scored. Returns every candidate above the floor.
+
+    The two term lists are deliberately separate. `query_terms` is what we ask
+    Pexels for and may be broadened to surface more candidates; `score_terms` is
+    what a photo has to satisfy and is ALWAYS the dish's full term list.
+    Collapsing them lets a retry re-accept what the first pass just rejected:
+    narrowing "braised pork ribs" to "braised pork" scored the pork-belly photo
+    1.00 on a query that no longer contained the word `ribs`.
+    """
+    if not query_terms or not score_terms:
         return []
     try:
         resp = await client.get(
             "https://api.pexels.com/v1/search",
             params={
-                "query": " ".join(terms) + " food",
+                "query": " ".join(query_terms) + " food",
                 "per_page": _PEXELS_PER_PAGE,
                 "orientation": "landscape",
             },
@@ -253,7 +314,7 @@ async def _pexels_try(terms: list[str], client: httpx.AsyncClient) -> list[dict]
         url = (photo.get("src") or {}).get("large")
         if not url:
             continue
-        score = _pexels_score(photo.get("alt") or "", terms)
+        score = _pexels_score(photo.get("alt") or "", score_terms)
         if score < _PEXELS_FLOOR:
             continue
         out.append({
@@ -265,6 +326,19 @@ async def _pexels_try(terms: list[str], client: httpx.AsyncClient) -> list[dict]
             "shoot": str(photo.get("photographer_id") or ""),
         })
     return out
+
+
+def _broaden(terms: list[str]) -> list[str]:
+    """A second query for when the first surfaced nothing good enough.
+
+    Prefer keeping only the words that identify the dish, so the search stops
+    being crowded out by how it was cooked and what it sits on. If every word is
+    already distinctive (nothing to drop), fall back to the leading pair.
+    """
+    distinctive = [t for t in terms if _weight(t) > 1]
+    if distinctive and distinctive != terms:
+        return distinctive
+    return terms[:2]
 
 
 async def _pexels_image(
@@ -285,11 +359,11 @@ async def _pexels_image(
         terms = _tokens(dish_name, drop_filler=True)
     terms = terms[:4]
 
-    candidates = await _pexels_try(terms, client)
+    candidates = await _pexels_try(terms, terms, client)
     if not candidates and len(terms) > 2:
-        # Nothing cleared the floor. Narrow to the two words that carry the dish
-        # -- a broad "salmon asparagus" photo beats a precise-but-wrong one.
-        candidates = await _pexels_try(terms[:2], client)
+        # Nothing cleared the floor. Ask Pexels a broader question, but judge the
+        # answers by the same full term list -- a wider net, not a lower bar.
+        candidates = await _pexels_try(_broaden(terms), terms, client)
 
     return _choose(dish_key, candidates)
 

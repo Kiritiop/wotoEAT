@@ -24,7 +24,9 @@ from routers.images import (  # noqa: E402
     _mealdb_pick,
     _pexels_score,
     _tokens,
+    _weight,
     _PEXELS_FLOOR,
+    _DISTINCT_WEIGHT,
 )
 
 checks: list[tuple[str, bool]] = []
@@ -132,6 +134,65 @@ check(
     _tokens("Crème Brûlée") == ["creme", "brulee"],
 )
 
+
+# ── The word that names the dish has to carry the decision ──────────────────
+# Reported case: 红烧排骨 (braised pork RIBS) was shown a photo alt-texted
+# "Close-up of braised pork BELLY with sauce and greens on a ceramic plate".
+# Unweighted, that scored 0.67 and was accepted: `braised` and `pork` matched,
+# and `ribs` -- the only word that makes it that dish -- counted for no more
+# than either of them. Both alt strings below are exactly what Pexels serves.
+_RIBS = _tokens("braised pork ribs", drop_filler=True)
+check(
+    "a pork BELLY photo is rejected for a pork RIBS dish",
+    _pexels_score(
+        "Close-up of braised pork belly with sauce and greens on a ceramic plate", _RIBS
+    ) < _PEXELS_FLOOR,
+)
+check(
+    "an actual pork ribs photo still scores top",
+    _pexels_score("braised pork ribs glazed with soy sauce and sesame seeds", _RIBS) == 1.0,
+)
+check(
+    "a rice bowl is rejected when the dish is the ribs, not the staple",
+    _pexels_score(
+        "braised pork over steamed rice with pickled vegetables",
+        _tokens("braised pork ribs rice", drop_filler=True),
+    ) < _PEXELS_FLOOR,
+)
+check(
+    "cooking method, staple and broad protein are all background words",
+    _weight("braised") == 1 and _weight("rice") == 1 and _weight("pork") == 1,
+)
+check(
+    "a cut, a dish name and an ingredient identify a dish",
+    _weight("ribs") == _DISTINCT_WEIGHT
+    and _weight("bulgogi") == _DISTINCT_WEIGHT
+    and _weight("chickpea") == _DISTINCT_WEIGHT,
+)
+check(
+    "a query of only background words degrades to the plain fraction",
+    _pexels_score(
+        "thai stir fried rice noodles with peanuts",
+        _tokens("thai stir fried noodles", drop_filler=True),
+    ) == 1.0,
+)
+check(
+    "weighting never rescues an irrelevant photo",
+    _pexels_score("a cat asleep on a windowsill", _RIBS) == 0.0,
+)
+
+# ── Non-Latin dish names ────────────────────────────────────────────────────
+# The app sends the dish name in the user's language, so a zh user's `q` is
+# "红烧排骨". Nothing tokenizes out of it, which is why image_query is required
+# to be English: it is the ONLY search signal those users have.
+check(
+    "a Chinese dish name yields no search tokens on its own",
+    _tokens("红烧排骨", drop_filler=True) == [],
+)
+check(
+    "the English hint is what actually searches for a zh user",
+    _tokens("braised pork ribs", drop_filler=True) == ["braised", "pork", "ribs"],
+)
 
 failed = [label for label, ok in checks if not ok]
 for label, ok in checks:

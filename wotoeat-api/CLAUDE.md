@@ -33,6 +33,7 @@ venv/bin/python tests/test_meal_prompt.py
 venv/bin/python tests/test_image_match.py
 venv/bin/python tests/test_image_endpoint.py
 venv/bin/python tests/test_image_distinct.py
+venv/bin/python tests/test_image_specificity.py
 venv/bin/python tests/test_guest_endpoints.py
 ```
 
