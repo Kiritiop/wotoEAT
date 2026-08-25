@@ -55,6 +55,18 @@ Caught during that browser pass: gating Pantry orphaned the shopping
 list, because the shopping tab is href:null and only reachable from the
 Pantry header cart. GuestGate now takes a headerRight slot and Pantry
 passes its cart through.
+Follow-up the same day: Beef Bulgogi and Beef Bibimbap came back with
+visually identical heroes. Not a scoring miss - Pexels 5774004 and 5774005
+are consecutive frames of one Luis Becerra shoot whose alt text names
+bibimbap AND bulgogi beef, so both scored ~1.0 for both dishes and each
+dish took its top scorer. Correct photos, wrong pair. Scoring cannot fix
+that, so a chosen photo (and its shoot, via photographer_id) is now
+claimed for its dish in the TTL cache; a later dish skips claimed ones,
+ties break on a stable sha1(dish|photo_id) shuffle, and if everything is
+claimed it falls back to the best scorer rather than showing nothing.
+per_page raised 15 -> 30 so an unclaimed alternative usually exists.
+Locked by tests/test_image_distinct.py (8), built from the real payloads.
+
 Open follow-ups: Pexels attribution is still not shown (their terms ask
 for it); guests are invisible server-side, so there is no funnel data.
 
