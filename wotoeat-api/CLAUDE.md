@@ -37,6 +37,7 @@ venv/bin/python tests/test_image_specificity.py
 venv/bin/python tests/test_image_vision.py
 venv/bin/python tests/test_vision_contract.py
 venv/bin/python tests/test_image_prewarm.py
+venv/bin/python tests/test_imagegen.py
 venv/bin/python tests/test_guest_endpoints.py
 ```
 

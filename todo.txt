@@ -221,6 +221,35 @@ Three things that run exposed:
    brevity instruction and the contradiction guard both cut it. Dials are
    _VISION_CANDIDATES and IMAGE_VISION_CHECK.
 
+Fourth round, on Jerry's report that 红烧排骨 came back as a Sichuan
+chilli-oil braise and that the check added 10-15s of wait:
+- Prewarm. /meals/generate and /meals/swap now start resolving photos for
+  the dishes they just produced, fire-and-forget, so the vetting overlaps
+  with the user reading the card instead of sitting between the tap and
+  the hero. /images/search is normally a cache hit now.
+- The vision check reads the recipe's own description. It was judging
+  against a generic idea of the name, which is how a chilli-oil braise
+  scored 10/10 for a recipe whose text says 色泽红亮，酱香浓郁.
+- Pexels locale. The API indexes contributor keywords per language, so a
+  Chinese dish is now searched in zh-CN, Korean in ko-KR, and so on.
+- Generated images as the LAST rung, using the Gemini key already sitting
+  unused in .env, stored in a public Supabase bucket. Only fires when no
+  real photo survives vetting, because a made-up picture must never
+  displace a photograph of real food.
+Note the coupling: generation only helps when the gate REJECTS
+everything. A photo the gate wrongly accepts is never replaced, so the
+description change is what makes the generation fallback reachable.
+
+Asked about scraping 下厨房: not doing it. Those photos belong to the
+users who uploaded them, 下厨房 holds a licence to display them and cannot
+pass it on, and hot-linking their CDN from a public app is both
+infringement and trivially blockable. It stays a good reference for what
+a dish should LOOK like, which is how it was used here.
+Sources still worth trying, both blocked from the dev sandbox so
+untested: Wikimedia Commons (genuinely free-licensed, real regional
+photos, some need CC BY-SA attribution) and Openverse (aggregates
+Flickr/Commons, keyless API, returned 403 from here).
+
 Open follow-ups: Pexels attribution is still not shown (their terms ask
 for it); guests are invisible server-side, so there is no funnel data.
 Matching is now strict enough that some dishes will legitimately get no

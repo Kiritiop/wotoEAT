@@ -9,6 +9,8 @@ import httpx
 from fastapi import APIRouter, Query, Request
 
 from ai.claude import verify_dish_photo, UNVERIFIED
+from ai import imagegen
+from db import supabase_client as db
 from ai.sqlite_cache import cache_get, cache_set, rate_limit_check
 
 logger = logging.getLogger(__name__)
@@ -27,7 +29,7 @@ _IMG_TTL_MISS = 6 * 3600
 # Bump when the matching logic changes. The old cache held wrong-but-confident
 # URLs for a week at a time; a new prefix retires them on deploy instead of
 # leaving every user staring at the same bad photo until it expires.
-_CACHE_VERSION = "v8"
+_CACHE_VERSION = "v9"
 
 # This endpoint is unauthenticated and proxies external image APIs that burn
 # our Pexels/Unsplash quota. Cap *novel* lookups per IP (cache hits don't count,
@@ -345,8 +347,27 @@ def _pexels_score(alt: str, wanted: list[str]) -> float:
     return matched / total if total else 0.0
 
 
+# Pexels indexes contributor keywords per language, so asking in the dish's own
+# language surfaces photos its own cuisine's photographers tagged. Worth trying
+# for the cuisines whose home cooking a Western stock library covers worst.
+_CUISINE_LOCALE = {
+    "chinese": "zh-CN", "taiwanese": "zh-TW", "cantonese": "zh-CN",
+    "sichuan": "zh-CN", "szechuan": "zh-CN", "japanese": "ja-JP",
+    "korean": "ko-KR", "thai": "th-TH", "vietnamese": "vi-VN",
+    "indonesian": "id-ID", "turkish": "tr-TR", "russian": "ru-RU",
+    "brazilian": "pt-BR", "portuguese": "pt-PT", "spanish": "es-ES",
+    "mexican": "es-MX", "italian": "it-IT", "french": "fr-FR",
+    "german": "de-DE", "polish": "pl-PL",
+}
+
+
+def _locale_for(cuisine: str) -> str:
+    return _CUISINE_LOCALE.get(cuisine.strip().casefold(), "")
+
+
 async def _pexels_try(
-    query_terms: list[str], score_terms: list[str], client: httpx.AsyncClient
+    query_terms: list[str], score_terms: list[str], client: httpx.AsyncClient,
+    locale: str = "",
 ) -> list[dict]:
     """One Pexels search, scored. Returns every candidate above the floor.
 
@@ -366,6 +387,7 @@ async def _pexels_try(
                 "query": " ".join(query_terms) + " food",
                 "per_page": _PEXELS_PER_PAGE,
                 "orientation": "landscape",
+                **({"locale": locale} if locale else {}),
             },
             headers={"Authorization": PEXELS_KEY},
         )
@@ -433,11 +455,11 @@ async def _pexels_image(
         terms = _tokens(dish_name, drop_filler=True)
     terms = terms[:4]
 
-    candidates = await _pexels_try(terms, terms, client)
+    candidates = await _pexels_try(terms, terms, client, _locale_for(cuisine))
     if not candidates and len(terms) > 2:
         # Nothing cleared the floor. Ask Pexels a broader question, but judge the
         # answers by the same full term list -- a wider net, not a lower bar.
-        candidates = await _pexels_try(_broaden(terms), terms, client)
+        candidates = await _pexels_try(_broaden(terms), terms, client, _locale_for(cuisine))
 
     candidates.sort(key=lambda c: -c["score"])  # best text matches get looked at
     candidates = await _vision_filter(
@@ -621,6 +643,30 @@ async def _vision_filter(
 # Endpoint
 # ---------------------------------------------------------------------------
 
+async def _generated_image(
+    dish: str, cuisine: str, desc: str, hint: str, dish_key: str
+) -> str | None:
+    """Make a photo when no real one survived vetting.
+
+    Deliberately last. A generated image is not a photograph of real food, so it
+    must never displace one that is, and it only runs once every real candidate
+    has been rejected. For a Chinese home dish that is common: Pexels is a
+    Western library, and its 红烧排骨 is a Sichuan chilli-oil braise.
+    """
+    if not imagegen.is_available():
+        return None
+    raw = await imagegen.generate_dish_image(dish, cuisine, desc, hint)
+    if raw is None:
+        return None
+    # Deterministic name so regenerating the same dish overwrites rather than
+    # littering the bucket, and so the URL is stable across deploys.
+    name = f"{_CACHE_VERSION}/{hashlib.sha1(dish_key.encode()).hexdigest()[:20]}.jpg"
+    url = db.upload_dish_image(name, raw)
+    if url:
+        logger.info("[images] generated a photo for %r -> %s", dish, url)
+    return url
+
+
 def _cache_key(dish_key: str, hint: str, cuisine: str) -> str:
     return f"img:{_CACHE_VERSION}:{dish_key}|{hint.casefold()}|{cuisine.casefold()}"
 
@@ -675,6 +721,8 @@ async def resolve_dish_image(
                 dish, hint or None, client, dish_key, cuisine, vision_allowed, desc
             )
         )
+    if url is None:
+        url = await _generated_image(dish, cuisine, desc, hint, dish_key)
     cache_set(key, {"url": url}, _IMG_TTL_HIT if url else _IMG_TTL_MISS)
     return url
 

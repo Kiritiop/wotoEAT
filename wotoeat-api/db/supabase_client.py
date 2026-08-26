@@ -298,3 +298,55 @@ def get_share(share_id: str) -> dict | None:
         .execute()
     )
     return result.data[0] if result.data else None
+
+
+# ---------------------------------------------------------------------------
+# Generated dish images
+# ---------------------------------------------------------------------------
+
+# Public bucket for header photos we generated because no stock library had the
+# dish. Public because the app renders them by URL like any other hero image.
+_DISH_IMAGE_BUCKET = os.getenv("DISH_IMAGE_BUCKET", "dish-images")
+_bucket_ready = False
+
+
+def _ensure_dish_bucket(client: Client) -> None:
+    """Create the bucket once per process if it is missing.
+
+    Deploying should not require a manual console step, and 'already exists' is
+    the normal answer, so any error here is swallowed: the upload that follows
+    is what actually reports failure.
+    """
+    global _bucket_ready
+    if _bucket_ready:
+        return
+    try:
+        client.storage.create_bucket(_DISH_IMAGE_BUCKET, options={"public": True})
+    except Exception:
+        pass
+    _bucket_ready = True
+
+
+def upload_dish_image(name: str, data: bytes, content_type: str = "image/jpeg") -> str | None:
+    """Store a generated dish image and return its public URL, or None.
+
+    Generated images are worth keeping: they cost a model call each, and the
+    same dish recurs across users. Storage outlives the TTL cache, which lives
+    in /tmp and is wiped by every deploy.
+    """
+    try:
+        client = get_client()
+        _ensure_dish_bucket(client)
+        bucket = client.storage.from_(_DISH_IMAGE_BUCKET)
+        bucket.upload(
+            path=name,
+            file=data,
+            file_options={"content-type": content_type, "upsert": "true"},
+        )
+        return bucket.get_public_url(name)
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning(
+            "[storage] could not store generated image %r: %s", name, exc
+        )
+        return None
