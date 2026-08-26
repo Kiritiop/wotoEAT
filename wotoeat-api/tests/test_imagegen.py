@@ -149,17 +149,18 @@ check("with generation unavailable the cascade ends at null",
 check("...and no generation was attempted", generated == [])
 images.imagegen.is_available = lambda: True  # type: ignore[assignment]
 
-# ── Pexels locale ──────────────────────────────────────────────────────────
+# ── No locale on the search ────────────────────────────────────────────────
+# Asking Pexels in the dish's own language returns its captions in that language
+# too, and _normalize keeps only [a-z0-9], so they score 0.00 and the entire
+# shortlist is dropped before any vision call. Scoring and the search have to
+# speak the same language.
 POOL[:] = [photo(9, "braised pork ribs")]
 VERDICTS.clear()
 get("Locale Probe CN", hint="braised pork ribs", cuisine="Chinese")
-check("a Chinese dish is searched in the Chinese index",
-      _FakeClient.last_params.get("locale") == "zh-CN", str(_FakeClient.last_params.get("locale")))
-get("Locale Probe KR", hint="bulgogi grilled beef", cuisine="Korean")
-check("Korean maps to ko-KR", _FakeClient.last_params.get("locale") == "ko-KR")
-get("Locale Probe None", hint="braised pork ribs", cuisine="Fusion")
-check("an unmapped cuisine sends no locale at all",
+check("a Chinese dish is still searched in the scoreable index",
       "locale" not in _FakeClient.last_params, str(_FakeClient.last_params.get("locale")))
+get("Locale Probe KR", hint="bulgogi grilled beef", cuisine="Korean")
+check("...and so is a Korean one", "locale" not in _FakeClient.last_params)
 
 # ── The generation prompt itself ───────────────────────────────────────────
 prompt = imagegen.build_prompt("红烧排骨", "Chinese", "色泽红亮，酱香浓郁", "braised pork ribs")

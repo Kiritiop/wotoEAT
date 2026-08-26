@@ -29,7 +29,7 @@ _IMG_TTL_MISS = 6 * 3600
 # Bump when the matching logic changes. The old cache held wrong-but-confident
 # URLs for a week at a time; a new prefix retires them on deploy instead of
 # leaving every user staring at the same bad photo until it expires.
-_CACHE_VERSION = "v9"
+_CACHE_VERSION = "v10"
 
 # This endpoint is unauthenticated and proxies external image APIs that burn
 # our Pexels/Unsplash quota. Cap *novel* lookups per IP (cache hits don't count,
@@ -347,27 +347,15 @@ def _pexels_score(alt: str, wanted: list[str]) -> float:
     return matched / total if total else 0.0
 
 
-# Pexels indexes contributor keywords per language, so asking in the dish's own
-# language surfaces photos its own cuisine's photographers tagged. Worth trying
-# for the cuisines whose home cooking a Western stock library covers worst.
-_CUISINE_LOCALE = {
-    "chinese": "zh-CN", "taiwanese": "zh-TW", "cantonese": "zh-CN",
-    "sichuan": "zh-CN", "szechuan": "zh-CN", "japanese": "ja-JP",
-    "korean": "ko-KR", "thai": "th-TH", "vietnamese": "vi-VN",
-    "indonesian": "id-ID", "turkish": "tr-TR", "russian": "ru-RU",
-    "brazilian": "pt-BR", "portuguese": "pt-PT", "spanish": "es-ES",
-    "mexican": "es-MX", "italian": "it-IT", "french": "fr-FR",
-    "german": "de-DE", "polish": "pl-PL",
-}
-
-
-def _locale_for(cuisine: str) -> str:
-    return _CUISINE_LOCALE.get(cuisine.strip().casefold(), "")
-
-
+# NOT localised, and that is deliberate. Pexels takes a `locale` parameter, and
+# asking in the dish's own language does surface photos its own cuisine's
+# photographers tagged. It also returns their alt text in that language, and
+# _normalize keeps only [a-z0-9], so every caption tokenised to nothing, every
+# candidate scored 0.00, and four dishes went from a shortlist to no image at
+# all without one vision call being made. Scoring and the search have to speak
+# the same language. Revisit only with a way to score a non-Latin caption.
 async def _pexels_try(
-    query_terms: list[str], score_terms: list[str], client: httpx.AsyncClient,
-    locale: str = "",
+    query_terms: list[str], score_terms: list[str], client: httpx.AsyncClient
 ) -> list[dict]:
     """One Pexels search, scored. Returns every candidate above the floor.
 
@@ -387,7 +375,6 @@ async def _pexels_try(
                 "query": " ".join(query_terms) + " food",
                 "per_page": _PEXELS_PER_PAGE,
                 "orientation": "landscape",
-                **({"locale": locale} if locale else {}),
             },
             headers={"Authorization": PEXELS_KEY},
         )
@@ -455,11 +442,11 @@ async def _pexels_image(
         terms = _tokens(dish_name, drop_filler=True)
     terms = terms[:4]
 
-    candidates = await _pexels_try(terms, terms, client, _locale_for(cuisine))
+    candidates = await _pexels_try(terms, terms, client)
     if not candidates and len(terms) > 2:
         # Nothing cleared the floor. Ask Pexels a broader question, but judge the
         # answers by the same full term list -- a wider net, not a lower bar.
-        candidates = await _pexels_try(_broaden(terms), terms, client, _locale_for(cuisine))
+        candidates = await _pexels_try(_broaden(terms), terms, client)
 
     candidates.sort(key=lambda c: -c["score"])  # best text matches get looked at
     candidates = await _vision_filter(

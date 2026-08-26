@@ -73,6 +73,7 @@ class _FakeClient:
         if "pexels" in url:
             q = params["query"]
             queries.append(q)
+            _FakeClient.last_params = dict(params)
             return _Resp({"photos": POOL.get(q, POOL.get("*", []))})
         return _Resp({})
 
@@ -129,6 +130,28 @@ POOL.clear(); POOL["*"] = [BELLY]
 check("a non-Latin dish name with no hint returns null, not a guess",
       get("回锅肉") is None)
 check("...and it never even calls Pexels", queries == [], str(queries))
+
+# ── Scoring and the search have to speak the same language ─────────────────
+# Pexels takes a `locale` parameter, and asking in the dish's own language does
+# surface photos its own cuisine's photographers tagged. It also returns their
+# captions in that language. _normalize keeps only [a-z0-9], so those captions
+# tokenise to nothing, score 0.00, and the whole shortlist is dropped before a
+# single vision call is made: four dishes went from working to "no image" with
+# nothing in the logs but two 200s from Pexels.
+POOL.clear()
+POOL["*"] = [{"id": 90, "photographer_id": 90,
+              "alt": "红烧排骨 家常菜 美食摄影",
+              "src": {"large": "https://images.pexels.com/photos/90/x.jpeg"}}]
+check(
+    "a caption we cannot read scores zero, so it must not be the only candidate",
+    images._pexels_score("红烧排骨 家常菜", images._tokens("braised pork ribs", drop_filler=True)) == 0.0,
+)
+check(
+    "the Pexels query is sent WITHOUT a locale, so captions come back scoreable",
+    get("Locale Guard", hint="braised pork ribs") is None
+    and all("locale" not in q for q in queries),
+    str(queries),
+)
 
 failed = [l for l, ok in checks if not ok]
 print(f"\n{len(checks) - len(failed)}/{len(checks)} passed")

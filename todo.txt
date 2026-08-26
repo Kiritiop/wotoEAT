@@ -230,8 +230,16 @@ chilli-oil braise and that the check added 10-15s of wait:
 - The vision check reads the recipe's own description. It was judging
   against a generic idea of the name, which is how a chilli-oil braise
   scored 10/10 for a recipe whose text says 色泽红亮，酱香浓郁.
-- Pexels locale. The API indexes contributor keywords per language, so a
-  Chinese dish is now searched in zh-CN, Korean in ko-KR, and so on.
+- Pexels locale: tried, broke everything, reverted within the hour. It
+  returns captions in the requested language, _normalize keeps only
+  [a-z0-9], so every caption scored 0.00 and four dishes lost their
+  shortlist entirely before a single vision call. Diagnosed from the fact
+  that Bibimbap also went to zero, and its query names no protein so the
+  contradiction guard could not have been the cause. Do not retry without
+  a way to score a non-Latin caption.
+  The deeper miss: it was an untestable parameter added on a hunch and
+  shipped in the same commit as tested work, so a live run was the only
+  thing that could catch it.
 - Generated images as the LAST rung, using the Gemini key already sitting
   unused in .env, stored in a public Supabase bucket. Only fires when no
   real photo survives vetting, because a made-up picture must never
