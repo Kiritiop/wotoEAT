@@ -111,6 +111,30 @@ Locked by tests/test_image_vision.py (13, model stubbed). The model's
 JUDGMENT is not testable offline: run scripts/check_dish_photo.py with a
 real key to see it working on the dishes that have gone wrong so far.
 
+First live run of the vision gate (scripts/check_dish_photo.py, real key):
+3 of 5 stock lookups were still wrong and the gate approved all three.
+Colombian rib roast for a Chinese red braise, PANEER tikka masala for
+CHICKEN tikka masala, a bibimbap bowl for bulgogi. Every one of those was
+listed in the prompt as a reject condition. The lesson: asking a 27B
+model "would a person accept this photo" with a confidence field gets a
+confident yes every time. A lenient binary is not a filter.
+Rewritten as a discriminative rating. The model describes the photo
+first, then answers same_main_ingredient and same_style as separate
+booleans, then gives a 0-10 fit with explicit anchors. Usable requires
+both booleans and fit >= 6. Fit is now the primary ranking key, so
+candidates compete against each other rather than each being waved
+through alone.
+Same run exposed a second thing: "Red Braised Pork Ribs" and "红烧排骨"
+are the same dish under two names, and the claim system pushed the second
+off the good photo onto a worse one. Distinctness now only breaks ties, a
+dish may reuse a claimed photo when the best free alternative is worse by
+more than _FIT_TOLERANCE (2 bands).
+Also seeded _no_reasoning_effort with qwen: the first image check after
+every deploy was burning three concurrent 400s learning it again.
+STILL UNVERIFIED: whether the rewritten prompt actually rejects those
+three. Re-run scripts/check_dish_photo.py (fresh cache per run now) and
+read the fit lines.
+
 Open follow-ups: Pexels attribution is still not shown (their terms ask
 for it); guests are invisible server-side, so there is no funnel data.
 Matching is now strict enough that some dishes will legitimately get no

@@ -27,7 +27,7 @@ _IMG_TTL_MISS = 6 * 3600
 # Bump when the matching logic changes. The old cache held wrong-but-confident
 # URLs for a week at a time; a new prefix retires them on deploy instead of
 # leaving every user staring at the same bad photo until it expires.
-_CACHE_VERSION = "v5"
+_CACHE_VERSION = "v6"
 
 # This endpoint is unauthenticated and proxies external image APIs that burn
 # our Pexels/Unsplash quota. Cap *novel* lookups per IP (cache hits don't count,
@@ -227,21 +227,51 @@ def _spread(dish_key: str, photo_id: str) -> str:
     return hashlib.sha1(f"{dish_key}|{photo_id}".encode()).hexdigest()
 
 
+# How much better a claimed photo has to be before a dish is allowed to reuse
+# it. On the vision model's 0-10 fit scale, 2 is a whole band: "this dish plated
+# differently" versus "a close regional variant".
+_FIT_TOLERANCE = 2.0
+
+
+def _rank(dish_key: str, candidates: list[dict]) -> list[dict]:
+    """Best first: vision fit, then word overlap, then a stable per-dish shuffle."""
+    return sorted(
+        candidates,
+        key=lambda c: (-c.get("fit", 0.0), -c["score"], _spread(dish_key, c["id"])),
+    )
+
+
 def _choose(dish_key: str, candidates: list[dict]) -> str | None:
-    """Best-scoring candidate that no *other* dish has already claimed."""
+    """Pick a photo, preferring one no other dish has taken.
+
+    Distinctness breaks ties; it does not outrank being the right photo. The
+    first version skipped every claimed candidate outright, and a live run
+    showed what that costs: "Red Braised Pork Ribs" and "红烧排骨" are the same
+    dish under two names, so the second one was pushed off the good photo and
+    onto a worse one purely because the first had claimed it. A dish may now
+    reuse a claimed photo when the best free alternative is materially worse.
+    """
     if not candidates:
         return None
-    ranked = sorted(candidates, key=lambda c: (-c["score"], _spread(dish_key, c["id"])))
+    ranked = _rank(dish_key, candidates)
+    best = ranked[0]
+
     for cand in ranked:
         if _claimed_by("photo", cand["id"]) not in (None, dish_key):
             continue
         if _claimed_by("shoot", cand["shoot"]) not in (None, dish_key):
             continue
+        # Only settle for a free photo if it is nearly as good as the best one.
+        if cand.get("fit", 0.0) < best.get("fit", 0.0) - _FIT_TOLERANCE:
+            break
         _claim("photo", cand["id"], dish_key)
         _claim("shoot", cand["shoot"], dish_key)
         return cand["url"]
-    # Everything is spoken for. A repeat beats a blank hero.
-    return ranked[0]["url"]
+
+    # Everything good is spoken for. Showing the right photo twice beats showing
+    # the wrong one once, so the best candidate wins without taking a claim off
+    # the dish that owns it.
+    return best["url"]
 
 
 # ---------------------------------------------------------------------------
@@ -376,7 +406,7 @@ async def _pexels_image(
         # answers by the same full term list -- a wider net, not a lower bar.
         candidates = await _pexels_try(_broaden(terms), terms, client)
 
-    candidates.sort(key=lambda c: -c["score"])
+    candidates.sort(key=lambda c: -c["score"])  # best text matches get looked at
     candidates = await _vision_filter(
         candidates, dish_name, cuisine, " ".join(terms), client, vision_allowed
     )
@@ -438,7 +468,7 @@ async def _unsplash_image(
             "id": str(photo.get("id") or url),
             "shoot": str(((photo.get("user") or {}).get("id")) or ""),
         })
-    candidates.sort(key=lambda c: -c["score"])
+    candidates.sort(key=lambda c: -c["score"])  # best text matches get looked at
     candidates = await _vision_filter(
         candidates, dish_name, cuisine, " ".join(terms), client, vision_allowed
     )
@@ -491,17 +521,16 @@ async def _fetch_b64(url: str, client: httpx.AsyncClient) -> str | None:
 async def _looks_right(
     cand: dict, dish_name: str, cuisine: str, hint: str, client: httpx.AsyncClient
 ) -> tuple[bool, float]:
-    """(passes, confidence) for one candidate. Unreachable images fail closed
-    only in the sense of being skipped; a failed CHECK passes (see below)."""
+    """(usable, fit) for one candidate."""
     b64 = await _fetch_b64(cand.get("check_url") or cand["url"], client)
     if b64 is None:
         return False, 0.0
-    match, confidence, shows = await verify_dish_photo(dish_name, cuisine, hint, b64)
-    if not match:
-        logger.info(
-            "[images] rejected %s for %r: photo shows %r", cand["id"], dish_name, shows
-        )
-    return match, confidence
+    usable, fit, shows = await verify_dish_photo(dish_name, cuisine, hint, b64)
+    logger.info(
+        "[images] %s %s for %r: fit %.0f/10, photo shows %r",
+        "kept" if usable else "REJECTED", cand["id"], dish_name, fit, shows,
+    )
+    return usable, fit
 
 
 async def _vision_filter(
@@ -527,10 +556,11 @@ async def _vision_filter(
         if isinstance(verdict, BaseException):
             kept.append(cand)  # the check broke, not the photo
             continue
-        passes, confidence = verdict
+        passes, fit = verdict
         if passes:
-            # Break ties on what the model actually saw, not just word overlap.
-            kept.append({**cand, "score": cand["score"] + confidence})
+            # fit becomes the primary ranking key, so candidates compete on how
+            # well they show the dish rather than on word overlap alone.
+            kept.append({**cand, "fit": fit})
     # Deliberately NOT falling through to `tail`. Candidates arrive best-first,
     # so if the three strongest were all rejected the rest are worse, and
     # shipping an unlooked-at photo is how the wrong image got out in the first

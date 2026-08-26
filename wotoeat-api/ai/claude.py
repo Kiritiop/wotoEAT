@@ -58,7 +58,10 @@ _REASONING_EFFORT = os.getenv("GROQ_REASONING_EFFORT", "low").strip()
 # at runtime and remembered per model, so pointing GROQ_TEXT_MODEL at one of
 # them still works — the escape hatch for a decommissioned model must not be
 # blocked by this optimisation.
-_no_reasoning_effort: set[str] = set()
+# Seeded with what we already know rejects it, so the first call after every
+# deploy doesn't burn a 400 (three of them, concurrently, on the first image
+# check) learning it again. Runtime learning below still covers new models.
+_no_reasoning_effort: set[str] = {"qwen/qwen3.6-27b"}
 
 
 # Matches a bare arithmetic expression sitting in a JSON *value* position, e.g.
@@ -353,24 +356,32 @@ async def scan_receipt(image_b64: str, pantry_names: list[str], language: str = 
 # Dish photo verification
 # ---------------------------------------------------------------------------
 
+# The lowest fit worth showing. 6 is "a close regional variant" on the scale in
+# dish_photo_check_prompt; 4 is "right family, clearly not this dish".
+_MIN_FIT = 6.0
+
+
 async def verify_dish_photo(
     dish_name: str, cuisine: str, image_query: str, image_b64: str
 ) -> tuple[bool, float, str]:
-    """Look at a candidate header photo and say whether it shows the dish.
+    """Look at a candidate header photo and rate how well it shows the dish.
 
-    Returns (match, confidence, what_it_shows). On ANY failure it returns
-    (True, 0.0, "unverified"): the caller has already established a decent text
-    match, so a flaky vision call must not strip every recipe of its image. This
-    is a veto on obvious mismatches, not the thing that grants approval.
+    Returns (usable, fit_0_to_10, what_it_shows). A photo is usable only if the
+    model agrees the main ingredient AND the cuisine/cooking style both match and
+    scores it at or above _MIN_FIT. The fit doubles as the ranking key, so
+    candidates compete on how well they show the dish rather than each being
+    waved through on its own.
 
-    Kept small on purpose (300 tokens): the reply is one short JSON object, and
-    the vision model bills reasoning as completion tokens.
+    On ANY failure it returns (True, 0.0, "unverified"): the caller has already
+    established a decent text match, and a flaky vision call must not strip every
+    recipe of its image. This is a veto on mismatches, never the thing that
+    grants approval.
     """
     try:
         text = await _generate_vision(
             dish_photo_check_prompt(dish_name, cuisine, image_query),
             image_b64,
-            max_tokens=300,
+            max_tokens=400,
         )
         result = json.loads(_clean_json(text))
     except Exception as exc:
@@ -380,14 +391,16 @@ async def verify_dish_photo(
     if not isinstance(result, dict):
         return True, 0.0, "unverified"
     try:
-        confidence = float(result.get("confidence", 0.0))
+        fit = float(result.get("fit", 0))
     except (TypeError, ValueError):
-        confidence = 0.0
-    return (
-        bool(result.get("match", True)),
-        max(0.0, min(1.0, confidence)),
-        str(result.get("shows", ""))[:80],
+        fit = 0.0
+    fit = max(0.0, min(10.0, fit))
+    usable = (
+        bool(result.get("same_main_ingredient", False))
+        and bool(result.get("same_style", False))
+        and fit >= _MIN_FIT
     )
+    return usable, fit, str(result.get("shows", ""))[:80]
 
 
 GroqTransientError = (RateLimitError, APIConnectionError, APIStatusError)

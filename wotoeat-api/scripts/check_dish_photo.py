@@ -24,6 +24,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from dotenv import load_dotenv  # noqa: E402
 load_dotenv()
 
+# A fresh cache per run, before routers.images is imported. Otherwise the second
+# run answers from the first one's cache and never calls the vision model, and
+# the photo claims from the first run push dishes onto their second choice.
+import tempfile  # noqa: E402
+os.environ["CACHE_DB"] = tempfile.mktemp(suffix=".db")
+
 # The router logs every rejection at INFO with what the photo actually showed.
 logging.basicConfig(level=logging.INFO, format="    %(message)s")
 
@@ -62,11 +68,13 @@ async def main() -> None:
             print(f"{key} is not set; this script needs it.")
             raise SystemExit(1)
     cases = [tuple(sys.argv[1:4])] if len(sys.argv) >= 4 else CASES
-    # Fresh cache, or every answer comes back instantly from the last run.
-    os.environ.setdefault("CACHE_DB", "/tmp/wotoeat_photo_check.db")
     for dish, cuisine, hint in cases:
         await one(dish, cuisine, hint)
-    print("\nOpen the URLs and see whether each one is actually that dish.")
+    print(
+        "\nEach 'kept'/'REJECTED' line above is the vision model's own verdict:\n"
+        "its fit out of 10 and what it says the photo shows. Open the URLs and\n"
+        "check it was telling the truth."
+    )
 
 
 if __name__ == "__main__":

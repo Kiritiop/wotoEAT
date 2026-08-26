@@ -400,45 +400,56 @@ SEMANTIC PANTRY MATCHING (critical — read carefully):
 
 
 def dish_photo_check_prompt(dish_name: str, cuisine: str, image_query: str) -> str:
-    """Ask a vision model whether a candidate photo actually shows the dish.
+    """Ask a vision model how well a candidate photo represents the dish.
 
-    Text matching on a stock library's alt text has a hard ceiling. "Red Braised
-    Pork Ribs" and a photo of ribs on an American barbecue share the words that
-    matter (`pork`, `ribs`) and differ only by cooking method, which is true of
-    thousands of dishes and so cannot be weighted heavily without rejecting
-    everything. The only reliable way to tell a Chinese red braise from a rack of
-    BBQ ribs is to look at it, so this is the last gate before a photo ships.
+    Deliberately NOT a yes/no question. The first version of this asked "would a
+    person accept this photo", and a 27B model said yes to everything: a
+    Colombian rib roast for a Chinese red braise, PANEER tikka masala for
+    CHICKEN tikka masala, a bibimbap bowl for bulgogi. All three were listed in
+    that prompt as reject conditions. A lenient binary with a confidence field
+    just produces a confident yes.
 
-    Deliberately strict about the three things stock photos get wrong: cuisine,
-    cooking method, and the cut or form of the main ingredient.
+    So it now has to describe the photo before judging it, answer the two
+    discriminating questions separately, and give a comparative 0-10 fit that
+    ranks candidates against each other instead of rubber-stamping each one
+    alone.
     """
     cuisine_line = f"Cuisine: {cuisine}\n" if cuisine else ""
-    query_line = f"In plain terms it looks like: {image_query}\n" if image_query else ""
-    return f"""You are checking whether a stock photo can be used as the header image for a recipe.
+    query_line = f"Expected to look like: {image_query}\n" if image_query else ""
+    return f"""Rate how well this photo represents a specific dish. Be strict. Most stock
+photos are of a DIFFERENT dish that merely shares a word with this one, and
+serving one of those under the recipe is worse than serving no photo at all.
 
 Dish: {dish_name}
 {cuisine_line}{query_line}
-Look at the image and decide whether a person who cooks this dish would accept
-this photo as a picture of it.
+Work in this order.
 
-Reject the photo if ANY of these is true:
-- It shows a different cooking method (grilled or barbecued when the dish is
-  braised or stewed, raw when the dish is cooked, deep-fried when it is steamed).
-- It shows a different cuisine's version of the dish (an American barbecue rack
-  for a Chinese red-braised dish, a Japanese katsu curry for an Indian curry).
-- The main ingredient is a different cut, species or form (belly instead of ribs,
-  beef instead of pork, a rice bowl when the dish is the meat itself).
-- It is not a photograph of prepared food at all (raw ingredients on their own, a
-  restaurant interior, a person, a menu, packaging, a garden).
-- The dish is only incidental: it is small, blurred, or in the background.
+1. Describe what is actually in the photo. Name the main ingredient you can see
+   and how it was cooked. Do not read the dish name back to me.
 
-Accept the photo if it plausibly shows this dish, or a very close regional
-variant of it, as the clear subject. Presentation, garnish and crockery may
-differ. Do not reject it for being a stock photo, or for the plating being
-different from how you would serve it.
+2. same_main_ingredient: is the main thing in the photo the same ingredient the
+   dish is made of? A different protein or a substitute is false. Chicken is not
+   paneer, beef is not pork, pork belly is not pork ribs, prawns are not fish.
+   If the dish is the meat itself and the photo is a rice or noodle bowl, false.
+
+3. same_style: is it the same cuisine AND the same cooking method? A Chinese
+   red braise is dark, glossy and saucy; Colombian or American roasted and
+   grilled ribs are not it. Japanese katsu curry is not Indian curry. Grilled is
+   not braised, raw is not cooked, deep-fried is not steamed.
+
+4. fit, 0 to 10:
+   10  unmistakably this dish
+   8   this dish, plated differently than usual
+   6   a close regional variant
+   4   the right family, clearly not this dish
+   2   shares one ingredient and nothing else
+   0   not this dish, or not prepared food at all
+
+Presentation, garnish and crockery may differ freely; do not lower the fit for
+those. Do lower it if the dish is small, blurred, or in the background.
 
 Respond with ONLY valid JSON, no markdown:
-{{"match": true or false, "confidence": 0.0 to 1.0, "shows": "at most 8 words describing what the photo actually shows"}}"""
+{{"shows": "what you see, at most 10 words", "same_main_ingredient": true or false, "same_style": true or false, "fit": 0}}"""
 
 
 def receipt_transcribe_prompt() -> str:

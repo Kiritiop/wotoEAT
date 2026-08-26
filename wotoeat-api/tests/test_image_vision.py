@@ -38,7 +38,7 @@ client = TestClient(app)
 
 checks: list[tuple[str, bool]] = []
 seen: list[str] = []          # dish names the vision model was asked about
-VERDICTS: dict[str, tuple] = {}   # photo id -> (match, confidence, shows)
+VERDICTS: dict[str, tuple] = {}   # photo id -> (usable, fit 0-10, shows)
 
 
 def check(label: str, cond: bool, detail: str = "") -> None:
@@ -87,7 +87,7 @@ async def _fake_verify(dish_name, cuisine, image_query, image_b64):
     for pid, verdict in VERDICTS.items():
         if f"/{pid}/" in raw:
             return verdict
-    return True, 0.5, "unspecified"
+    return True, 7.0, "unspecified"
 
 
 images.httpx.AsyncClient = _FakeClient          # type: ignore[assignment]
@@ -106,33 +106,57 @@ def get(q, hint=None, cuisine=None):
 
 # ── 1. The reported case: text says yes, the picture says no ────────────────
 POOL[:] = [BBQ]
-VERDICTS.clear(); VERDICTS["1"] = (False, 0.9, "barbecue ribs on a grill")
+VERDICTS.clear(); VERDICTS["1"] = (False, 9.0, "barbecue ribs on a grill")
 url = get("Red Braised Pork Ribs", hint="braised pork ribs", cuisine="Chinese")
 check("a barbecue photo is vetoed for a Chinese red-braised dish", url is None, str(url))
 check("the vision check actually ran", seen == ["Red Braised Pork Ribs"], str(seen))
 
 # ── 2. It picks the right one when both are on offer ────────────────────────
 POOL[:] = [BBQ, BRAISE]
-VERDICTS.clear(); VERDICTS["1"] = (False, 0.9, "barbecue ribs"); VERDICTS["2"] = (True, 0.95, "red braised ribs")
+VERDICTS.clear(); VERDICTS["1"] = (False, 9.0, "barbecue ribs"); VERDICTS["2"] = (True, 9.5, "red braised ribs")
 url = get("Red Braised Pork Ribs v2", hint="braised pork ribs", cuisine="Chinese")
 check("the braised photo is served instead", url == BRAISE["src"]["large"], str(url))
 
-# ── 3. Confidence outranks word overlap ─────────────────────────────────────
-# Give the BBQ photo the better TEXT score, and let the model disagree.
+# ── 3. Fit outranks word overlap ────────────────────────────────────────────
+# Give the BBQ photo the better TEXT score, and let the model rate it lower.
 POOL[:] = [photo(3, "braised pork ribs barbecue"), photo(4, "pork ribs", shoot=4)]
-VERDICTS.clear(); VERDICTS["3"] = (True, 0.10, "barbecue, maybe"); VERDICTS["4"] = (True, 0.99, "red braised ribs")
+VERDICTS.clear(); VERDICTS["3"] = (True, 6.5, "barbecue, maybe"); VERDICTS["4"] = (True, 10.0, "red braised ribs")
 url = get("Red Braised Pork Ribs v3", hint="braised pork ribs", cuisine="Chinese")
-check("a confidently-right photo beats a better word match",
+check("a better-fitting photo beats a better word match",
       url == "https://img/4/large.jpg", str(url))
 
 # ── 4. Every candidate rejected means no hero, not the next unchecked one ───
 POOL[:] = [photo(i, "braised pork ribs") for i in range(10, 20)]
 VERDICTS.clear()
-for i in range(10, 20): VERDICTS[str(i)] = (False, 0.9, "something else")
+for i in range(10, 20): VERDICTS[str(i)] = (False, 9.0, "something else")
 url = get("Red Braised Pork Ribs v4", hint="braised pork ribs", cuisine="Chinese")
 check("all rejected -> no image, never an unlooked-at fallback", url is None, str(url))
 check("only the shortlist is checked, not all 10",
       len(seen) == images._VISION_CANDIDATES, f"{len(seen)} checks")
+
+# ── 4b. A mediocre fit is rejected even when both booleans are true ─────────
+POOL[:] = [photo(50, "braised pork ribs", shoot=50)]
+VERDICTS.clear(); VERDICTS["50"] = (False, 4.0, "right family, wrong dish")
+check("a 'right family, clearly not this dish' rating is not served",
+      get("Red Braised Pork Ribs v4b", hint="braised pork ribs", cuisine="Chinese") is None)
+
+# ── 4c. Distinctness breaks ties; it does not override relevance ────────────
+# The live run showed the cost of the old behaviour: "Red Braised Pork Ribs" and
+# "红烧排骨" are the same dish under two names, and the second was pushed off the
+# good photo onto a worse one purely because the first had claimed it.
+POOL[:] = [photo(60, "braised pork ribs", shoot=60), photo(61, "braised pork ribs", shoot=61)]
+VERDICTS.clear(); VERDICTS["60"] = (True, 10.0, "red braised ribs"); VERDICTS["61"] = (True, 6.0, "some ribs")
+first = get("Hongshao Paigu", hint="braised pork ribs", cuisine="Chinese")
+second = get("红烧排骨 same dish", hint="braised pork ribs", cuisine="Chinese")
+check("a clearly better photo is reused rather than surrendered to a claim",
+      first == second == "https://img/60/large.jpg", f"{first} vs {second}")
+
+# When the alternative is nearly as good, dedupe wins and they diverge.
+POOL[:] = [photo(70, "braised pork ribs", shoot=70), photo(71, "braised pork ribs", shoot=71)]
+VERDICTS.clear(); VERDICTS["70"] = (True, 9.0, "ribs a"); VERDICTS["71"] = (True, 9.0, "ribs b")
+a = get("Ribs Dish A", hint="braised pork ribs", cuisine="Chinese")
+b = get("Ribs Dish B", hint="braised pork ribs", cuisine="Chinese")
+check("two dishes with equally good options still get different photos", a != b, f"{a} vs {b}")
 
 # ── 5. The check failing must not cost every dish its image ─────────────────
 async def _broken_verify(*a, **k):
@@ -154,7 +178,7 @@ check("...and no vision call was spent on it", seen == [], str(seen))
 # ── 7. The gate can be switched off without breaking the endpoint ──────────
 images._VISION_CHECK = False
 POOL[:] = [BBQ]
-VERDICTS.clear(); VERDICTS["1"] = (False, 0.9, "barbecue ribs")
+VERDICTS.clear(); VERDICTS["1"] = (False, 9.0, "barbecue ribs")
 url = get("Red Braised Pork Ribs v7", hint="braised pork ribs", cuisine="Chinese")
 check("IMAGE_VISION_CHECK=0 degrades to text-only matching",
       url == BBQ["src"]["large"] and seen == [], str(url))
@@ -162,7 +186,7 @@ images._VISION_CHECK = True
 
 # ── 8. Cache keys and small variants ───────────────────────────────────────
 POOL[:] = [BRAISE]
-VERDICTS.clear(); VERDICTS["2"] = (True, 0.9, "red braised ribs")
+VERDICTS.clear(); VERDICTS["2"] = (True, 9.0, "red braised ribs")
 first = get("Cache Probe", hint="braised pork ribs", cuisine="Chinese")
 seen.clear()
 again = get("Cache Probe", hint="braised pork ribs", cuisine="Chinese")
