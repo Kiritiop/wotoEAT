@@ -20,7 +20,6 @@ from ai.prompts import (
     generate_recipe_prompt,
     receipt_transcribe_prompt,
     receipt_normalize_prompt,
-    dish_photo_check_prompt,
 )
 
 load_dotenv()
@@ -352,97 +351,4 @@ async def scan_receipt(image_b64: str, pantry_names: list[str], language: str = 
 
 
 # Exception types routers should catch for transient AI failures.
-# ---------------------------------------------------------------------------
-# Dish photo verification
-# ---------------------------------------------------------------------------
-
-# The lowest fit worth showing. 6 is "a close regional variant" on the scale in
-# dish_photo_check_prompt; 4 is "right family, clearly not this dish".
-_MIN_FIT = 6.0
-
-# Returned as `shows` when the check could not be completed, so callers can tell
-# "the model said this is fine" apart from "the model never answered".
-_UNVERIFIED = "unverified"
-UNVERIFIED = _UNVERIFIED  # public alias for routers that must detect it
-
-# The vision model reasons before it answers, and Groq bills that reasoning as
-# completion tokens. This was 400, which is roughly the size of the <think>
-# block alone: every reply truncated before reaching its JSON, so every parse
-# failed and every photo was kept unverified.
-#
-# 4000 was still not enough. Live replies run 1.8k to 13.7k characters, because
-# the model second-guesses itself hardest on exactly the ambiguous photos the
-# check exists for ("Wait, let me re-evaluate the meat..."), and one of those
-# truncated again. The reply itself is ~40 tokens; everything else here is
-# headroom for thinking, and an unused cap costs nothing since billing is on
-# tokens generated.
-_VISION_CHECK_MAX_TOKENS = 8000
-
-
-async def verify_dish_photo(
-    dish_name: str, cuisine: str, image_query: str, image_b64: str,
-    description: str = "",
-) -> tuple[bool, float, str]:
-    """Look at a candidate header photo and rate how well it shows the dish.
-
-    Returns (usable, fit_0_to_10, what_it_shows). A photo is usable only if the
-    model agrees the main ingredient AND the cuisine/cooking style both match and
-    scores it at or above _MIN_FIT. The fit doubles as the ranking key, so
-    candidates compete on how well they show the dish rather than each being
-    waved through on its own.
-
-    On failure it returns (True, 0.0, _UNVERIFIED): the caller has already
-    established a decent text match, and a flaky vision call must not strip every
-    recipe of its image. This is a veto on mismatches, never the thing that
-    grants approval.
-
-    That fallback is deliberately LOUD. It was silent once, and the whole gate
-    ran as a no-op for two full releases while looking like it was working: the
-    vision model is a reasoning model whose <think> block ate the entire token
-    budget, every reply truncated before its JSON, every parse failed, and every
-    photo sailed through "approved". A check that cannot fail visibly is not a
-    check. Anything unexpected here is logged at WARNING with the raw reply.
-    """
-    text = ""
-    try:
-        text = await _generate_vision(
-            dish_photo_check_prompt(dish_name, cuisine, image_query, description),
-            image_b64,
-            max_tokens=_VISION_CHECK_MAX_TOKENS,
-        )
-        if not text:
-            raise ValueError("empty reply (no message content)")
-        if "<think>" in text and "</think>" not in text:
-            raise ValueError(
-                f"reply truncated inside the reasoning block; "
-                f"raise _VISION_CHECK_MAX_TOKENS (now {_VISION_CHECK_MAX_TOKENS})"
-            )
-        result = json.loads(_clean_json(text))
-    except Exception as exc:
-        logger.warning(
-            "[ai] dish photo check FAILED for %r (%s); the photo is being kept on "
-            "its text match alone. Raw reply: %r",
-            dish_name, exc, (text or "")[:300],
-        )
-        return True, 0.0, _UNVERIFIED
-
-    if not isinstance(result, dict):
-        logger.warning(
-            "[ai] dish photo check for %r returned %s, not an object: %r",
-            dish_name, type(result).__name__, text[:300],
-        )
-        return True, 0.0, _UNVERIFIED
-    try:
-        fit = float(result.get("fit", 0))
-    except (TypeError, ValueError):
-        fit = 0.0
-    fit = max(0.0, min(10.0, fit))
-    usable = (
-        bool(result.get("same_main_ingredient", False))
-        and bool(result.get("same_style", False))
-        and fit >= _MIN_FIT
-    )
-    return usable, fit, str(result.get("shows", ""))[:80]
-
-
 GroqTransientError = (RateLimitError, APIConnectionError, APIStatusError)

@@ -327,6 +327,20 @@ def _ensure_dish_bucket(client: Client) -> None:
     _bucket_ready = True
 
 
+def public_dish_image_url(name: str) -> str | None:
+    """The public URL an uploaded image would have, without uploading anything.
+
+    Lets the caller check whether a dish was already generated on some earlier
+    deploy. The TTL cache lives in /tmp and every deploy wipes it; the bucket
+    does not, and regenerating an image we already own is the one avoidable
+    cost in this path.
+    """
+    try:
+        return get_client().storage.from_(_DISH_IMAGE_BUCKET).get_public_url(name)
+    except Exception:
+        return None
+
+
 def upload_dish_image(name: str, data: bytes, content_type: str = "image/jpeg") -> str | None:
     """Store a generated dish image and return its public URL, or None.
 

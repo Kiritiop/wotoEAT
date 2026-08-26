@@ -54,8 +54,10 @@ open ends of the product loop):
   for reference; zero code references.
 - The landing logo PNG has a baked-in cream background; a transparent export
   would be the ideal polish.
-- Pexels attribution is not shown anywhere. Their API terms ask for it; worth
-  adding under the hero image before the app is promoted publicly.
+- Generated header images have no visible marker. Every dish TheMealDB does not
+  have gets one, and a user cannot tell which is which. Worth deciding before
+  the app is promoted publicly, given the app's own claim to be about real
+  cooking.
 - Guests are device-local by design: their meals, list and profile live only in
   AsyncStorage until they create an account. Nothing on the server knows they
   exist, so there is no funnel data on how many try it.
@@ -178,7 +180,9 @@ vars the code reads via `os.getenv`). Note: `wotoeat-api/.gitignore` needs the
 | `SUPABASE_JWT_SECRET` | **Required for legacy (HS256) Supabase projects** — the shared JWT secret used to verify user access tokens in `routers/auth.py`. Not needed for projects using asymmetric (ES256/RS256) signing keys (those verify against the JWKS at `{SUPABASE_URL}/auth/v1/.well-known/jwks.json`). If a project is on HS256 and this is unset, all authenticated requests return 401 (fail-closed). |
 | `ALLOWED_ORIGINS` | CORS origins, comma-separated |
 | `CACHE_TTL_SECONDS` | AI response cache TTL (default 3600) |
-| `PEXELS_API_KEY` | Pexels image search API key (image-cascade fallback; set in Railway) |
+| `GEMINI_API_KEY` | Generates the header photo for any dish TheMealDB does not have. **Must be set in Railway**, or those dishes silently get no image |
+| `IMAGE_GENERATION` | `0` keeps the key but stops generating |
+| `DISH_IMAGE_BUCKET` | Public Supabase Storage bucket for generated images (default `dish-images`, created on first use) |
 | `UNSPLASH_ACCESS_KEY` | Unsplash access key (optional last-resort image fallback) |
 | `GROQ_VISION_MODEL` | Optional override of the receipt-scan vision model (default `qwen/qwen3.6-27b`; swap here if Groq deprecates it). **Leave unset unless deliberately pinning**: a stale pin at a removed model 503s every AI call |
 | `GROQ_TEXT_MODEL` | Optional override of the main text model (default `openai/gpt-oss-120b`) — powers all meal/recipe/shopping generation; swap here if Groq deprecates it. **Leave unset unless deliberately pinning** (same reason as above) |
@@ -494,49 +498,81 @@ Closes the input side of the pantry loop: photograph a grocery receipt → AI ex
 
 ## Image Search
 
-Hero photos are **searched, not generated**. Nothing in this stack makes an image;
-`/images/search` matches a dish name to an existing photo.
+Header photos come from **two sources, both correct by construction**:
+**TheMealDB** (a real photograph of that exact recipe, matched by verified name)
+and, for everything else, an **image generated from the recipe's own
+description**. `routers/images.py` is the whole cascade.
 
-- `services/imageSearch.ts` → `GET /images/search?q=<meal name>&hint=<image_query>`.
-- Backend runs a **food-specific cascade** (`routers/images.py`): **TheMealDB** (real photographed dish when the name genuinely matches — free, no key) → **Pexels** (scored stock search; needs `PEXELS_API_KEY`) → **Unsplash** (optional, needs `UNSPLASH_ACCESS_KEY`). Returns `{url}` or `{url: null}`.
-- **Every candidate is verified before it is returned.** This is the whole point of the module, and it was the bug: the old code took TheMealDB's `meals[0]` on faith, but `search.php?s=` is a substring LIKE over meal titles — verified live, `s=Beef Stew` returns only "Lemongrass beef stew with noodles" and `s=Chicken Curry` returns "Katsu Chicken curry" first. Pexels had the same shape of bug (`per_page=1`, used unconditionally). Users saw unrelated photos on most cards.
-  - **MealDB rule**: every content word in the MealDB title must also appear in our dish name. Extra words in OUR name are fine ("Classic Beef Bourguignon" still matches "Beef Bourguignon"); extra words in THEIRS are not — those are what make it a different dish. An exact normalized match wins outright; a one-word title only ever matches exactly (so "Fish" can't swallow "Fish Tacos").
-  - **Pexels rule**: request `per_page=15`, score each photo's own `alt` text against the query's content words, and require `_PEXELS_FLOOR` (0.5). If nothing clears it, retry narrowed to the two leading words, then give up. **Returning `{url: null}` (→ placeholder) is always preferred over a confidently wrong image** — same principle that got Wikipedia removed earlier.
-- **Correct and distinct are different problems.** Scoring stops a wrong photo; it does not stop two dishes getting the *same* photo. Real case: Pexels 5774004 and 5774005 are consecutive frames of one Luis Becerra shoot, alt-texted "Korean bibimbap topped with marinated bulgogi beef" and "Authentic Korean Bibimbap ... and beef". Both score ~1.0 for **both** "Beef Bulgogi" and "Beef Bibimbap" — correctly, since bulgogi is a standard bibimbap topping — so taking the top scorer per dish handed one meal stream two near-identical heroes. Neither photo was wrong; the pair was.
-  - A chosen photo is **claimed** for its dish in the TTL cache (`imgclaim:<version>:photo|shoot:<id>`). A later dish skips photos, and whole shoots (keyed on `photographer_id`), already claimed by a different dish. Ties are broken by a stable `sha1(dish|photo_id)` shuffle, so equally-scored photos rank differently per dish instead of colliding.
-  - If every candidate is claimed it **falls back to the best scorer without claiming** — a repeated photo beats a blank hero, and the fallback must not steal a claim from the dish that owns it.
-  - Claims are per-server and reset with the cache (`/tmp` on Railway), so which of two adjacent dishes wins a shoot is stable within a deploy, not across deploys. That is fine: both are correct matches.
-  - `per_page` is 30 (was 15) so the pool is deep enough to actually find an unclaimed alternative.
-- **The word that names the dish carries the decision.** Matching is weighted, not a plain share of words: anything in `_GENERIC` (how it was cooked, what it sits on or with, the broad protein family, the cuisine) counts 1, everything else counts `_DISTINCT_WEIGHT` (4). Unweighted, "braised pork ribs" scored 0.67 against a photo alt-texted "braised pork **belly** with sauce and greens" and the app showed pork belly for 红烧排骨; live production likewise served a **biryani** photo for chicken tikka masala. Weighted those are 0.33 and 0.38, both rejected, while the correct photo scores 1.0 and outranks every near miss. A query with no distinctive word ("thai stir fried noodles") weights everything equally and behaves exactly as before.
-- **A retry may broaden the query, never the acceptance test.** `_pexels_try` takes `query_terms` and `score_terms` separately for this reason. When the first pass finds nothing, `_broaden` re-queries on the distinctive words alone (`braised pork ribs` → `ribs food`) but still scores against the **full** term list. Scoring a retry against its own narrowed list re-accepted the exact pork-belly photo the first pass had just rejected, the fix defeating itself.
-- **Non-Latin dish names have no tokens.** `_normalize` keeps `[a-z0-9]`, so a zh user's `q` ("红烧排骨") yields nothing and `{url: null}` is returned rather than a guess. `image_query` is therefore **required to be English** and is the only search signal those users have. A meal generated before `image_query` existed gets no hero; the stream resets daily, so it self-heals.
-- **A vision model looks at the photo before it ships.** Word matching has a ceiling and "Red Braised Pork Ribs" is where it stops: a photo of ribs on an American barbecue shares every word that matters (`pork`, `ribs`) and differs only by cooking method, which is true of thousands of dishes and so cannot be weighted heavily without rejecting everything. It scores 0.83 and ships. Alt text is one line written by whoever uploaded the photo; no tuning turns it into a description of what the picture looks like.
-  - Text scoring decides **which** candidates are worth checking; `verify_dish_photo` (`ai/claude.py`, prompt in `dish_photo_check_prompt`) decides **which one ships**.
-  - **It is not a yes/no question, and that matters.** The first version asked "would a person accept this photo" with a confidence field, and a live run showed a 27B model saying yes to everything: Colombian rib roast for a Chinese red braise, **paneer** tikka masala for **chicken** tikka masala, a bibimbap bowl for bulgogi. All three were listed in that prompt as reject conditions. A lenient binary just produces a confident yes. The model now has to describe the photo first, answer `same_main_ingredient` and `same_style` separately, and give a comparative **0-10 fit**. A photo is usable only if both booleans hold and fit >= `_MIN_FIT` (6, "a close regional variant"), and fit is the primary ranking key so candidates compete instead of each being waved through alone.
-  - The top `_VISION_CANDIDATES` (3) are checked **concurrently**, so it costs one round-trip of latency but three vision calls. Only on a cache miss. `_VISION_MAX` (60/hr/IP) is a separate budget on top of the lookup cap; exhausting it degrades to text-only rather than failing the request.
-  - **Distinctness breaks ties; it does not outrank being the right photo.** `_choose` used to skip every claimed candidate outright, and the same live run showed the cost: "Red Braised Pork Ribs" and "红烧排骨" are the same dish under two names, so the second was pushed off the good photo onto a worse one purely because the first had claimed it. A dish may now reuse a claimed photo when the best free alternative is worse by more than `_FIT_TOLERANCE` (2, a whole band on the fit scale).
-  - **The fail-open path must be loud.** It was silent once and the whole gate ran as a no-op for two releases while its logs said `kept`: the vision model reasons before answering, Groq bills that as completion tokens, and `max_tokens` was 400 (about the size of the `<think>` block alone). Every reply truncated before its JSON, every parse raised, and every photo was "approved". `_VISION_CHECK_MAX_TOKENS` is now 4000, truncation is detected by name, and any failure logs at WARNING with the raw reply. `verify_dish_photo` returns `shows == UNVERIFIED` so a caller can tell "the model said fine" from "the model never answered". **A check that cannot fail visibly is not a check**, which `tests/test_vision_contract.py` pins.
-  - **Two signals, not one.** Before a photo reaches the vision model, `_contradicts` drops any whose own caption names a **different main ingredient** (`_MAIN_INGREDIENTS`): lamb chops are not pork ribs, paneer tikka masala is not chicken tikka masala. It fires only when both the dish query and the caption name a protein, so a caption naming none is left to the model. This is the cheap half of the check and it also saves a vision call. It exists because Pexels 30858420 is titled "paneer tikka masala" while the model read it as chicken and rated it 10/10; when the caption and the pixels disagree about the protein, spend the shortlist on a photo where they agree.
-  - **The budget has to fit the reasoning, not the answer.** Live replies run 1.8k to 13.7k characters, because the model second-guesses itself hardest on exactly the ambiguous photos the check exists for. 400 truncated everything; 4000 still truncated one; it is 8000 now, and the prompt tells it to reach a verdict without re-examining. The answer itself is ~40 tokens. Billing is on tokens generated, so an unused cap is free.
-  - It is a **veto, never an approval**. A broken or unreachable model returns `(True, 0.0, "unverified")` and the text-matched choice stands, because a flaky vision call must not strip every recipe of its image. `IMAGE_VISION_CHECK=0` disables it entirely.
-  - If all three are rejected the endpoint returns `{url: null}` and **does not fall through to unchecked candidates**: they rank lower, so they are worse, and shipping an unlooked-at photo is how the wrong image got out to begin with.
-  - A verified TheMealDB name match **skips the gate**: it is a photograph of that exact recipe, which is stronger evidence than a vision model's opinion of a stock photo.
-  - The check downloads a small variant (`src.medium`), not the one displayed, to keep image tokens down. The endpoint takes `cuisine` for this reason alone.
-  - Judgment is only testable against a live model: `scripts/check_dish_photo.py` runs the real pipeline over the dishes that have gone wrong so far. `tests/test_image_vision.py` stubs the model and pins the wiring.
-- **Generation prewarms its own dishes.** Vetting a photo measured 10-15 seconds, and on the old flow that whole wait sat between the tap and anything appearing, because the lookup only started on modal-open. `/meals/generate` and `/meals/swap` now call `prewarm_dish_images` (fire-and-forget, exceptions swallowed) so the work overlaps with the user reading the card, and `/images/search` is normally a cache hit. Both paths go through `resolve_dish_image`, so they share caching, rate limits and vetting. An image is never worth delaying or failing a meal response over.
-- **The vision check reads the recipe's own description.** `desc` carries the generator's text ("色泽红亮，酱香浓郁") into the prompt, so a candidate is compared against what THIS recipe says it looks like rather than the model's generic idea of the name. That is the difference between a dark glossy soy braise and a chilli-oil Sichuan one, which are both honestly "red braised pork ribs". It is read only by the check, so it stays out of the cache key: rewording a description must not orphan a resolved photo.
-- **Last rung: a generated photo, and only ever last.** Some dishes are not in a Western stock library at all. Pexels's 红烧排骨 is a Sichuan chilli-oil braise in a pool of red sauce, correctly matched and still the wrong dish. When every real candidate has been rejected, `ai/imagegen.py` generates one with the Gemini image API (the `GEMINI_API_KEY` that was already in `.env`, unused), stores it in a public Supabase bucket under a deterministic name, and serves that URL. `IMAGE_GENERATION=0` disables it; with no key the cascade just ends at null as before. **A generated image is not a photograph of real food, so it must never displace one that is** — hence it runs after everything, never as a ranking option.
-  - This is coupled to the vision check: generation only fires when the gate rejects everything, so a photo the gate wrongly *accepts* is never replaced. That is why `desc` matters, and why the two shipped together.
-  - Generated images are **downscaled before storage** (`shrink`, 1280px long edge, JPEG q82). The first real generation was 882KB for a header that renders 200px tall; stock photos arrive around 80KB. Pillow is a hard requirement for this and a soft one for the app: if it is missing the bytes go through unchanged rather than losing the image.
-  - `_vision_slots` caps vision calls **in flight across the process** at `_VISION_CONCURRENCY` (4). Three per dish is fine on its own, but prewarm means several dishes resolve at once, and a live run already drew 429s from Groq. Queueing costs a moment; a 429 costs two seconds of backoff.
-- **Do NOT add `locale` to the Pexels search.** It was tried and reverted the same day. Asking in the dish's own language does surface photos that cuisine's photographers tagged, and it also returns their captions in that language; `_normalize` keeps only `[a-z0-9]`, so every caption tokenised to nothing, scored 0.00, and four dishes went from a working shortlist to no image at all with nothing in the logs but two 200s from Pexels. Scoring and the search have to speak the same language. Pinned by `tests/test_image_specificity.py`.
-- **`image_query` is the real fix.** AI dish names are marketing copy and search badly, so `meal_generate_prompt` asks for a plain visual description alongside the name ("Coq au Vin" → "braised chicken red wine"), carried on `GeneratedMeal.image_query` and passed as `hint`. MealDB is still searched by the **real dish name**; the hint only steers the stock-photo fallback. Old cached meals have no `image_query` and fall back to the name.
-- **Results are cached** in the SQLite TTL cache (key `img:<version>:<query>|<hint>`): a found URL for 7 days, a miss for 6 hours (so a transient upstream failure — e.g. a rate-limited Pexels call — recovers on the next request). The same dish never re-hits the external APIs within the TTL. **Bump `_CACHE_VERSION` whenever the matching logic changes** — a wrong URL is otherwise served to every user for a week, which is what made the original bug so visible.
-- **Rate-limited** 100 novel lookups/hour per IP (`image-search`). The cache is checked **before** the limiter, so cache hits/misses don't count — only genuine new external lookups do; normal browsing is never limited, but a flood of distinct queries (key-burning abuse) is capped. On limit it degrades to `{url: null}` and does **not** cache that, since the cap is transient. The endpoint is unauthenticated, so the limit is per-IP via `request.client.host`.
-- Images shown as hero in the meal detail modal, rendered via **`expo-image`** (`contentFit="cover"`, `cachePolicy="memory-disk"`, 200ms fade) for memory+disk caching.
-- **Fetched lazily**: each `MealSlotCard` only calls `searchMealImage` once its detail modal is first opened (guarded by a `fetchedImageFor` ref keyed on `meal.name`), not on card mount — so the growing meal stream no longer fires an image search per card up-front.
-- Tests: `tests/test_image_match.py` (matching helpers, using real MealDB responses), `tests/test_image_endpoint.py` (the router end to end, upstreams mocked), `tests/test_image_distinct.py` (the Bulgogi/Bibimbap duplicate), `tests/test_image_specificity.py` (pork belly for pork ribs, plus the retry hole), `tests/test_image_vision.py` (the gate, model stubbed), `tests/test_vision_contract.py` (reasoning-model reply shapes, and failures staying distinguishable from passes), and `tests/test_image_prewarm.py`. All offline.
-- **Pexels attribution** is requested by their API terms and the app does not currently show it. Open item if the app goes properly public.
+### Why there is no stock-photo search any more
+
+There was a Pexels stage between the two, with a vision model vetting its
+results. It was removed on 2026-08-25 after a long chain of misses, and the
+chain is the argument for the current shape:
+
+| what was served | for | why it passed |
+|---|---|---|
+| American BBQ rack | Red Braised Pork Ribs | shares `pork`, `ribs`; only the method differs |
+| pork **belly** | braised pork ribs | `braised`+`pork` outvoted the missing `ribs` |
+| **paneer** tikka masala | Chicken Tikka Masala | caption said tikka masala |
+| two frames of one shoot | Bulgogi *and* Bibimbap | both captions named both dishes |
+| Sichuan chilli-oil braise | 红烧排骨 | **not a mismatch at all** |
+
+Each fix worked, and the next miss was a category the previous fix could not
+see. The last one is the point: Pexels has no canonical 红烧排骨, so its best
+*honest* answer was the wrong picture. **That is a supply problem, and no
+matching logic solves it.** Generating from the description ends the whole class
+of problem, and takes the 10-15 seconds of vetting with it.
+
+If you are looking for `_pexels_score`, `verify_dish_photo`,
+`dish_photo_check_prompt`, `test_image_vision.py` or `test_vision_contract.py`,
+they went with it. Git history has them.
+
+### The rules that survived
+
+- **TheMealDB's search is still not trusted blindly.** `search.php?s=` is a
+  substring LIKE over titles: `s=Beef Stew` returns only "Lemongrass beef stew
+  with noodles". `_mealdb_pick` requires every content word of the MealDB title
+  to appear in our dish name. Extra words in OUR name are fine ("Classic Beef
+  Bourguignon" still matches "Beef Bourguignon"); extra words in THEIRS are not.
+  It is now the only search in the cascade, so this rule is the only thing
+  between a recipe and a photo of a different dish.
+- **`image_query` and `desc` are what a generated image is drawn from.** The
+  generator emits `image_query` (plain English, "braised pork ribs") and the
+  recipe's `description` carries what separates a dish from its regional cousins
+  ("色泽红亮，酱香浓郁" is a dark glossy soy braise, not a chilli-oil one). Both
+  reach `build_prompt`. **`image_query` must stay English** even when the rest of
+  the response is not: `_normalize` keeps only `[a-z0-9]`, so a Chinese dish name
+  yields no tokens at all.
+- **An image is generated once, ever.** The storage path is
+  `sha1(dish_key)` under `_CACHE_VERSION`, and `_existing_generated` HEADs it
+  before generating. The TTL cache lives in `/tmp` and every deploy wipes it; the
+  Supabase bucket does not, so without that check a redeploy would pay to
+  regenerate every dish.
+- **Generation is downscaled** (`shrink`, 1280px long edge, JPEG q82). The first
+  real one was 882KB for a header that renders 200px tall. Pillow is pinned; if
+  it is ever missing the bytes pass through unchanged rather than losing the
+  image.
+- **Generation prewarms.** `/meals/generate` and `/meals/swap` call
+  `prewarm_dish_images` (fire-and-forget, exceptions swallowed) so the work
+  overlaps with the user reading the card, and `/images/search` is normally a
+  cache hit. Both paths go through `resolve_dish_image`, so they share caching
+  and rate limits. An image is never worth delaying or failing a meal response
+  over.
+- **Failures leave a blank hero, never a broken one.** No key, no model, a
+  refusal, a failed upload: all end at `{url: null}`, and the card simply renders
+  without an image.
+- **Bump `_CACHE_VERSION` on any change to how images are chosen**, or a wrong
+  URL is served to every user until it expires.
+- Rate limits: `_IMG_MAX` (100/hr/IP) for lookups, `_GEN_MAX` (40/hr/IP) for the
+  paid step. Exhausting the generation budget never blocks reusing an image that
+  already exists.
+- Images render via **`expo-image`** (`contentFit="cover"`,
+  `cachePolicy="memory-disk"`, 200ms fade), fetched lazily when a card's detail
+  modal first opens.
+- Tests: `tests/test_image_cascade.py` (the seam, and never paying twice),
+  `tests/test_image_match.py` (the MealDB rule, using real responses),
+  `tests/test_imagegen.py` (prompt, decoder, sizing),
+  `tests/test_image_prewarm.py`. All offline.
 
 ---
 

@@ -284,7 +284,29 @@ let a high-confidence generated image outrank a merely-good stock photo
 for cuisines where the library is thin. The second one trades away the
 "a real photo always wins" rule, so it needs a deliberate decision.
 
-Open follow-ups: Pexels attribution is still not shown (their terms ask
+DECISION 2026-08-25: the Pexels stage and its vision gate are gone.
+Jerry looked at the generated Chicken Tikka Masala and it was better
+than any of the three stock candidates had been: charred tandoori
+chicken, creamy tomato sauce, naan and lime, nothing synthetic-looking.
+Given that, the machinery built to stop bad stock photos stopped earning
+its keep. The cascade is now TheMealDB, then generate.
+What that deletes: ~400 lines of scoring, claiming, vetting and
+de-duplication, three vision calls per dish, the 10-15s wait, the Groq
+429s, the Pexels attribution obligation, and four test files.
+What it keeps: MealDB's name-verified rule, which is now the ONLY search
+in the cascade and the only thing between a recipe and a photo of a
+different dish.
+Why it also fixes 红烧排骨, which nothing else could: the model rated that
+Sichuan photo 10/10 and was right to, so no threshold separated it from a
+good match. MealDB has no entry, so it generates instead.
+Cost moves from three reasoning calls to one image call per novel dish,
+paid once ever: the storage path is derived from the dish name and
+_existing_generated HEADs it before generating, so a redeploy does not
+re-buy the whole catalogue.
+
+Open follow-ups: generated images carry no visible marker (a user cannot
+tell which heroes are photographs, which is worth deciding on given the
+app's claim to be about real cooking)
 for it); guests are invisible server-side, so there is no funnel data.
 Matching is now strict enough that some dishes will legitimately get no
 photo. The hero is conditional so a blank reads fine; if too many come

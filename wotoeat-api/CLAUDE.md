@@ -31,19 +31,18 @@ venv/bin/python tests/test_models.py
 venv/bin/python tests/test_profile_constraints.py
 venv/bin/python tests/test_meal_prompt.py
 venv/bin/python tests/test_image_match.py
-venv/bin/python tests/test_image_endpoint.py
-venv/bin/python tests/test_image_distinct.py
-venv/bin/python tests/test_image_specificity.py
-venv/bin/python tests/test_image_vision.py
-venv/bin/python tests/test_vision_contract.py
+venv/bin/python tests/test_image_cascade.py
 venv/bin/python tests/test_image_prewarm.py
 venv/bin/python tests/test_imagegen.py
-venv/bin/python tests/test_guest_endpoints.py
 ```
 
 `test_guest_endpoints.py` is the one to watch when adding auth: it pins which
 endpoints must stay anonymous (the app's guest mode runs on them) and which must
 keep returning 401.
+
+`test_image_cascade.py` covers header photos end to end. The Pexels stage and
+its vision gate were removed on 2026-08-25; if you are looking for
+test_image_vision.py or test_vision_contract.py, they went with it.
 
 `tests/test_receipt_normalize.py` needs a live `GROQ_API_KEY` and can flake;
 only run it when you changed the receipt prompts.

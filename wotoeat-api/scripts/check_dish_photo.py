@@ -1,17 +1,16 @@
 """
-Live check for the image pipeline. Needs a real GROQ_API_KEY and PEXELS_API_KEY.
+Live check for the image pipeline. Needs a real GEMINI_API_KEY.
 
 Run from wotoeat-api/:
     venv/bin/python scripts/check_dish_photo.py
     venv/bin/python scripts/check_dish_photo.py --debug
     venv/bin/python scripts/check_dish_photo.py "Red Braised Pork Ribs" Chinese "braised pork ribs"
 
-Prints which rung of the cascade answered: themealdb, pexels, or GENERATED.
+Prints which source answered: themealdb or GENERATED.
 
-Prints, for each dish, the photo the pipeline would serve and what the vision
-model said about the candidates it rejected. This is the only way to see the
-vision gate actually working: the offline tests stub the model, so they prove
-the wiring, not its judgment.
+Prints, for each dish, the image the pipeline would serve and which source
+answered. The offline tests stub the model, so they prove the wiring; only this
+shows what a real generation actually looks like. Open the URLs.
 
 The default list is the cases that have gone wrong so far, so a regression shows
 up as a familiar name.
@@ -41,21 +40,22 @@ DEBUG = "--debug" in sys.argv
 logging.basicConfig(level=logging.INFO, format="    %(message)s")
 
 import httpx  # noqa: E402
-import ai.claude as claude  # noqa: E402
 import ai.imagegen as imagegen  # noqa: E402
 import routers.images as images  # noqa: E402
 
 if DEBUG:
-    _real_vision = claude._generate_vision
+    _real_gen = imagegen.generate_dish_image
 
-    async def _loud_vision(prompt, image_b64, max_tokens=4000):
-        text = await _real_vision(prompt, image_b64, max_tokens)
-        print(f"\n    --- raw vision reply ({len(text or '')} chars) ---")
-        print("    " + (text or "<empty>").replace("\n", "\n    ")[:1500])
-        print("    --- end ---\n")
-        return text
+    async def _loud_gen(dish, cuisine="", description="", image_query=""):
+        print(f"\n    --- generation prompt for {dish!r} ---")
+        print("    " + imagegen.build_prompt(dish, cuisine, description, image_query)
+              .replace("\n", "\n    "))
+        raw = await _real_gen(dish, cuisine, description, image_query)
+        print(f"    --- got {len(raw or b'')} bytes ---\n")
+        return raw
 
-    claude._generate_vision = _loud_vision
+    imagegen.generate_dish_image = _loud_gen
+
 
 # dish, cuisine, image_query, and the recipe's own description of the finished
 # dish. The description is what separates a dish from its regional cousins, and
@@ -83,8 +83,6 @@ CASES = [
 def _source_of(url: str) -> str:
     if "themealdb" in url:
         return "themealdb"
-    if "pexels" in url:
-        return "pexels  "
     if "supabase" in url:
         return "GENERATED"
     return "other   "
@@ -93,27 +91,26 @@ def _source_of(url: str) -> str:
 async def one(dish: str, cuisine: str, hint: str, desc: str = "") -> None:
     print(f"\n{dish}  ({cuisine})   hint: {hint!r}")
     # Goes through resolve_dish_image, the same entry point the endpoint and the
-    # prewarm use, so this exercises the WHOLE cascade including the generated
-    # fallback. Calling _pexels_image directly, as this once did, skipped
-    # generation entirely and reported "no image" for dishes that would have got
-    # one in production.
+    # prewarm use, so this exercises the whole cascade. Reaching past it into a
+    # single stage, as this once did, skipped generation entirely and reported
+    # "no image" for dishes that would have got one in production.
     url = await images.resolve_dish_image(dish, hint, cuisine, "check-script", desc)
     if url:
         print(f"    -> {_source_of(url)}: {url}")
     else:
-        print("    -> NO IMAGE (nothing survived vetting and generation is off or failed)")
+        print("    -> NO IMAGE (generation is off, or the model or upload failed)")
 
 
 async def main() -> None:
-    for key in ("GROQ_API_KEY", "PEXELS_API_KEY"):
+    for key in ("GEMINI_API_KEY",):
         if not os.getenv(key):
             print(f"{key} is not set; this script needs it.")
             raise SystemExit(1)
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     cases = [tuple(args[:3]) + ("",)] if len(args) >= 3 else CASES
     if not imagegen.is_available():
-        print("NOTE: GEMINI_API_KEY is unset or IMAGE_GENERATION=0, so a dish with\n"
-              "no usable stock photo will report NO IMAGE instead of generating one.\n")
+        print("NOTE: IMAGE_GENERATION=0, so any dish TheMealDB does not have will\n"
+              "report NO IMAGE instead of being generated.\n")
     for case in cases:
         await one(*case)
     print(
