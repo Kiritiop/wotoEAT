@@ -360,6 +360,18 @@ async def scan_receipt(image_b64: str, pantry_names: list[str], language: str = 
 # dish_photo_check_prompt; 4 is "right family, clearly not this dish".
 _MIN_FIT = 6.0
 
+# Returned as `shows` when the check could not be completed, so callers can tell
+# "the model said this is fine" apart from "the model never answered".
+_UNVERIFIED = "unverified"
+UNVERIFIED = _UNVERIFIED  # public alias for routers that must detect it
+
+# The vision model reasons before it answers, and Groq bills that reasoning as
+# completion tokens. This was 400, which is roughly the size of the <think>
+# block alone: every reply truncated before reaching its JSON, so every parse
+# failed and every photo was kept unverified. The reply itself is ~40 tokens;
+# the rest of this budget is headroom for thinking, and an unused cap is free.
+_VISION_CHECK_MAX_TOKENS = 4000
+
 
 async def verify_dish_photo(
     dish_name: str, cuisine: str, image_query: str, image_b64: str
@@ -372,24 +384,47 @@ async def verify_dish_photo(
     candidates compete on how well they show the dish rather than each being
     waved through on its own.
 
-    On ANY failure it returns (True, 0.0, "unverified"): the caller has already
+    On failure it returns (True, 0.0, _UNVERIFIED): the caller has already
     established a decent text match, and a flaky vision call must not strip every
     recipe of its image. This is a veto on mismatches, never the thing that
     grants approval.
+
+    That fallback is deliberately LOUD. It was silent once, and the whole gate
+    ran as a no-op for two full releases while looking like it was working: the
+    vision model is a reasoning model whose <think> block ate the entire token
+    budget, every reply truncated before its JSON, every parse failed, and every
+    photo sailed through "approved". A check that cannot fail visibly is not a
+    check. Anything unexpected here is logged at WARNING with the raw reply.
     """
+    text = ""
     try:
         text = await _generate_vision(
             dish_photo_check_prompt(dish_name, cuisine, image_query),
             image_b64,
-            max_tokens=400,
+            max_tokens=_VISION_CHECK_MAX_TOKENS,
         )
+        if not text:
+            raise ValueError("empty reply (no message content)")
+        if "<think>" in text and "</think>" not in text:
+            raise ValueError(
+                f"reply truncated inside the reasoning block; "
+                f"raise _VISION_CHECK_MAX_TOKENS (now {_VISION_CHECK_MAX_TOKENS})"
+            )
         result = json.loads(_clean_json(text))
     except Exception as exc:
-        logger.debug("[ai] dish photo check failed for %r: %s", dish_name, exc)
-        return True, 0.0, "unverified"
+        logger.warning(
+            "[ai] dish photo check FAILED for %r (%s); the photo is being kept on "
+            "its text match alone. Raw reply: %r",
+            dish_name, exc, (text or "")[:300],
+        )
+        return True, 0.0, _UNVERIFIED
 
     if not isinstance(result, dict):
-        return True, 0.0, "unverified"
+        logger.warning(
+            "[ai] dish photo check for %r returned %s, not an object: %r",
+            dish_name, type(result).__name__, text[:300],
+        )
+        return True, 0.0, _UNVERIFIED
     try:
         fit = float(result.get("fit", 0))
     except (TypeError, ValueError):

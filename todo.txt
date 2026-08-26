@@ -135,6 +135,31 @@ STILL UNVERIFIED: whether the rewritten prompt actually rejects those
 three. Re-run scripts/check_dish_photo.py (fresh cache per run now) and
 read the fit lines.
 
+CORRECTION to the entry above: the gate was never rubber-stamping. It
+was never running. Second live run showed every candidate coming back
+"fit 0/10, photo shows 'unverified'", which is the sentinel for the call
+having thrown. The vision model reasons before answering and Groq bills
+that as completion tokens; max_tokens was set to 400, about the size of
+the <think> block alone. Every reply truncated before its JSON, every
+parse raised, and the fail-open path returned approved every time. Two
+releases shipped a no-op whose own logs read "kept".
+The previous entry's conclusion, that a 27B model waved through Colombian
+ribs and paneer, was wrong: the model never answered. The prompt rewrite
+it triggered is still an improvement and stays, but it fixed something
+that was not the problem.
+Fixed: _VISION_CHECK_MAX_TOKENS = 4000, truncation detected by name,
+every failure logged at WARNING with the raw reply, and the router says
+plainly when a photo went out unchecked. verify_dish_photo returns
+shows == UNVERIFIED so callers can tell "model said fine" from "model
+never answered". scripts/check_dish_photo.py --debug prints raw replies.
+The real lesson is not the token budget. A check that fails open and
+fails silently is indistinguishable from one that works, and 178 passing
+assertions did not notice because they all stubbed the model with
+well-formed replies. tests/test_vision_contract.py now feeds it the
+shapes a reasoning model actually produces.
+STILL UNVERIFIED: whether the model, once it can actually reply, rejects
+the Colombian ribs and the paneer.
+
 Open follow-ups: Pexels attribution is still not shown (their terms ask
 for it); guests are invisible server-side, so there is no funnel data.
 Matching is now strict enough that some dishes will legitimately get no

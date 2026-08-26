@@ -8,7 +8,7 @@ import unicodedata
 import httpx
 from fastapi import APIRouter, Query, Request
 
-from ai.claude import verify_dish_photo
+from ai.claude import verify_dish_photo, UNVERIFIED
 from ai.sqlite_cache import cache_get, cache_set, rate_limit_check
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ _IMG_TTL_MISS = 6 * 3600
 # Bump when the matching logic changes. The old cache held wrong-but-confident
 # URLs for a week at a time; a new prefix retires them on deploy instead of
 # leaving every user staring at the same bad photo until it expires.
-_CACHE_VERSION = "v6"
+_CACHE_VERSION = "v7"
 
 # This endpoint is unauthenticated and proxies external image APIs that burn
 # our Pexels/Unsplash quota. Cap *novel* lookups per IP (cache hits don't count,
@@ -526,10 +526,20 @@ async def _looks_right(
     if b64 is None:
         return False, 0.0
     usable, fit, shows = await verify_dish_photo(dish_name, cuisine, hint, b64)
-    logger.info(
-        "[images] %s %s for %r: fit %.0f/10, photo shows %r",
-        "kept" if usable else "REJECTED", cand["id"], dish_name, fit, shows,
-    )
+    if shows == UNVERIFIED:
+        # Not a verdict. ai.claude has already logged why at WARNING; say plainly
+        # here that this photo is going out unchecked, so a broken gate can never
+        # again look like a working one in the logs.
+        logger.warning(
+            "[images] %s for %r was NOT checked (vision unavailable); "
+            "keeping it on its text match alone",
+            cand["id"], dish_name,
+        )
+    else:
+        logger.info(
+            "[images] %s %s for %r: fit %.0f/10, photo shows %r",
+            "kept" if usable else "REJECTED", cand["id"], dish_name, fit, shows,
+        )
     return usable, fit
 
 
