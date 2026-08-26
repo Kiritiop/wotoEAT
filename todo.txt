@@ -92,11 +92,34 @@ form or dish name and is forbidden from swapping it for a broader word.
 Locked by tests/test_image_specificity.py (8) and 9 more checks in
 test_image_match.py.
 
+Third follow-up, and the end of the text-matching road: "Red Braised Pork
+Ribs" was shown a rack of ribs on an American barbecue. The photo shares
+every word that matters (pork, ribs) and differs only by cooking method,
+which is true of thousands of dishes and so cannot be weighted heavily
+without rejecting everything. It scores 0.83 even WITH the weighting fix.
+Alt text is one line written by whoever uploaded the photo; no amount of
+tuning turns it into a description of what the picture looks like.
+So the pipeline now looks at the image. Text scoring picks the shortlist,
+the top 3 go to the vision model concurrently, and only a photo it agrees
+shows the dish is served. It is a veto and never an approval: a broken or
+unreachable model returns unverified and the text choice stands, since a
+flaky vision call must not strip every recipe of its image. All three
+rejected means no hero, with no fallback to unchecked candidates. A
+verified MealDB name match skips the gate, being a photo of that exact
+recipe. IMAGE_VISION_CHECK=0 turns it off.
+Locked by tests/test_image_vision.py (13, model stubbed). The model's
+JUDGMENT is not testable offline: run scripts/check_dish_photo.py with a
+real key to see it working on the dishes that have gone wrong so far.
+
 Open follow-ups: Pexels attribution is still not shown (their terms ask
 for it); guests are invisible server-side, so there is no funnel data.
-Stricter matching means more dishes legitimately get no photo. The hero
-is conditional so a blank reads fine, but if too many come back empty the
-lever is _DISTINCT_WEIGHT (4) or _PEXELS_FLOOR (0.5), not the retry.
+Matching is now strict enough that some dishes will legitimately get no
+photo. The hero is conditional so a blank reads fine; if too many come
+back empty the levers are _DISTINCT_WEIGHT (4), _PEXELS_FLOOR (0.5) or
+_VISION_CANDIDATES (3), not the retry.
+Cost and latency are the thing to watch: a novel dish now costs up to 3
+vision calls and a few seconds. Cached 7 days per dish, capped at 60/hr
+per IP, and the whole gate is one env var away from off.
 
 ════════════════════════════════════════════════════════════════════
 INCIDENT 2026-08-17: Groq decommissioned both models (RESOLVED)

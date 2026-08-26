@@ -75,6 +75,12 @@ class _FakeClient:
 
 images.httpx.AsyncClient = _FakeClient  # type: ignore[assignment]
 
+# This file exercises the TEXT layer: which candidates a query surfaces and how
+# they are ranked and de-duplicated. The vision gate that runs after it is
+# covered by tests/test_image_vision.py, and is switched off here so a stubbed
+# model cannot mask a scoring regression.
+images._VISION_CHECK = False
+
 
 def photo(alt: str, url: str) -> dict:
     return {"alt": alt, "src": {"large": url}}

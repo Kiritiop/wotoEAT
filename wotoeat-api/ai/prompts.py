@@ -399,6 +399,48 @@ SEMANTIC PANTRY MATCHING (critical — read carefully):
 """
 
 
+def dish_photo_check_prompt(dish_name: str, cuisine: str, image_query: str) -> str:
+    """Ask a vision model whether a candidate photo actually shows the dish.
+
+    Text matching on a stock library's alt text has a hard ceiling. "Red Braised
+    Pork Ribs" and a photo of ribs on an American barbecue share the words that
+    matter (`pork`, `ribs`) and differ only by cooking method, which is true of
+    thousands of dishes and so cannot be weighted heavily without rejecting
+    everything. The only reliable way to tell a Chinese red braise from a rack of
+    BBQ ribs is to look at it, so this is the last gate before a photo ships.
+
+    Deliberately strict about the three things stock photos get wrong: cuisine,
+    cooking method, and the cut or form of the main ingredient.
+    """
+    cuisine_line = f"Cuisine: {cuisine}\n" if cuisine else ""
+    query_line = f"In plain terms it looks like: {image_query}\n" if image_query else ""
+    return f"""You are checking whether a stock photo can be used as the header image for a recipe.
+
+Dish: {dish_name}
+{cuisine_line}{query_line}
+Look at the image and decide whether a person who cooks this dish would accept
+this photo as a picture of it.
+
+Reject the photo if ANY of these is true:
+- It shows a different cooking method (grilled or barbecued when the dish is
+  braised or stewed, raw when the dish is cooked, deep-fried when it is steamed).
+- It shows a different cuisine's version of the dish (an American barbecue rack
+  for a Chinese red-braised dish, a Japanese katsu curry for an Indian curry).
+- The main ingredient is a different cut, species or form (belly instead of ribs,
+  beef instead of pork, a rice bowl when the dish is the meat itself).
+- It is not a photograph of prepared food at all (raw ingredients on their own, a
+  restaurant interior, a person, a menu, packaging, a garden).
+- The dish is only incidental: it is small, blurred, or in the background.
+
+Accept the photo if it plausibly shows this dish, or a very close regional
+variant of it, as the clear subject. Presentation, garnish and crockery may
+differ. Do not reject it for being a stock photo, or for the plating being
+different from how you would serve it.
+
+Respond with ONLY valid JSON, no markdown:
+{{"match": true or false, "confidence": 0.0 to 1.0, "shows": "at most 8 words describing what the photo actually shows"}}"""
+
+
 def receipt_transcribe_prompt() -> str:
     """Stage 1 of receipt scanning: vision model transcribes the photo verbatim."""
     return """You are a receipt transcription machine.

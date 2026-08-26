@@ -20,6 +20,7 @@ from ai.prompts import (
     generate_recipe_prompt,
     receipt_transcribe_prompt,
     receipt_normalize_prompt,
+    dish_photo_check_prompt,
 )
 
 load_dotenv()
@@ -348,4 +349,45 @@ async def scan_receipt(image_b64: str, pantry_names: list[str], language: str = 
 
 
 # Exception types routers should catch for transient AI failures.
+# ---------------------------------------------------------------------------
+# Dish photo verification
+# ---------------------------------------------------------------------------
+
+async def verify_dish_photo(
+    dish_name: str, cuisine: str, image_query: str, image_b64: str
+) -> tuple[bool, float, str]:
+    """Look at a candidate header photo and say whether it shows the dish.
+
+    Returns (match, confidence, what_it_shows). On ANY failure it returns
+    (True, 0.0, "unverified"): the caller has already established a decent text
+    match, so a flaky vision call must not strip every recipe of its image. This
+    is a veto on obvious mismatches, not the thing that grants approval.
+
+    Kept small on purpose (300 tokens): the reply is one short JSON object, and
+    the vision model bills reasoning as completion tokens.
+    """
+    try:
+        text = await _generate_vision(
+            dish_photo_check_prompt(dish_name, cuisine, image_query),
+            image_b64,
+            max_tokens=300,
+        )
+        result = json.loads(_clean_json(text))
+    except Exception as exc:
+        logger.debug("[ai] dish photo check failed for %r: %s", dish_name, exc)
+        return True, 0.0, "unverified"
+
+    if not isinstance(result, dict):
+        return True, 0.0, "unverified"
+    try:
+        confidence = float(result.get("confidence", 0.0))
+    except (TypeError, ValueError):
+        confidence = 0.0
+    return (
+        bool(result.get("match", True)),
+        max(0.0, min(1.0, confidence)),
+        str(result.get("shows", ""))[:80],
+    )
+
+
 GroqTransientError = (RateLimitError, APIConnectionError, APIStatusError)
