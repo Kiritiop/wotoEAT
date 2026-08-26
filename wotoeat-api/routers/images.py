@@ -27,7 +27,7 @@ _IMG_TTL_MISS = 6 * 3600
 # Bump when the matching logic changes. The old cache held wrong-but-confident
 # URLs for a week at a time; a new prefix retires them on deploy instead of
 # leaving every user staring at the same bad photo until it expires.
-_CACHE_VERSION = "v7"
+_CACHE_VERSION = "v8"
 
 # This endpoint is unauthenticated and proxies external image APIs that burn
 # our Pexels/Unsplash quota. Cap *novel* lookups per IP (cache hits don't count,
@@ -79,6 +79,36 @@ _GENERIC = {
     "chinese", "korean", "japanese", "thai", "vietnamese", "indian", "italian",
     "french", "spanish", "greek", "mexican", "turkish", "asian", "western",
 }
+
+# The thing a dish is actually made of. If a photo's own description names one
+# of these and it is not the one our dish uses, the photographer has told us
+# plainly that this is a different dish, and no amount of shared vocabulary
+# ("tikka masala curry") changes that.
+#
+# This is the cheap half of a two-signal check. Pexels 30858402 and 30858420 are
+# both titled "paneer tikka masala"; the vision model read the second as chicken
+# with char marks and rated it 10/10. One of them is wrong, and when the caption
+# and the pixels disagree about the protein the honest move is to spend the
+# shortlist on a photo where they agree. It also saves a vision call.
+_MAIN_INGREDIENTS = {
+    "chicken", "beef", "pork", "lamb", "mutton", "veal", "turkey", "duck",
+    "goose", "venison", "goat", "rabbit",
+    "paneer", "tofu", "tempeh", "halloumi", "seitan",
+    "shrimp", "prawn", "prawns", "fish", "salmon", "tuna", "cod", "haddock",
+    "crab", "lobster", "squid", "octopus", "mussels", "clams", "scallops",
+}
+
+
+def _contradicts(alt_tokens: set[str], wanted: list[str]) -> bool:
+    """True when the photo's description names a different main ingredient.
+
+    Only fires when BOTH sides name one: a dish with no protein word in its
+    query, or a caption that mentions none, is left to the vision model.
+    """
+    ours = {w for w in wanted if w in _MAIN_INGREDIENTS}
+    theirs = alt_tokens & _MAIN_INGREDIENTS
+    return bool(ours) and bool(theirs) and not (ours & theirs)
+
 
 # A word that identifies the dish is worth this many generic ones. Four means a
 # query's defining word cannot be outvoted by three background words, which is
@@ -350,7 +380,10 @@ async def _pexels_try(
         url = (photo.get("src") or {}).get("large")
         if not url:
             continue
-        score = _pexels_score(photo.get("alt") or "", score_terms)
+        alt = photo.get("alt") or ""
+        if _contradicts(set(_tokens(alt)), score_terms):
+            continue
+        score = _pexels_score(alt, score_terms)
         if score < _PEXELS_FLOOR:
             continue
         src = photo.get("src") or {}
@@ -457,6 +490,8 @@ async def _unsplash_image(
         alt = " ".join(
             filter(None, [photo.get("alt_description"), photo.get("description")])
         )
+        if _contradicts(set(_tokens(alt)), terms):
+            continue
         score = _pexels_score(alt, terms)
         if score < _PEXELS_FLOOR:
             continue

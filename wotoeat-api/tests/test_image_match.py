@@ -25,6 +25,7 @@ from routers.images import (  # noqa: E402
     _pexels_score,
     _tokens,
     _weight,
+    _contradicts,
     _PEXELS_FLOOR,
     _DISTINCT_WEIGHT,
 )
@@ -192,6 +193,47 @@ check(
 check(
     "the English hint is what actually searches for a zh user",
     _tokens("braised pork ribs", drop_filler=True) == ["braised", "pork", "ribs"],
+)
+
+# ── When the caption names a different protein, believe it ─────────────────
+# All captions below are the real ones Pexels serves. A shared vocabulary
+# ("tikka masala curry") is not evidence when the photographer has said outright
+# that the dish is made of something else.
+def _clash(dish_hint: str, alt: str) -> bool:
+    return _contradicts(set(_tokens(alt)), _tokens(dish_hint, drop_filler=True)[:4])
+
+
+check(
+    "paneer tikka masala is not a chicken tikka masala photo",
+    _clash("chicken tikka masala curry",
+           "Flavorful paneer tikka masala with fresh ingredients, captured in Bengaluru"),
+)
+check(
+    "a chicken curry photo survives the same test",
+    not _clash("chicken tikka masala curry",
+               "Red curry with chicken, naan, rice and spices"),
+)
+check(
+    "lamb chops are not pork ribs",
+    _clash("braised pork ribs", "lamb chops with foil wrapped bones and steak fries"),
+)
+check(
+    "an actual pork ribs photo survives",
+    not _clash("braised pork ribs",
+               "savory sesame glazed pork ribs with corn on a serving plate"),
+)
+check(
+    "a caption naming no protein is left to the vision model",
+    not _clash("bibimbap rice bowl",
+               "colorful Korean bibimbap bowl with mixed vegetables and mushrooms"),
+)
+check(
+    "a dish naming no protein never triggers the guard",
+    not _clash("shakshuka eggs tomato", "a plate of grilled chicken"),
+)
+check(
+    "a caption listing several proteins passes if one of them is ours",
+    not _clash("braised pork ribs", "a platter of pork ribs and beef brisket"),
 )
 
 failed = [label for label, ok in checks if not ok]

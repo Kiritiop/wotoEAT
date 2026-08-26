@@ -368,9 +368,15 @@ UNVERIFIED = _UNVERIFIED  # public alias for routers that must detect it
 # The vision model reasons before it answers, and Groq bills that reasoning as
 # completion tokens. This was 400, which is roughly the size of the <think>
 # block alone: every reply truncated before reaching its JSON, so every parse
-# failed and every photo was kept unverified. The reply itself is ~40 tokens;
-# the rest of this budget is headroom for thinking, and an unused cap is free.
-_VISION_CHECK_MAX_TOKENS = 4000
+# failed and every photo was kept unverified.
+#
+# 4000 was still not enough. Live replies run 1.8k to 13.7k characters, because
+# the model second-guesses itself hardest on exactly the ambiguous photos the
+# check exists for ("Wait, let me re-evaluate the meat..."), and one of those
+# truncated again. The reply itself is ~40 tokens; everything else here is
+# headroom for thinking, and an unused cap costs nothing since billing is on
+# tokens generated.
+_VISION_CHECK_MAX_TOKENS = 8000
 
 
 async def verify_dish_photo(

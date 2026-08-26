@@ -160,6 +160,27 @@ shapes a reasoning model actually produces.
 STILL UNVERIFIED: whether the model, once it can actually reply, rejects
 the Colombian ribs and the paneer.
 
+Third live run, gate finally executing, and it works. Red Braised Pork
+Ribs 10/10 on an actual red braise, with the Colombian rib roast rejected
+at 4/10 ("Western presentation, roasted new potatoes") and a foil-wrapped
+rack with fries at 0/10. Beef Bulgogi 8/10 on sliced beef, correctly
+rejecting BOTH bibimbap bowls at 4/10 via the rice-bowl rule. 红烧排骨 got
+the same photo as its English name, so the fit-tolerance change works.
+Three things that run exposed:
+1. 4000 tokens still truncated one reply. The model rambles hardest on
+   the ambiguous photos the check exists for; replies ran 1.8k-13.7k
+   chars. Now 8000, plus a prompt line telling it not to re-examine.
+2. Both photos Pexels titles "paneer tikka masala" went to the vision
+   model, which read one as chicken and gave it 10/10. Caption and pixels
+   disagree about the protein and one of them is wrong. _contradicts now
+   drops a candidate whose caption names a different main ingredient
+   before spending a vision call, so the shortlist goes to photos where
+   both signals agree (20446401, chicken, also rated 10/10).
+3. Cost is real now: 3 candidates x ~800-3400 output tokens per novel
+   dish, roughly 3 cents worst case. Cached 7 days, capped 60/hr/IP. The
+   brevity instruction and the contradiction guard both cut it. Dials are
+   _VISION_CANDIDATES and IMAGE_VISION_CHECK.
+
 Open follow-ups: Pexels attribution is still not shown (their terms ask
 for it); guests are invisible server-side, so there is no funnel data.
 Matching is now strict enough that some dishes will legitimately get no

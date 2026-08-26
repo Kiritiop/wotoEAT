@@ -448,6 +448,9 @@ Work in this order.
 Presentation, garnish and crockery may differ freely; do not lower the fit for
 those. Do lower it if the dish is small, blurred, or in the background.
 
+Reach a verdict in a few sentences. Do not re-examine the photo or argue with
+yourself; your first careful read is the answer.
+
 Respond with ONLY valid JSON, no markdown:
 {{"shows": "what you see, at most 10 words", "same_main_ingredient": true or false, "same_style": true or false, "fit": 0}}"""
 
