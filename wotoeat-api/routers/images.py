@@ -541,6 +541,15 @@ _VISION_CHECK = os.getenv("IMAGE_VISION_CHECK", "1") not in ("0", "false", "Fals
 # round-trip of latency, not three -- but it is three vision calls, billed.
 _VISION_CANDIDATES = 3
 
+# Ceiling on vision calls in flight across the whole process, not per dish.
+# Three concurrent calls for one dish is fine; prewarm means several dishes can
+# be resolving at once, and the live run already drew 429s from Groq with
+# retries. The Groq client retries on its own, so this is about not provoking
+# the limit rather than handling it: queueing a call costs a moment, a 429 costs
+# two seconds of backoff.
+_VISION_CONCURRENCY = 4
+_vision_slots = asyncio.Semaphore(_VISION_CONCURRENCY)
+
 # Vision is the expensive part of this endpoint, so it gets its own budget on
 # top of the lookup cap. Counted in individual model calls, and one dish costs
 # up to _VISION_CANDIDATES of them, so 180 is roughly 60 novel dishes an hour.
@@ -572,7 +581,8 @@ async def _looks_right(
     b64 = await _fetch_b64(cand.get("check_url") or cand["url"], client)
     if b64 is None:
         return False, 0.0
-    usable, fit, shows = await verify_dish_photo(dish_name, cuisine, hint, b64, desc)
+    async with _vision_slots:
+        usable, fit, shows = await verify_dish_photo(dish_name, cuisine, hint, b64, desc)
     if shows == UNVERIFIED:
         # Not a verdict. ai.claude has already logged why at WARNING; say plainly
         # here that this photo is going out unchecked, so a broken gate can never

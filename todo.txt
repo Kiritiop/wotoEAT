@@ -258,6 +258,32 @@ untested: Wikimedia Commons (genuinely free-licensed, real regional
 photos, some need CC BY-SA attribution) and Openverse (aggregates
 Flickr/Commons, keyless API, returned 403 from here).
 
+First fully working run (2026-08-25, real keys, whole cascade):
+- Red Braised Pork Ribs / 红烧排骨 -> 10/10 on the sesame-and-corn braise,
+  with the Colombian rib roast rejected at 2/10 ("lacks the deep, dark
+  soy sheen of Hong Shao") and the foil-wrapped rack with fries at 4/10.
+  The description reaching the model is visible in its reasoning.
+- Chicken Tikka Masala -> GENERATED. The contradiction guard dropped both
+  paneer-captioned photos, the gate rejected the remaining flat-lay at
+  4/10, and Gemini produced one. The hybrid works end to end.
+- Beef Bulgogi -> 10/10 on sliced beef, both rice bowls rejected at 2/10.
+- Beef Bibimbap -> 10/10. Shakshuka / Pad Thai / Coq au Vin -> MealDB.
+Two problems that run exposed, both fixed: the generated image was 882KB
+(now downscaled to 1280px q82, roughly stock-photo size), and Groq
+returned 429s under three concurrent checks (now a process-wide ceiling
+of 4 in flight, since prewarm overlaps dishes).
+
+STILL OPEN, and it is a judgement call rather than a bug: Jerry says the
+19831877 braise is "similar but definitely not the one". It genuinely is
+红烧排骨, and the model rates it 10/10, but it is a saucy sesame-and-corn
+version rather than the canonical dark glossy plate. Pexels only offers
+three candidates for this dish and none is the canonical one, so this is
+supply, not matching. Options if it still grates: check more than
+_VISION_CANDIDATES so a better one deeper in the results can surface, or
+let a high-confidence generated image outrank a merely-good stock photo
+for cuisines where the library is thin. The second one trades away the
+"a real photo always wins" rule, so it needs a deliberate decision.
+
 Open follow-ups: Pexels attribution is still not shown (their terms ask
 for it); guests are invisible server-side, so there is no funnel data.
 Matching is now strict enough that some dishes will legitimately get no

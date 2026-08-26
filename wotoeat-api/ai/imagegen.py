@@ -10,6 +10,7 @@ should never displace one that is, but it beats a blank hero on a recipe.
 Uses the Gemini image API, whose key was already in .env and unused.
 """
 import base64
+import io
 import logging
 import os
 import re
@@ -34,6 +35,13 @@ _TIMEOUT = 60
 # A JPEG/PNG under this is a placeholder or an error page, not a photo.
 _MIN_BYTES = 5_000
 _MAX_BYTES = 6_000_000
+
+# What comes back is print-sized: the first real generation was 882KB, which is
+# a second of mobile data for a header image that renders 200px tall. Stock
+# photos arrive around 80KB, so match that rather than shipping ten times the
+# bytes for the same strip of screen.
+_MAX_EDGE = 1280
+_JPEG_QUALITY = 82
 
 
 def is_available() -> bool:
@@ -106,6 +114,33 @@ def _decode(value: str) -> bytes | None:
     return None
 
 
+def shrink(raw: bytes) -> bytes:
+    """Downscale and re-encode to something sane for a phone header.
+
+    Best-effort: if Pillow is missing the original bytes go through unchanged
+    rather than losing the image over a resize.
+    """
+    try:
+        from PIL import Image
+    except Exception:
+        logger.warning("[imagegen] Pillow missing; storing the image at full size")
+        return raw
+    try:
+        with Image.open(io.BytesIO(raw)) as img:
+            img = img.convert("RGB")
+            img.thumbnail((_MAX_EDGE, _MAX_EDGE), Image.LANCZOS)
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=_JPEG_QUALITY, optimize=True)
+        out = buf.getvalue()
+        if len(out) >= len(raw):
+            return raw
+        logger.info("[imagegen] %d bytes -> %d after resize", len(raw), len(out))
+        return out
+    except Exception as exc:
+        logger.warning("[imagegen] could not resize (%s); storing as-is", exc)
+        return raw
+
+
 async def generate_dish_image(
     dish: str, cuisine: str = "", description: str = "", image_query: str = ""
 ) -> bytes | None:
@@ -135,7 +170,7 @@ async def generate_dish_image(
             )
             return None
         logger.info("[imagegen] generated %d bytes for %r", len(raw), dish)
-        return raw
+        return shrink(raw)
     except Exception as exc:
         logger.warning("[imagegen] failed for %r: %s", dish, exc)
         return None

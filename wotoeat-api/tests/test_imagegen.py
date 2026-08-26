@@ -12,6 +12,7 @@ real food, so it runs only after every real candidate has been rejected.
 """
 import asyncio
 import base64
+import io
 import os
 import sys
 import tempfile
@@ -182,6 +183,44 @@ check("the image is found wherever the API nests it",
       ) == JPEG)
 check("a reply with no image at all returns None",
       imagegen._find_image_bytes({"output": [{"type": "text", "text": "I cannot"}]}) is None)
+
+# ── Generated images are sized for a phone header, not for print ───────────
+# The first real generation came back at 882KB, which is a second of mobile data
+# for a strip that renders 200px tall. Stock photos arrive around 80KB.
+try:
+    from PIL import Image  # noqa: F401
+    _HAVE_PIL = True
+except Exception:
+    _HAVE_PIL = False
+
+if _HAVE_PIL:
+    from PIL import Image as _I
+    buf = io.BytesIO()
+    _I.new("RGB", (3000, 2000), (180, 60, 30)).save(buf, format="PNG")
+    big = buf.getvalue()
+    small = imagegen.shrink(big)
+    check("an oversized generation is shrunk", len(small) < len(big), f"{len(big)} -> {len(small)}")
+    with _I.open(io.BytesIO(small)) as im:
+        check("it is capped on the long edge", max(im.size) <= imagegen._MAX_EDGE, str(im.size))
+        check("aspect ratio is preserved", abs(im.size[0] / im.size[1] - 1.5) < 0.02, str(im.size))
+        check("it is re-encoded as JPEG", im.format == "JPEG", str(im.format))
+    import random
+    rnd = random.Random(0)
+    noisy = _I.new("RGB", (400, 300))
+    noisy.putdata([(rnd.randrange(256), rnd.randrange(256), rnd.randrange(256))
+                   for _ in range(400 * 300)])
+    tbuf = io.BytesIO(); noisy.save(tbuf, format="JPEG", quality=30)
+    check("an already-small image is left alone rather than re-encoded bigger",
+          imagegen.shrink(tbuf.getvalue()) == tbuf.getvalue(),
+          f"{len(tbuf.getvalue())} -> {len(imagegen.shrink(tbuf.getvalue()))}")
+    check("shrink never returns more bytes than it was given",
+          len(imagegen.shrink(big)) <= len(big) and
+          len(imagegen.shrink(tbuf.getvalue())) <= len(tbuf.getvalue()))
+else:
+    print("SKIP  Pillow not importable here; shrink() falls back to passthrough")
+
+check("junk in means the same junk out, never an exception",
+      imagegen.shrink(b"not an image at all") == b"not an image at all")
 
 failed = [l for l, ok in checks if not ok]
 print(f"\n{len(checks) - len(failed)}/{len(checks)} passed")
