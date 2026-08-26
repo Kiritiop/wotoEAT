@@ -81,7 +81,7 @@ class _FakeClient:
         return _Resp(content=b"\xff\xd8\xff" + url.encode())
 
 
-async def _fake_verify(dish_name, cuisine, image_query, image_b64):
+async def _fake_verify(dish_name, cuisine, image_query, image_b64, description=""):
     seen.append(dish_name)
     raw = __import__("base64").b64decode(image_b64).decode("latin-1")
     for pid, verdict in VERDICTS.items():

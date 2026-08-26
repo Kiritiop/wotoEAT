@@ -3,14 +3,54 @@ Companion docs: CLAUDE.md (handoff + reference), design/pantry-loop.md
 Effort tags: S = one sitting, M = a day-ish, L = multi-day
 
 ════════════════════════════════════════════════════════════════════
+R-1 (L): RECIPES MUST BE REAL, NOT PLAUSIBLE          [raised 2026-08-25]
+════════════════════════════════════════════════════════════════════
+Jerry: "Whenever you ask any LLM to generate you a dish and a recipe, it
+would be different from what we actually have in our program currently. I
+want it to be an actual recipe that the user could follow accurately to
+cook a real meal and not just a personal project."
+
+The problem. Every recipe is generated fresh from a prompt, so two asks
+for the same dish give different ingredients, quantities and timings, and
+none of them is anchored to a recipe anyone has ever cooked. The prompt
+already forces REAL dish NAMES (the AUTHENTICITY block), but the method
+underneath is invented each time. A 45-minute 红烧排骨 with 1 tsp of sugar
+is not wrong enough to notice and not right enough to follow.
+
+Why this is the same class of bug as the images. We spent this whole
+session learning that a plausible-looking answer sails through every
+check that does not compare it to the real thing. The image fix ended at
+"look at the actual photo". The recipe equivalent is "anchor to an actual
+recipe", and no amount of prompt tuning substitutes for that.
+
+Directions, roughly cheapest first:
+- Anchor to a source. TheMealDB already returns full ingredients and
+  instructions for the dishes it knows, and images.py already queries it
+  by name. When a dish matches, serve THAT recipe and let the AI only
+  translate and scale it. Free, no key, and the meal card is already
+  showing its photo. Covers maybe 300 well-known dishes.
+- Widen with a real recipe corpus (Spoonacular, Edamam, or a scrape of a
+  permissively licensed set). Licensing needs checking before shipping.
+- Keep generation only as the fallback for dishes nothing has, and label
+  it in the UI so the user knows which kind they are looking at.
+- Whatever the source, pin it: a saved recipe must not silently change
+  the next time it is opened.
+
+Verification, since this is where the last three rounds went wrong: pick
+20 well-known dishes, generate each, and compare ingredients and method
+against a published recipe. Count how many a competent cook would call
+that dish. No prompt change ships on a claim that it "looks better".
+
+════════════════════════════════════════════════════════════════════
 RECOMMENDED NEXT FIVE (best value for effort, in order)
 ════════════════════════════════════════════════════════════════════
-1. Cook mode (M, P-2): the one moment the app still abandons the user
-2. A-5 (M) split discover.tsx / recipes.tsx before they get harder to touch
-3. E-1 (S-M) error monitoring: the Aug 17 outage was reported by a user,
+1. R-1 (L): recipes anchored to real sources, not invented per request
+2. Cook mode (M, P-2): the one moment the app still abandons the user
+3. A-5 (M) split discover.tsx / recipes.tsx before they get harder to touch
+4. E-1 (S-M) error monitoring: the Aug 17 outage was reported by a user,
    not by us; this is the gap that made that possible
-4. UI-5 (S) unify the four ad-hoc toast patterns
-5. UI-6 (S) dark mode decision: an unaudited surface users already land on
+5. UI-5 (S) unify the four ad-hoc toast patterns
+   (UI-6 dark-mode decision drops to sixth)
 
 ════════════════════════════════════════════════════════════════════
 SHIPPED 2026-08-25: recipe image matching + guest mode

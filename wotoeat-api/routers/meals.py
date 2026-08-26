@@ -9,6 +9,7 @@ from ai.claude import generate_meal_plan, swap_meal as ai_swap_meal
 from ai.sqlite_cache import rate_limit_check
 from db import supabase_client as db
 from utils.errors import server_error
+from routers.images import prewarm_dish_images
 from .auth import get_optional_user_id, require_user_id
 
 logger = logging.getLogger(__name__)
@@ -43,6 +44,10 @@ async def generate_meals(
             filters["profile"] = body.profile.model_dump(exclude_none=True)
         result, cached = await generate_meal_plan(filters)
         plan = GeneratedPlan(**result)
+        # Start resolving header photos now rather than when a card is opened.
+        # Vetting one takes 10-15s, and that wait used to sit between the tap and
+        # anything appearing; here it overlaps with the user reading the card.
+        prewarm_dish_images(result.get("meals", []), _client_key(user_id, request))
         if user_id and not cached:
             try:
                 db.save_meal_history(user_id, str(_date.today()), result.get("meals", []))
@@ -71,6 +76,7 @@ async def swap_meal(
             filters["profile"] = body.profile.model_dump(exclude_none=True)
         current_plan = body.current_plan.model_dump() if body.current_plan else None
         meal = await ai_swap_meal(body.slot, current_plan, filters)
+        prewarm_dish_images([meal], _client_key(user_id, request))
         if user_id:
             try:
                 db.save_meal_history(user_id, str(_date.today()), [meal])

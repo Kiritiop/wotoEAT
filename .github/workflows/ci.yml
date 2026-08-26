@@ -30,7 +30,8 @@ jobs:
           for t in test_scraper_ssrf test_clean_json test_models test_profile_constraints \
                    test_meal_prompt test_image_match test_image_endpoint \
                    test_image_distinct test_image_specificity \
-                   test_image_vision test_vision_contract test_guest_endpoints; do
+                   test_image_vision test_vision_contract \
+                   test_image_prewarm test_guest_endpoints; do
             echo "--- $t"
             python tests/$t.py || fail=1
           done

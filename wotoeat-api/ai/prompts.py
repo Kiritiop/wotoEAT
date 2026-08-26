@@ -399,7 +399,9 @@ SEMANTIC PANTRY MATCHING (critical — read carefully):
 """
 
 
-def dish_photo_check_prompt(dish_name: str, cuisine: str, image_query: str) -> str:
+def dish_photo_check_prompt(
+    dish_name: str, cuisine: str, image_query: str, description: str = ""
+) -> str:
     """Ask a vision model how well a candidate photo represents the dish.
 
     Deliberately NOT a yes/no question. The first version of this asked "would a
@@ -416,12 +418,17 @@ def dish_photo_check_prompt(dish_name: str, cuisine: str, image_query: str) -> s
     """
     cuisine_line = f"Cuisine: {cuisine}\n" if cuisine else ""
     query_line = f"Expected to look like: {image_query}\n" if image_query else ""
+    # The recipe's own description of the finished dish. Without it the model
+    # judges against its generic idea of the name, which is how a chilli-oil
+    # Sichuan rib dish scored 10/10 for a recipe whose own text says the sauce
+    # should be dark and glossy.
+    desc_line = f"The recipe describes it as: {description}\n" if description else ""
     return f"""Rate how well this photo represents a specific dish. Be strict. Most stock
 photos are of a DIFFERENT dish that merely shares a word with this one, and
 serving one of those under the recipe is worse than serving no photo at all.
 
 Dish: {dish_name}
-{cuisine_line}{query_line}
+{cuisine_line}{query_line}{desc_line}
 Work in this order.
 
 1. Describe what is actually in the photo. Name the main ingredient you can see
@@ -432,7 +439,9 @@ Work in this order.
    paneer, beef is not pork, pork belly is not pork ribs, prawns are not fish.
    If the dish is the meat itself and the photo is a rice or noodle bowl, false.
 
-3. same_style: is it the same cuisine AND the same cooking method? A Chinese
+3. same_style: does it match the description above, the same cuisine AND the
+   same cooking method? Colour and sauce matter here: a dark, glossy soy braise
+   and a red chilli-oil braise are different dishes even when both are "red". A Chinese
    red braise is dark, glossy and saucy; Colombian or American roasted and
    grilled ribs are not it. Japanese katsu curry is not Indian curry. Grilled is
    not braised, raw is not cooked, deep-fried is not steamed.

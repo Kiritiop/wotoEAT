@@ -254,12 +254,12 @@ function MealSlotCardInner({
     if (!showDetail || fetchedImageFor.current === meal.name) return;
     fetchedImageFor.current = meal.name;
     let active = true;
-    searchMealImage(meal.name, meal.image_query, meal.cuisine).then((url) => { if (active) setMealImageUrl(url); });
+    searchMealImage(meal.name, meal.image_query, meal.cuisine, meal.description).then((url) => { if (active) setMealImageUrl(url); });
     return () => { active = false; };
     // image_query travels with the meal, so it never changes without the name
     // changing too; it is listed only to satisfy exhaustive-deps. The
     // fetchedImageFor guard is what actually prevents a refetch.
-  }, [showDetail, meal.name, meal.image_query, meal.cuisine]);
+  }, [showDetail, meal.name, meal.image_query, meal.cuisine, meal.description]);
 
   const [sharing, setSharing] = useState(false);
   async function handleShareMeal() {

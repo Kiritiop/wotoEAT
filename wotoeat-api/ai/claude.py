@@ -380,7 +380,8 @@ _VISION_CHECK_MAX_TOKENS = 8000
 
 
 async def verify_dish_photo(
-    dish_name: str, cuisine: str, image_query: str, image_b64: str
+    dish_name: str, cuisine: str, image_query: str, image_b64: str,
+    description: str = "",
 ) -> tuple[bool, float, str]:
     """Look at a candidate header photo and rate how well it shows the dish.
 
@@ -405,7 +406,7 @@ async def verify_dish_photo(
     text = ""
     try:
         text = await _generate_vision(
-            dish_photo_check_prompt(dish_name, cuisine, image_query),
+            dish_photo_check_prompt(dish_name, cuisine, image_query, description),
             image_b64,
             max_tokens=_VISION_CHECK_MAX_TOKENS,
         )

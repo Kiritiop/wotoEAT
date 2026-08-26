@@ -416,7 +416,7 @@ def _broaden(terms: list[str]) -> list[str]:
 
 async def _pexels_image(
     dish_name: str, hint: str | None, client: httpx.AsyncClient, dish_key: str,
-    cuisine: str = "", vision_allowed: bool = True,
+    cuisine: str = "", vision_allowed: bool = True, desc: str = "",
 ) -> str | None:
     """Pexels stock photo search, ranked by how well each photo's own
     description matches the dish -- not by whatever Pexels puts first.
@@ -441,7 +441,7 @@ async def _pexels_image(
 
     candidates.sort(key=lambda c: -c["score"])  # best text matches get looked at
     candidates = await _vision_filter(
-        candidates, dish_name, cuisine, " ".join(terms), client, vision_allowed
+        candidates, dish_name, cuisine, " ".join(terms), client, vision_allowed, desc
     )
     return _choose(dish_key, candidates)
 
@@ -452,7 +452,7 @@ async def _pexels_image(
 
 async def _unsplash_image(
     dish_name: str, hint: str | None, client: httpx.AsyncClient, dish_key: str,
-    cuisine: str = "", vision_allowed: bool = True,
+    cuisine: str = "", vision_allowed: bool = True, desc: str = "",
 ) -> str | None:
     """Unsplash stock photo search (optional -- needs UNSPLASH_ACCESS_KEY).
     Scored and de-duplicated the same way as Pexels."""
@@ -505,7 +505,7 @@ async def _unsplash_image(
         })
     candidates.sort(key=lambda c: -c["score"])  # best text matches get looked at
     candidates = await _vision_filter(
-        candidates, dish_name, cuisine, " ".join(terms), client, vision_allowed
+        candidates, dish_name, cuisine, " ".join(terms), client, vision_allowed, desc
     )
     return _choose(dish_key, candidates)
 
@@ -533,8 +533,10 @@ _VISION_CHECK = os.getenv("IMAGE_VISION_CHECK", "1") not in ("0", "false", "Fals
 _VISION_CANDIDATES = 3
 
 # Vision is the expensive part of this endpoint, so it gets its own budget on
-# top of the lookup cap. A human browsing meals never approaches it.
-_VISION_MAX = 60
+# top of the lookup cap. Counted in individual model calls, and one dish costs
+# up to _VISION_CANDIDATES of them, so 180 is roughly 60 novel dishes an hour.
+# A dish is only ever paid for once: prewarm and the endpoint share the cache.
+_VISION_MAX = 180
 _VISION_WINDOW = 3600
 
 # Enough pixels to tell a braise from a barbecue, small enough to keep the
@@ -554,13 +556,14 @@ async def _fetch_b64(url: str, client: httpx.AsyncClient) -> str | None:
 
 
 async def _looks_right(
-    cand: dict, dish_name: str, cuisine: str, hint: str, client: httpx.AsyncClient
+    cand: dict, dish_name: str, cuisine: str, hint: str, client: httpx.AsyncClient,
+    desc: str = "",
 ) -> tuple[bool, float]:
     """(usable, fit) for one candidate."""
     b64 = await _fetch_b64(cand.get("check_url") or cand["url"], client)
     if b64 is None:
         return False, 0.0
-    usable, fit, shows = await verify_dish_photo(dish_name, cuisine, hint, b64)
+    usable, fit, shows = await verify_dish_photo(dish_name, cuisine, hint, b64, desc)
     if shows == UNVERIFIED:
         # Not a verdict. ai.claude has already logged why at WARNING; say plainly
         # here that this photo is going out unchecked, so a broken gate can never
@@ -580,7 +583,7 @@ async def _looks_right(
 
 async def _vision_filter(
     candidates: list[dict], dish_name: str, cuisine: str, hint: str,
-    client: httpx.AsyncClient, allowed: bool,
+    client: httpx.AsyncClient, allowed: bool, desc: str = "",
 ) -> list[dict]:
     """Keep only the candidates a vision model agrees show the dish.
 
@@ -593,7 +596,7 @@ async def _vision_filter(
         return candidates
     head, tail = candidates[:_VISION_CANDIDATES], candidates[_VISION_CANDIDATES:]
     verdicts = await asyncio.gather(
-        *(_looks_right(c, dish_name, cuisine, hint, client) for c in head),
+        *(_looks_right(c, dish_name, cuisine, hint, client, desc) for c in head),
         return_exceptions=True,
     )
     kept: list[dict] = []
@@ -618,6 +621,110 @@ async def _vision_filter(
 # Endpoint
 # ---------------------------------------------------------------------------
 
+def _cache_key(dish_key: str, hint: str, cuisine: str) -> str:
+    return f"img:{_CACHE_VERSION}:{dish_key}|{hint.casefold()}|{cuisine.casefold()}"
+
+
+async def resolve_dish_image(
+    dish: str, hint: str = "", cuisine: str = "", client_ip: str = "unknown",
+    desc: str = "",
+) -> str | None:
+    """Resolve (and cache) the header photo for one dish.
+
+    Shared by the endpoint and by the prewarm that runs after meal generation,
+    so both go through the same caching, rate limits and vetting. Returns the
+    cached answer without touching anything external when there is one.
+    """
+    dish = dish.strip()
+    hint = hint.strip()
+    cuisine = cuisine.strip()
+    # Long enough to convey how the dish should look, short enough not to crowd
+    # the prompt. The check reads it; nothing else does, so it stays out of the
+    # cache key -- a reworded description must not orphan a resolved photo.
+    desc = (desc or "").strip()[:300]
+    # The dish, not the dish+hint pair, owns a photo: the same dish generated
+    # twice with slightly different wording must not fight itself for a claim.
+    dish_key = dish.casefold()
+    key = _cache_key(dish_key, hint, cuisine)
+    cached = cache_get(key)
+    if cached is not None:
+        return cached.get("url")
+
+    # Cache miss -> about to hit external APIs. Rate-limit novel lookups per IP.
+    # On limit, degrade to a placeholder (don't cache it -- the cap is transient).
+    if not rate_limit_check(client_ip, "image-search", _IMG_MAX, _IMG_WINDOW):
+        return None
+
+    # Vision has its own, tighter budget. Exhausting it degrades this request to
+    # text-only matching rather than failing it: a decently matched photo beats
+    # none, and the cap is transient.
+    vision_allowed = rate_limit_check(
+        client_ip, "image-vision", _VISION_MAX, _VISION_WINDOW
+    )
+
+    async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+        url = (
+            # A verified MealDB name match is a photograph of that exact recipe,
+            # which is stronger evidence than a vision model's opinion of a stock
+            # photo, so it skips the gate.
+            await _themealdb_image(dish, client)
+            or await _pexels_image(
+                dish, hint or None, client, dish_key, cuisine, vision_allowed, desc
+            )
+            or await _unsplash_image(
+                dish, hint or None, client, dish_key, cuisine, vision_allowed, desc
+            )
+        )
+    cache_set(key, {"url": url}, _IMG_TTL_HIT if url else _IMG_TTL_MISS)
+    return url
+
+
+# Prewarm tasks are held here so the event loop cannot garbage-collect a task
+# that nothing is awaiting; they discard themselves on completion.
+_prewarm_tasks: set[asyncio.Task] = set()
+
+
+def prewarm_dish_images(meals: list[dict], client_ip: str = "unknown") -> None:
+    """Start resolving header photos for freshly generated meals, in background.
+
+    Vetting a photo means downloading candidates and having a vision model look
+    at them, which took 10-15 seconds when it ran on modal-open. That whole wait
+    sat between the user tapping a card and seeing anything. Generation already
+    knows which dishes are coming, so the work starts there instead and is
+    normally finished, and cached, before a card is ever opened.
+
+    Fire-and-forget by design: an image is not worth delaying or failing a meal
+    response over.
+    """
+    if not meals:
+        return
+    for meal in meals:
+        name = (meal.get("name") or "").strip()
+        if not name:
+            continue
+        task = asyncio.create_task(
+            _prewarm_one(
+                name,
+                meal.get("image_query") or "",
+                meal.get("cuisine") or "",
+                client_ip,
+                meal.get("description") or "",
+            )
+        )
+        _prewarm_tasks.add(task)
+        task.add_done_callback(_prewarm_tasks.discard)
+
+
+async def _prewarm_one(
+    dish: str, hint: str, cuisine: str, client_ip: str, desc: str = ""
+) -> None:
+    try:
+        url = await resolve_dish_image(dish, hint, cuisine, client_ip, desc)
+        logger.info("[images] prewarmed %r -> %s", dish, url or "no image")
+    except Exception as exc:
+        logger.warning("[images] prewarm failed for %r: %s", dish, exc)
+
+
 @router.get("/search")
 async def image_search(
     request: Request,
@@ -637,53 +744,25 @@ async def image_search(
             "it is the difference between a red braise and a rack of BBQ ribs."
         ),
     ),
+    desc: str | None = Query(
+        None,
+        description=(
+            "Optional: the recipe's own description of the finished dish. Read only "
+            "by the vision check, so it compares a photo against what THIS recipe "
+            "says it should look like rather than a generic idea of the name."
+        ),
+    ),
 ):
     """Food-specific image cascade: TheMealDB (real dish photo) -> Pexels -> Unsplash.
 
     Candidates are shortlisted by how well a photo's own description matches the
     dish, then the best few are shown to a vision model which vetoes the ones
     that do not actually depict it. The endpoint returns {url: null} rather than
-    an image that contradicts the recipe. Results are cached so the same dish
-    never re-hits the external APIs or the vision model.
+    an image that contradicts the recipe.
+
+    Usually a cache hit: meal generation prewarms the dishes it just produced, so
+    the slow part is normally over before a card is opened.
     """
-    dish = q.strip()
-    hint_clean = (hint or "").strip()
-    cuisine_clean = (cuisine or "").strip()
-    # The dish, not the dish+hint pair, owns a photo: the same dish generated
-    # twice with slightly different wording must not fight itself for a claim.
-    dish_key = dish.casefold()
-    cache_key = (
-        f"img:{_CACHE_VERSION}:{dish_key}|{hint_clean.casefold()}|{cuisine_clean.casefold()}"
-    )
-    cached = cache_get(cache_key)
-    if cached is not None:
-        return {"url": cached.get("url")}
-
-    # Cache miss -> about to hit external APIs. Rate-limit novel lookups per IP.
-    # On limit, degrade to a placeholder (don't cache it -- the cap is transient).
     client_ip = request.client.host if request.client else "unknown"
-    if not rate_limit_check(client_ip, "image-search", _IMG_MAX, _IMG_WINDOW):
-        return {"url": None}
-
-    # Vision has its own, tighter budget. Exhausting it degrades this request to
-    # text-only matching rather than failing it: a decently matched photo beats
-    # none, and the cap is transient.
-    vision_allowed = rate_limit_check(
-        client_ip, "image-vision", _VISION_MAX, _VISION_WINDOW
-    )
-
-    async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
-        url = (
-            # A verified MealDB name match is a photograph of that exact recipe,
-            # which is stronger evidence than a vision model's opinion of a stock
-            # photo, so it skips the gate.
-            await _themealdb_image(dish, client)
-            or await _pexels_image(
-                dish, hint_clean or None, client, dish_key, cuisine_clean, vision_allowed
-            )
-            or await _unsplash_image(
-                dish, hint_clean or None, client, dish_key, cuisine_clean, vision_allowed
-            )
-        )
-    cache_set(cache_key, {"url": url}, _IMG_TTL_HIT if url else _IMG_TTL_MISS)
+    url = await resolve_dish_image(q, hint or "", cuisine or "", client_ip, desc or "")
     return {"url": url}

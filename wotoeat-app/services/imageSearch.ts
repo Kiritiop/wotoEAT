@@ -8,19 +8,27 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "";
 // is the difference between a Chinese red braise and a rack of American BBQ ribs
 // for a dish whose name contains "pork ribs" either way.
 //
-// The backend may take a few seconds on a cache miss because it looks at the
-// candidate photos before returning one. Callers render the hero only once this
-// resolves, so a slow answer costs nothing but a late fade-in.
+// Usually instant: meal generation prewarms the dishes it just produced, so by
+// the time a card is opened the answer is already cached. On a genuine miss the
+// backend looks at the candidate photos before returning one, which takes a few
+// seconds; callers render the hero only once this resolves, so the cost is a
+// late fade-in rather than a blocked screen.
 export async function searchMealImage(
   mealName: string,
   hint?: string | null,
   cuisine?: string | null,
+  desc?: string | null,
 ): Promise<string | null> {
   if (!API_URL) return null;
   try {
     const params = new URLSearchParams({ q: mealName });
     if (hint) params.set("hint", hint);
     if (cuisine) params.set("cuisine", cuisine);
+    // The recipe's own description of the finished dish. Only the backend's
+    // vision check reads it, and only to compare a candidate photo against what
+    // THIS recipe says it looks like ("dark, glossy, soy-braised") rather than a
+    // generic idea of the dish name.
+    if (desc) params.set("desc", desc.slice(0, 300));
     const res = await fetch(`${API_URL}/images/search?${params.toString()}`);
     if (!res.ok) return null;
     const json = await res.json();
