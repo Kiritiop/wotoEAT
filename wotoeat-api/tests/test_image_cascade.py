@@ -45,6 +45,7 @@ generated: list[tuple] = []
 uploaded: list[str] = []
 EXISTING: set[str] = set()          # objects already in the bucket
 MEALDB: dict[str, list[dict] | None] = {}
+QUERIED: list[str] = []             # dish names actually sent to MealDB
 
 
 def check(label: str, cond: bool, detail: str = "") -> None:
@@ -68,6 +69,7 @@ class _FakeClient:
     async def __aexit__(self, *a): return False
     async def get(self, url, params=None, headers=None):
         if "themealdb" in url:
+            QUERIED.append(params["s"])
             return _Resp({"meals": MEALDB.get(params["s"])})
         return _Resp({})
     async def head(self, url):
@@ -167,6 +169,60 @@ async def _no_image(*a, **k):
 images.imagegen.generate_dish_image = _no_image  # type: ignore[assignment]
 MEALDB["Refused Dish"] = None
 check("a model that declines yields no hero", get("Refused Dish", hint="x y z") is None)
+images.imagegen.generate_dish_image = _fake_generate  # type: ignore[assignment]
+
+# ── MealDB is not asked questions it cannot answer ─────────────────────────
+# `_normalize` keeps [a-z0-9], so a Chinese name yields no tokens and
+# `_mealdb_pick` rejects every result before looking at one. The request was a
+# network round trip spent to be told nothing, on exactly the dishes that are
+# always generated in the end.
+# A dish not asked for anywhere above, so this is a real cache miss: a cached
+# dish never reaches MealDB at all, which would make this check pass for the
+# wrong reason.
+QUERIED.clear()
+MEALDB["Lamb Rogan Josh"] = [{"strMeal": "Lamb Rogan Josh",
+                              "strMealThumb": "https://mealdb/rogan.jpg"}]
+url = get("Lamb Rogan Josh", hint="lamb curry", cuisine="Indian")
+check("a name MealDB could match is looked up",
+      QUERIED == ["Lamb Rogan Josh"] and url == "https://mealdb/rogan.jpg", str(QUERIED))
+
+QUERIED.clear()
+MEALDB["水煮牛肉"] = None
+url = get("水煮牛肉", hint="sliced beef in chilli broth", cuisine="Chinese", desc="麻辣鲜香")
+check("a name it could never match is not asked about at all", QUERIED == [], str(QUERIED))
+check("...and that dish is still generated", url is not None and generated, str(url))
+
+# ── The same dish, twice at once, is generated once ────────────────────────
+# The cache is only written when a resolution finishes, so two callers arriving
+# during one generation both used to miss it. In production those two are the
+# prewarm and the user tapping that card a second later: it paid twice and the
+# user waited out a fresh generation instead of joining one nearly done.
+slow: list[str] = []
+
+
+async def _slow_generate(dish, cuisine="", description="", image_query=""):
+    slow.append(dish)
+    await asyncio.sleep(0.05)
+    return JPEG
+
+
+images.imagegen.generate_dish_image = _slow_generate  # type: ignore[assignment]
+MEALDB["Simultaneous Dish"] = None
+
+
+async def _two_at_once():
+    return await asyncio.gather(
+        images.resolve_dish_image("Simultaneous Dish", "x y", "Thai", "1.1.1.1"),
+        images.resolve_dish_image("Simultaneous Dish", "x y", "Thai", "2.2.2.2"),
+    )
+
+
+urls = asyncio.run(_two_at_once())
+check("a dish already being resolved is joined, not generated again",
+      len(slow) == 1, str(slow))
+check("...and both callers get the same image", urls[0] == urls[1] and urls[0], str(urls))
+check("a finished resolution is released from the in-flight registry",
+      images._inflight == {}, str(images._inflight))
 images.imagegen.generate_dish_image = _fake_generate  # type: ignore[assignment]
 
 # ── Contract ───────────────────────────────────────────────────────────────

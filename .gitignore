@@ -27,3 +27,6 @@ wotoeat-api/venv/
 Thumbs.db
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
+
+# Benchmark output: real generated images, not source.
+wotoeat-api/scripts/bench_out/

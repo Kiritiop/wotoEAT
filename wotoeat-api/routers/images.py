@@ -18,6 +18,13 @@ braise, correctly matched and still the wrong picture.
 
 Generating from the description ends that whole class of problem, and takes the
 10-15 seconds of vetting with it.
+
+What is left is one slow step -- the model drawing the picture -- and the file
+is arranged so that nothing else waits on it and nothing pays for it twice. The
+two cheap lookups run together rather than in sequence; MealDB is skipped
+outright for names it cannot match; the blocking upload runs off the event loop
+so concurrent prewarms do not queue behind each other; and a dish already being
+resolved is joined, not restarted.
 """
 import asyncio
 import hashlib
@@ -57,6 +64,13 @@ _IMG_WINDOW = 3600
 # for once because the stored object is reused forever after.
 _GEN_MAX = 40
 _GEN_WINDOW = 3600
+
+# The cascade client only makes two small calls: a MealDB search and a HEAD
+# against storage. Neither has any business taking ten seconds, and the old
+# 90-second budget was left over from downloading candidate photos to vet them.
+# A hanging MealDB used to be able to hold a request open for a minute and a
+# half before the generation that was always going to answer it even started.
+_HTTP_TIMEOUT = httpx.Timeout(10.0, connect=5.0)
 
 # Grammatical glue only, for comparing a MealDB title against a dish name.
 _GLUE = {
@@ -146,7 +160,10 @@ def _mealdb_pick(dish_name: str, meals: list[dict]) -> str | None:
 async def _themealdb_image(dish_name: str, client: httpx.AsyncClient) -> str | None:
     """A real photograph of this exact recipe, when TheMealDB knows it.
     Free, no key, and the strongest evidence available: the photo and the
-    recipe come from the same entry."""
+    recipe come from the same entry.
+
+    Only worth calling when `_searchable` says the name can match at all.
+    """
     try:
         resp = await client.get(
             "https://www.themealdb.com/api/json/v1/1/search.php",
@@ -186,20 +203,58 @@ async def _existing_generated(name: str, client: httpx.AsyncClient) -> str | Non
         return None
 
 
-async def _generated_image(
-    dish: str, cuisine: str, desc: str, hint: str, dish_key: str,
-    client: httpx.AsyncClient, allowed: bool,
+def _searchable(dish: str) -> bool:
+    """Whether TheMealDB could match this name at all.
+
+    `_normalize` keeps [a-z0-9], so a Chinese dish name yields no tokens and
+    `_mealdb_pick` rejects every result before looking at one. Asking anyway is
+    a network round trip spent to be told nothing, on exactly the dishes that
+    always end up generated.
+    """
+    return bool(_tokens(dish))
+
+
+async def _lookup(
+    dish: str, cuisine: str, desc: str, hint: str, dish_key: str, allowed: bool,
 ) -> str | None:
-    """Make the photo from the recipe's own words."""
-    if not imagegen.is_available():
-        return None
+    """The cascade proper: a real photo of the recipe, else one drawn from it.
+
+    The two lookups run together. They are independent questions -- does MealDB
+    have this recipe, and have we already generated this dish -- and asking them
+    one after the other put a whole round trip in front of the answer for every
+    dish MealDB does not have, which is most of them. MealDB still wins when
+    both answer: a photograph of the exact recipe outranks our drawing of it.
+    """
+    can_generate = imagegen.is_available()
     name = _object_name(dish_key)
 
-    existing = await _existing_generated(name, client)
-    if existing:
-        logger.info("[images] reusing the stored image for %r", dish)
-        return existing
+    jobs: list[str] = []
+    coros = []
+    # The client is closed before generation starts: it is wanted for two small
+    # calls, and holding a connection pool open for the minute a drawing can
+    # take, once per dish in a meal plan, buys nothing.
+    async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT, follow_redirects=True) as client:
+        if _searchable(dish):
+            jobs.append("mealdb")
+            coros.append(_themealdb_image(dish, client))
+        if can_generate:
+            jobs.append("stored")
+            coros.append(_existing_generated(name, client))
 
+        found: dict[str, str | None] = {}
+        if coros:
+            results = await asyncio.gather(*coros, return_exceptions=True)
+            for job, result in zip(jobs, results):
+                found[job] = None if isinstance(result, BaseException) else result
+
+    if found.get("mealdb"):
+        return found["mealdb"]
+    if found.get("stored"):
+        logger.info("[images] reusing the stored image for %r", dish)
+        return found["stored"]
+
+    if not can_generate:
+        return None
     if not allowed:
         logger.info("[images] generation budget spent; %r gets no image", dish)
         return None
@@ -207,7 +262,10 @@ async def _generated_image(
     raw = await imagegen.generate_dish_image(dish, cuisine, desc, hint)
     if raw is None:
         return None
-    url = db.upload_dish_image(name, raw)
+    # The Supabase client is synchronous, so this upload is a blocking network
+    # POST. Left on the event loop it stops the whole process for its duration,
+    # and a meal plan uploads several images at once.
+    url = await asyncio.to_thread(db.upload_dish_image, name, raw)
     if url:
         logger.info("[images] generated a photo for %r -> %s", dish, url)
     return url
@@ -219,6 +277,27 @@ async def _generated_image(
 
 def _cache_key(dish_key: str, hint: str, cuisine: str) -> str:
     return f"img:{_CACHE_VERSION}:{dish_key}|{hint.casefold()}|{cuisine.casefold()}"
+
+
+# Resolutions currently running, keyed exactly as the cache is. Everything that
+# arrives for a dish while one is in flight waits on that one instead of
+# starting its own.
+_inflight: dict[str, "asyncio.Task[str | None]"] = {}
+
+
+async def _resolve_once(
+    key: str, dish: str, cuisine: str, desc: str, hint: str,
+    dish_key: str, gen_allowed: bool,
+) -> str | None:
+    """One trip through the cascade, with its result written to the cache.
+
+    Owns the caching so that a caller who walks away mid-generation does not
+    take the answer with them: the image was paid for either way, and the next
+    request for that dish should find it waiting.
+    """
+    url = await _lookup(dish, cuisine, desc, hint, dish_key, gen_allowed)
+    cache_set(key, {"url": url}, _IMG_TTL_HIT if url else _IMG_TTL_MISS)
+    return url
 
 
 async def resolve_dish_image(
@@ -248,6 +327,15 @@ async def resolve_dish_image(
     if cached is not None:
         return cached.get("url")
 
+    # A resolution already running for this dish is the answer to this one too.
+    # The cache is only written at the end, so without this the common case --
+    # prewarm starts generating a dish, the user taps that card a second later --
+    # missed the cache and paid for a second generation, then waited out its full
+    # length instead of joining one already most of the way done.
+    running = _inflight.get(key)
+    if running is not None:
+        return await asyncio.shield(running)
+
     if not rate_limit_check(client_ip, "image-search", _IMG_MAX, _IMG_WINDOW):
         return None
     # A separate, tighter budget for the paid step. Exhausting it means a card
@@ -255,14 +343,15 @@ async def resolve_dish_image(
     # image that already exists.
     gen_allowed = rate_limit_check(client_ip, "image-gen", _GEN_MAX, _GEN_WINDOW)
 
-    async with httpx.AsyncClient(timeout=90, follow_redirects=True) as client:
-        url = await _themealdb_image(dish, client)
-        if url is None:
-            url = await _generated_image(
-                dish, cuisine, desc, hint, dish_key, client, gen_allowed
-            )
-    cache_set(key, {"url": url}, _IMG_TTL_HIT if url else _IMG_TTL_MISS)
-    return url
+    task = asyncio.ensure_future(
+        _resolve_once(key, dish, cuisine, desc, hint, dish_key, gen_allowed)
+    )
+    _inflight[key] = task
+    # Shielded, and cleared by the task itself rather than in a finally here:
+    # if this caller goes away the generation it started still finishes and
+    # still lands in the cache, which is the whole point of prewarming.
+    task.add_done_callback(lambda _t, k=key: _inflight.pop(k, None))
+    return await asyncio.shield(task)
 
 
 # Prewarm tasks are held here so the event loop cannot garbage-collect a task
