@@ -16,6 +16,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { Button } from "@/components/ui/Button";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 
 export default function SignInScreen() {
   const c = useTheme();
@@ -58,7 +59,8 @@ export default function SignInScreen() {
         <LanguageToggle />
       </View>
       <View style={styles.inner}>
-        <Image source={require("@/assets/logo.png")} style={styles.logoWrap} resizeMode="contain" />
+        <Image source={require("@/assets/logo.png")} style={styles.logoWrap} resizeMode="contain"
+          alt="wotoEAT" accessibilityLabel="wotoEAT" />
         <Text style={[styles.title, { color: c.text }]}>{t("welcome_back")}</Text>
         <Text style={[styles.subtitle, { color: c.textMuted }]}>{t("app_tagline")}</Text>
 
@@ -73,11 +75,9 @@ export default function SignInScreen() {
           value={email}
           onChangeText={setEmail}
         />
-        <TextInput
+        <PasswordInput
           style={[styles.input, { borderColor: c.border, backgroundColor: c.surface, color: c.text }]}
           placeholder={t("password")}
-          placeholderTextColor={c.textPlaceholder}
-          secureTextEntry
           value={password}
           onChangeText={setPassword}
         />

@@ -1,0 +1,10 @@
+# wotoEAT
+
+# Shared recipes are private-by-obscurity: /share/<uuid> links are meant for
+# the person they were sent to, not for search results. They are unguessable
+# and unlinked, so nothing else keeps them out of an index.
+User-agent: *
+Disallow: /share/
+Allow: /
+
+Sitemap: https://wotoeat.com/sitemap.xml

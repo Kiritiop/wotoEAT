@@ -52,28 +52,38 @@ def cache_get(key: str):
 # Opportunistic housekeeping: purge expired rows at most once an hour per
 # process. Without this the cache grows unboundedly — meal-plan keys include
 # avoid_meals, so nearly every generation writes a unique row that expires but
-# was never deleted (cache_purge_expired existed but had no caller).
+# was never deleted. The rate_limits table has the same problem for a different
+# reason: its key is an IP for anonymous callers, so every visitor that ever hit
+# an AI endpoint left a row behind. Both are swept together.
 _PURGE_INTERVAL = 3600
+# Any rate-limit window older than this is dead: the longest window in the app
+# is an hour, and a reset only ever moves window_start forward.
+_RATE_ROW_TTL = 24 * 3600
 _last_purge = 0.0
 
 
-def cache_set(key: str, data, ttl: int) -> None:
+def _purge_if_due(conn, now: float) -> None:
     global _last_purge
+    if now - _last_purge <= _PURGE_INTERVAL:
+        return
+    _last_purge = now
+    conn.execute("DELETE FROM cache WHERE expires<?", (now,))
+    conn.execute("DELETE FROM rate_limits WHERE window_start<?", (now - _RATE_ROW_TTL,))
+    # Commit here rather than relying on the caller: rate_limit_check returns
+    # early when a caller is over quota, which would otherwise leave the sweep
+    # sitting in an open write transaction.
+    conn.commit()
+
+
+def cache_set(key: str, data, ttl: int) -> None:
     now = time.time()
     conn = _conn()
-    if now - _last_purge > _PURGE_INTERVAL:
-        _last_purge = now
-        conn.execute("DELETE FROM cache WHERE expires<?", (now,))
+    _purge_if_due(conn, now)
     conn.execute(
         "INSERT OR REPLACE INTO cache (key, data, expires) VALUES (?,?,?)",
         (key, json.dumps(data, default=str), now + ttl),
     )
     conn.commit()
-
-
-def cache_purge_expired() -> None:
-    _conn().execute("DELETE FROM cache WHERE expires<?", (time.time(),))
-    _conn().commit()
 
 
 # ---------------------------------------------------------------------------
@@ -88,6 +98,7 @@ def rate_limit_check(user_id: str, action: str, max_calls: int, window_secs: int
     key = f"{user_id}:{action}"
     now = time.time()
     db = _conn()
+    _purge_if_due(db, now)
 
     row = db.execute(
         "SELECT count, window_start FROM rate_limits WHERE user_action=?", (key,)

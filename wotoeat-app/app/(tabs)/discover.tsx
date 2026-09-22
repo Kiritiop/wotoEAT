@@ -34,6 +34,7 @@ import FindRecipeModal from "@/components/FindRecipeModal";
 import { searchMealImage } from "@/services/imageSearch";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { Chip } from "@/components/ui/Chip";
+import { AiSafetyNote } from "@/components/ui/AiSafetyNote";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { GuestBanner } from "@/components/GuestBanner";
 import { PinnedBar } from "@/components/ui/PinnedBar";
@@ -552,6 +553,9 @@ function MealSlotCardInner({
                     <Image
                       source={{ uri: mealImageUrl }}
                       style={cardStyles.modalHeroImage}
+                      alt=""
+                      accessibilityElementsHidden
+                      importantForAccessibility="no"
                       contentFit="cover"
                       transition={200}
                       cachePolicy="memory-disk"
@@ -614,11 +618,11 @@ function MealSlotCardInner({
                   {/* Serving stepper + add all */}
                   <View style={[cardStyles.servingsStepper, { paddingHorizontal: 20, marginBottom: 8, justifyContent: "space-between" }]}>
                     <View style={cardStyles.servingsStepper}>
-                      <TouchableOpacity onPress={() => { setDisplayServings((n) => Math.max(1, n - 1)); Haptics.selectionAsync(); }} disabled={displayServings <= 1} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <TouchableOpacity accessibilityRole="button" accessibilityLabel={t("a11y_decrease_servings")} onPress={() => { setDisplayServings((n) => Math.max(1, n - 1)); Haptics.selectionAsync(); }} disabled={displayServings <= 1} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                         <Ionicons name="remove-circle-outline" size={22} color={displayServings <= 1 ? c.disabled : c.textMuted} />
                       </TouchableOpacity>
                       <Text style={[cardStyles.servingsStepperText, { color: c.textSecondary }]}>{strings.servings_people(displayServings)}</Text>
-                      <TouchableOpacity onPress={() => { setDisplayServings((n) => Math.min(12, n + 1)); Haptics.selectionAsync(); }} disabled={displayServings >= 12} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <TouchableOpacity accessibilityRole="button" accessibilityLabel={t("a11y_increase_servings")} onPress={() => { setDisplayServings((n) => Math.min(12, n + 1)); Haptics.selectionAsync(); }} disabled={displayServings >= 12} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                         <Ionicons name="add-circle-outline" size={22} color={displayServings >= 12 ? c.disabled : c.textMuted} />
                       </TouchableOpacity>
                     </View>
@@ -657,6 +661,8 @@ function MealSlotCardInner({
                             <TouchableOpacity
                               style={[cardStyles.ingCartBtn, { borderColor: added ? c.primary : c.border, backgroundColor: added ? c.primaryLight : "transparent" }]}
                               onPress={() => toggleIngredient(origIng)}
+                              accessibilityRole="button"
+                              accessibilityLabel={added ? t("a11y_remove_from_list") : t("a11y_add_to_list")}
                               hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                             >
                               <Ionicons name={added ? "remove" : "add"} size={14} color={added ? c.primary : c.textMuted} />
@@ -704,6 +710,8 @@ function MealSlotCardInner({
                       ))}
                     </View>
                   )}
+
+                  <AiSafetyNote style={{ marginHorizontal: 20, marginBottom: 14 }} />
 
                   {/* I cooked this — pantry-loop Phase 2 (consumption review) */}
                   <View style={{ paddingHorizontal: 20, marginBottom: 20 }}>
@@ -828,6 +836,8 @@ export default function TodayScreen() {
   const [showSettings, setShowSettings] = useState(false);
   const [selectedSlots, setSelectedSlots] = useState<MealTypeTag[]>(["any"]);
   const [mealStyle, setMealStyle] = useState<"full" | "main_dish">("full");
+  // Closed-world pantry mode: cook tonight with what is in the pantry and buy nothing.
+  const [pantryOnly, setPantryOnly] = useState(false);
   // Persisted preferences (store-backed): the ingredients/tags a user requires
   // in generated meals survive app restarts instead of resetting every session.
   const { requiredIngredients, setRequiredIngredients, selectedPantryItems, setSelectedPantryItems } = useAppStore();
@@ -905,6 +915,7 @@ export default function TodayScreen() {
         [...livePantryItems, ...requiredIngredients].join(", ") || undefined,
         mealStyle,
         seenMeals,
+        pantryOnly,
       );
 
       setPlanCached(cached);
@@ -920,9 +931,16 @@ export default function TodayScreen() {
     } catch (e) {
       const status = (e as any)?.response?.status;
       const detail: string = (e as any)?.response?.data?.detail ?? "";
-      const hasFilters = requiredIngredients.length > 0 || livePantryItems.length > 0;
+      const hasFilters = requiredIngredients.length > 0 || livePantryItems.length > 0 || pantryOnly;
       const isNoMatch = detail.toLowerCase().includes("no dish") || detail.toLowerCase().includes("required tags");
-      if (status === 422 && hasFilters && isNoMatch) {
+      if (status === 422 && pantryOnly && isNoMatch) {
+        setError(
+          language === "zh"
+            ? "现有食材做不出完整的菜，请添加更多食材或关闭“只用现有食材”。"
+            : "Nothing can be cooked from your pantry alone. Add more ingredients or turn off pantry only.",
+        );
+        setFilterError(true);
+      } else if (status === 422 && hasFilters && isNoMatch) {
         setError(
           language === "zh"
             ? "没有菜肴能同时满足所有所选标签，请减少筛选条件后重试。"
@@ -961,6 +979,7 @@ export default function TodayScreen() {
         [...livePantryItems, ...requiredIngredients].join(", ") || undefined,
         mealStyle,
         seenMeals,
+        pantryOnly,
       );
       replaceMeal(meal.name, newMeal);
       addSeenMeals([newMeal.name]);
@@ -975,9 +994,16 @@ export default function TodayScreen() {
     } catch (e) {
       const status = (e as any)?.response?.status;
       const detail: string = (e as any)?.response?.data?.detail ?? "";
-      const hasFilters = requiredIngredients.length > 0 || livePantryItems.length > 0;
+      const hasFilters = requiredIngredients.length > 0 || livePantryItems.length > 0 || pantryOnly;
       const isNoMatch = detail.toLowerCase().includes("no dish") || detail.toLowerCase().includes("required tags");
-      if (status === 422 && hasFilters && isNoMatch) {
+      if (status === 422 && pantryOnly && isNoMatch) {
+        setError(
+          language === "zh"
+            ? "现有食材做不出完整的菜，请添加更多食材或关闭“只用现有食材”。"
+            : "Nothing can be cooked from your pantry alone. Add more ingredients or turn off pantry only.",
+        );
+        setFilterError(true);
+      } else if (status === 422 && hasFilters && isNoMatch) {
         setError(
           language === "zh"
             ? "没有菜肴能同时满足所有所选标签，请减少筛选条件后重试。"
@@ -1132,7 +1158,7 @@ export default function TodayScreen() {
                 }}
               />
               {ingredientDraft.length > 0 && (
-                <TouchableOpacity onPress={() => setIngredientDraft("")} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel={t("a11y_clear_text")} onPress={() => setIngredientDraft("")} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                   <Ionicons name="close-circle" size={15} color={c.textPlaceholder} />
                 </TouchableOpacity>
               )}
@@ -1142,6 +1168,16 @@ export default function TodayScreen() {
             {pantry.length > 0 && (
               <>
                 <Text style={[styles.filterLabel, { color: c.textMuted, marginTop: 10 }]}>{t("from_pantry")}</Text>
+                <View style={[styles.filterChipRow, { marginBottom: pantryOnly ? 2 : 6 }]}>
+                  <Chip
+                    label={t("pantry_only_label")}
+                    active={pantryOnly}
+                    onPress={() => { setPantryOnly(!pantryOnly); Haptics.selectionAsync(); }}
+                  />
+                </View>
+                {pantryOnly && (
+                  <Text style={[styles.pantryOnlyHint, { color: c.textMuted }]}>{t("pantry_only_hint")}</Text>
+                )}
                 <View style={styles.filterChipRow}>
                   {pantry.map((item, idx) => {
                     const active = selectedPantryItems.map(s => s.toLowerCase()).includes(item.name.toLowerCase());
@@ -1223,6 +1259,7 @@ export default function TodayScreen() {
             onPress={() => {
               setRequiredIngredients([]);
               setSelectedPantryItems([]);
+              setPantryOnly(false);
               setFilterError(false);
               setError(null);
             }}
@@ -1467,6 +1504,7 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     settingsPanel: { borderRadius: 20, borderWidth: 1, padding: 16 },
     filterLabel: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 6 },
     filterChipRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+    pantryOnlyHint: { fontSize: 11, lineHeight: 15, marginBottom: 6 },
     clearFilterBtn: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, marginTop: 6, alignSelf: "flex-start" },
     clearFilterText: { fontSize: 13, fontWeight: "600" },
     // Plan

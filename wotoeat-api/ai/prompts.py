@@ -247,7 +247,7 @@ def meal_generate_prompt(filters: dict, language: str = "en") -> str:
     required = (filters.get("required_ingredients") or "").strip()
 
     _exclude = {"serving_size", "servings", "language", "slots", "recent_ratings",
-                "avoid_meals", "slot", "current_plan", "pantry"}
+                "avoid_meals", "slot", "current_plan", "pantry", "pantry_only"}
     display_filters = {k: v for k, v in filters.items() if k not in _exclude}
 
     # Build the required-tags enforcement block (pre-resolved so outer f-string sees literal braces)
@@ -268,9 +268,28 @@ def meal_generate_prompt(filters: dict, language: str = "en") -> str:
     # Build the dietary-safety + health-goal block from the user's profile.
     safety_block = _profile_constraints_block(filters.get("profile") or {})
 
-    # Build the pantry-priority block — prefer dishes that reuse what the user has.
+    # Build the pantry block. Two modes: pantry_only is a hard closed-world
+    # constraint (the user is cooking tonight with what they have and buying
+    # nothing), otherwise it is a soft preference for overlap. pantry_only with
+    # an empty pantry is meaningless, so it degrades to no block at all.
     pantry_items = filters.get("pantry") or []
-    if pantry_items:
+    if pantry_items and filters.get("pantry_only"):
+        pantry_block = (
+            "\nCRITICAL — PANTRY ONLY MODE:\n"
+            f"The user is buying NOTHING. They have ONLY these ingredients: {', '.join(pantry_items)}.\n"
+            "Every ingredient in the dish MUST be one of those items, or one of these four "
+            "always-available basics: salt, pepper, cooking oil, water.\n"
+            "Do NOT include anything else: no extra spice, sauce, aromatic, stock, dairy, garnish "
+            "or staple, not even in a small or optional amount, and do not mark ingredients optional.\n"
+            "This overrides the closest-real-dish fallback in the AUTHENTICITY rules below: if no "
+            "real, established dish can be cooked from this set, do NOT stretch or invent one.\n"
+            "List every pantry item the dish uses in uses_pantry_items and leave shopping_reminders empty.\n"
+            'If no real dish can be made from these ingredients alone, respond with ONLY this JSON '
+            'and nothing else (no meals array, no extra keys):\n'
+            '{"error": "no_match", "message": "No dish can be made from your pantry alone. '
+            'Add more ingredients or turn off pantry-only."}\n'
+        )
+    elif pantry_items:
         pantry_block = (
             "\nPANTRY PRIORITY:\n"
             f"The user already has these ingredients: {', '.join(pantry_items)}.\n"

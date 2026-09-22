@@ -187,27 +187,58 @@ def upsert_current_shopping_list(user_id: str, items: dict) -> None:
             client.table("shopping_lists").update({"items": items}).eq("user_id", user_id).eq("name", "current").execute()
 
 
-def save_shopping_list(user_id: str, name: str, items: dict, recipe_ids: list[str]) -> Any:
-    row = {
-        "user_id": user_id,
-        "name": name,
-        "items": items,
-        "recipe_ids": recipe_ids,
-    }
-    result = get_client().table("shopping_lists").insert(row).execute()
-    return result.data[0] if result.data else {}
+# ---------------------------------------------------------------------------
+# Erasure
+# ---------------------------------------------------------------------------
+
+# Every table in schema.sql that is keyed by user_id. `shared_items` is the one
+# exclusion: a share is a public snapshot someone may already hold a link to, and
+# its user_id is nullable, so shares are anonymised rather than deleted.
+# Keep this list in step with schema.sql, or erasure silently misses a table.
+_USER_TABLES = ("user_profiles", "pantry", "saved_recipes", "meal_history", "shopping_lists")
 
 
-def get_shopping_lists(user_id: str) -> list[Any]:
-    result = (
-        get_client()
-        .table("shopping_lists")
-        .select("*")
-        .eq("user_id", user_id)
-        .order("created_at", desc=True)
-        .execute()
-    )
-    return result.data or []
+def delete_user_data(user_id: str) -> dict[str, str]:
+    """Erase everything this user stored, table by table.
+
+    Returns a per-table status rather than raising on the first failure: a
+    partial erasure the caller can report is more useful than an exception that
+    hides which tables were already cleared. GDPR erasure is the whole point of
+    this call, so a caller that sees anything other than "ok" must surface it.
+    """
+    client = get_client()
+    results: dict[str, str] = {}
+    for table in _USER_TABLES:
+        try:
+            client.table(table).delete().eq("user_id", user_id).execute()
+            results[table] = "ok"
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).error(
+                "[erasure] could not clear %s for user %s: %s", table, user_id, exc
+            )
+            results[table] = "failed"
+    # Shares outlive the account but must stop pointing at it.
+    try:
+        client.table("shared_items").update({"user_id": None}).eq("user_id", user_id).execute()
+        results["shared_items"] = "anonymised"
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).error(
+            "[erasure] could not anonymise shares for user %s: %s", user_id, exc
+        )
+        results["shared_items"] = "failed"
+    return results
+
+
+def delete_auth_user(user_id: str) -> None:
+    """Delete the Supabase auth account itself. Needs the service-role key.
+
+    Apple guideline 5.1.1(v) and Google Play both require in-app *account*
+    deletion, not just data deletion, so this is a store requirement and not a
+    nicety. Raises on failure: the caller must not report success.
+    """
+    get_client().auth.admin.delete_user(user_id)
 
 
 # ---------------------------------------------------------------------------

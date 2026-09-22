@@ -20,7 +20,7 @@ const MAX_CACHE_ENTRIES = 3_000;
 const memCache = new Map<string, string>();
 let hydrated = false;
 
-export function hasChinese(s: string): boolean {
+function hasChinese(s: string): boolean {
   return /[一-鿿]/.test(s);
 }
 
@@ -137,11 +137,4 @@ export async function translateToZh(texts: string[]): Promise<string[]> {
 export function getTranslatedSync(text: string): string {
   if (hasChinese(text) || shouldSkip(text)) return text;
   return memCache.get(text) ?? text;
-}
-
-/** Clears all cached translations from memory and storage. */
-export function clearTranslationCache(): void {
-  memCache.clear();
-  hydrated = false;
-  AsyncStorage.removeItem(CACHE_KEY).catch(() => {});
 }

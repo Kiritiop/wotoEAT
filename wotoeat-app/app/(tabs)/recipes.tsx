@@ -30,6 +30,7 @@ import { translateTag, DIFFICULTY_COLORS, translateDifficulty } from "@/constant
 import type { SavedRecipe, Ingredient, MealHistoryEntry, MealSuggestion } from "@/services/api";
 import { MealCard } from "@/components/MealCard";
 import { saveRecipeAndRate } from "@/utils/saveAndRate";
+import { AiSafetyNote } from "@/components/ui/AiSafetyNote";
 
 type RecipeTab = "saved" | "liked" | "mine" | "history";
 
@@ -391,6 +392,8 @@ function RecipesScreen() {
           activeTab !== "history" ? (
             <TouchableOpacity
               style={styles.searchIconBtn}
+              accessibilityRole="button"
+              accessibilityLabel={showSearch ? t("a11y_close") : t("a11y_search")}
               onPress={() => { setShowSearch((v) => !v); if (showSearch) setSearchText(""); Haptics.selectionAsync(); }}
             >
               <Ionicons name={showSearch ? "close" : "search"} size={20} color={c.textMuted} />
@@ -428,7 +431,7 @@ function RecipesScreen() {
             returnKeyType="search"
           />
           {searchText.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchText("")}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={t("a11y_clear_text")} onPress={() => setSearchText("")}>
               <Ionicons name="close-circle" size={15} color={c.textPlaceholder} />
             </TouchableOpacity>
           )}
@@ -477,7 +480,7 @@ function RecipesScreen() {
               <View style={styles.tagFilterPill}>
                 <Ionicons name="pricetag" size={12} color={c.primary} />
                 <Text style={[styles.tagFilterText, { color: c.primary }]}>{translateTag(activeTagFilter, language)}</Text>
-                <TouchableOpacity onPress={() => setActiveTagFilter(null)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel={t("a11y_clear_filter")} onPress={() => setActiveTagFilter(null)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                   <Ionicons name="close-circle" size={14} color={c.primary} />
                 </TouchableOpacity>
               </View>
@@ -572,12 +575,16 @@ function RecipesScreen() {
                   <>
                     <TouchableOpacity
                       style={[styles.actionBtn, { backgroundColor: c.error }]}
+                      accessibilityRole="button"
+                      accessibilityLabel={t("delete")}
                       onPress={() => handleDelete(item.id)}
                     >
                       <Ionicons name="trash" size={14} color="#FFF" />
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.actionBtn, { backgroundColor: c.surfaceAlt }]}
+                      accessibilityRole="button"
+                      accessibilityLabel={t("cancel")}
                       onPress={() => setPendingDelete(null)}
                     >
                       <Ionicons name="close" size={14} color={c.textMuted} />
@@ -587,17 +594,23 @@ function RecipesScreen() {
                   <>
                     <TouchableOpacity
                       style={[styles.actionBtn, { backgroundColor: isFavorite ? "#FEF2F2" : c.surfaceAlt }]}
+                      accessibilityRole="button"
+                      accessibilityLabel={t("mark_favorite")}
                       onPress={() => toggleLabel(item.id, "favorite")}
                     >
                       <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={16} color={isFavorite ? "#EF4444" : c.textMuted} />
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.actionBtn, { backgroundColor: c.surfaceAlt }]}
+                      accessibilityRole="button"
+                      accessibilityLabel={t("edit")}
                       onPress={() => { setSelectedRecipe(item); openEditMode(item); }}
                     >
                       <Ionicons name="pencil-outline" size={16} color={c.textMuted} />
                     </TouchableOpacity>
                     <TouchableOpacity
+                      accessibilityRole="button"
+                      accessibilityLabel={t("delete")}
                       onPress={() => { setPendingDelete(item.id); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); }}
                       style={[styles.actionBtn, { backgroundColor: c.surfaceAlt }]}
                     >
@@ -704,11 +717,11 @@ function RecipesScreen() {
                   </TouchableOpacity>
                 )}
                 {!isEditing && (
-                  <TouchableOpacity onPress={() => openEditMode(selectedRecipe)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <TouchableOpacity accessibilityRole="button" accessibilityLabel={t("edit")} onPress={() => openEditMode(selectedRecipe)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                     <Ionicons name="pencil-outline" size={20} color={c.primary} />
                   </TouchableOpacity>
                 )}
-                <TouchableOpacity onPress={closeModal} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel={t("a11y_close")} onPress={closeModal} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                   <Ionicons name="close" size={24} color={c.textMuted} />
                 </TouchableOpacity>
               </View>
@@ -775,6 +788,8 @@ function RecipesScreen() {
                         placeholderTextColor={c.textPlaceholder}
                       />
                       <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityLabel={t("delete")}
                         onPress={() => setEditIngredients((prev) => prev.filter((_, j) => j !== i))}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
@@ -810,6 +825,8 @@ function RecipesScreen() {
                         multiline
                       />
                       <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityLabel={t("delete")}
                         onPress={() => setEditSteps((prev) => prev.filter((_, j) => j !== i))}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
@@ -889,7 +906,7 @@ function RecipesScreen() {
                           returnKeyType="done"
                           onSubmitEditing={() => addTagToRecipe(newTagText)}
                         />
-                        <TouchableOpacity onPress={() => addTagToRecipe(newTagText)}>
+                        <TouchableOpacity accessibilityRole="button" accessibilityLabel={t("a11y_confirm")} onPress={() => addTagToRecipe(newTagText)}>
                           <Ionicons name="checkmark" size={14} color={c.primary} />
                         </TouchableOpacity>
                       </View>
@@ -912,6 +929,8 @@ function RecipesScreen() {
                         </Text>
                         <View style={styles.detailStepper}>
                           <TouchableOpacity
+                            accessibilityRole="button"
+                            accessibilityLabel={t("a11y_decrease_servings")}
                             onPress={() => { setDetailServings((n) => Math.max(1, n - 1)); Haptics.selectionAsync(); }}
                             disabled={detailServings <= 1}
                             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -920,6 +939,8 @@ function RecipesScreen() {
                           </TouchableOpacity>
                           <Text style={[styles.detailStepperText, { color: c.textSecondary }]}>{strings.servings_people(detailServings)}</Text>
                           <TouchableOpacity
+                            accessibilityRole="button"
+                            accessibilityLabel={t("a11y_increase_servings")}
                             onPress={() => { setDetailServings((n) => Math.min(12, n + 1)); Haptics.selectionAsync(); }}
                             disabled={detailServings >= 12}
                             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -971,6 +992,8 @@ function RecipesScreen() {
                   )}
                 </>
               )}
+
+              <AiSafetyNote style={{ marginTop: 16 }} />
             </ScrollView>
           </SafeAreaView>
         )}
@@ -1031,7 +1054,7 @@ function HistoryTabContent({
           returnKeyType="search"
         />
         {search.length > 0 && (
-          <TouchableOpacity onPress={() => onSearchChange("")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={t("a11y_clear_text")} onPress={() => onSearchChange("")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Ionicons name="close-circle" size={16} color={c.textPlaceholder} />
           </TouchableOpacity>
         )}

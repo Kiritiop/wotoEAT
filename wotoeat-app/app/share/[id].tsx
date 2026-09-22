@@ -17,6 +17,7 @@ import { getShared, apiErrorMessage } from "@/services/api";
 import { Button } from "@/components/ui/Button";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
+import { AiSafetyNote } from "@/components/ui/AiSafetyNote";
 
 /** Public web home for the "Try wotoEAT" CTA on a shared page. */
 function appHomeUrl(): string {
@@ -156,6 +157,8 @@ export default function SharedItemScreen() {
           ))}
         </>
       )}
+
+      <AiSafetyNote style={{ marginTop: 16 }} />
 
       <View style={styles.ctaBox}>
         <Text style={[styles.ctaTagline, { color: c.textMuted }]}>{t("made_with_wotoeat")}</Text>

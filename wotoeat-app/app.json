@@ -18,7 +18,8 @@
       "infoPlist": {
         "NSCameraUsageDescription": "wotoEAT uses your camera to scan grocery receipts.",
         "NSPhotoLibraryUsageDescription": "wotoEAT accesses your photos so you can scan a saved receipt image."
-      }
+      },
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
@@ -28,13 +29,14 @@
       "package": "com.wotoeat.app",
       "permissions": [
         "CAMERA"
-      ]
+      ],
+      "versionCode": 1
     },
     "web": {
       "bundler": "metro",
       "output": "static",
       "favicon": "./assets/favicon.png",
-      "name": "wotoEAT — What to Eat",
+      "name": "wotoEAT \u2014 What to Eat",
       "shortName": "wotoEAT",
       "description": "AI-powered meal planning tailored to your health goals, pantry, and taste.",
       "themeColor": "#16A34A",

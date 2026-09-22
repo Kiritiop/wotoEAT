@@ -35,6 +35,8 @@ async def parse(req: ParseRecipeRequest, request: Request):
         recipe_dict = await parse_recipe(html)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
+    except GroqTransientError:
+        raise HTTPException(status_code=503, detail="AI service is temporarily at capacity. Please try again in a few minutes.")
     except Exception as exc:
         raise server_error("recipes.parse", exc, "Could not parse recipe. Please try again.")
 
@@ -104,7 +106,13 @@ async def get_one(
     user_id: str = Depends(require_user_id),
 ):
     """GET /recipes/{id} — returns a single saved recipe."""
-    recipe = db.get_recipe_by_id(recipe_id, user_id)
+    try:
+        recipe = db.get_recipe_by_id(recipe_id, user_id)
+    except Exception as exc:
+        # Includes a malformed (non-UUID) id, which Postgres rejects on the
+        # uuid cast. Every sibling endpoint routes through server_error; this
+        # one used to let the exception escape unlogged.
+        raise server_error("recipes.get_one", exc, "Could not load recipe.")
     if not recipe:
         raise HTTPException(status_code=404, detail="Recipe not found")
     return recipe

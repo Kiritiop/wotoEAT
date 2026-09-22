@@ -2,6 +2,9 @@ wotoEAT roadmap and improvement plan (planning only, nothing here is built)
 Companion docs: CLAUDE.md (handoff + reference), design/pantry-loop.md
 Effort tags: S = one sitting, M = a day-ish, L = multi-day
 
+Shipped work is DELETED from this file, not archived in it. Git history has
+what was here; CLAUDE.md carries the conclusions worth keeping.
+
 ════════════════════════════════════════════════════════════════════
 R-1 (L): RECIPES MUST BE REAL, NOT PLAUSIBLE          [raised 2026-08-25]
 ════════════════════════════════════════════════════════════════════
@@ -17,11 +20,11 @@ already forces REAL dish NAMES (the AUTHENTICITY block), but the method
 underneath is invented each time. A 45-minute 红烧排骨 with 1 tsp of sugar
 is not wrong enough to notice and not right enough to follow.
 
-Why this is the same class of bug as the images. We spent this whole
-session learning that a plausible-looking answer sails through every
-check that does not compare it to the real thing. The image fix ended at
-"look at the actual photo". The recipe equivalent is "anchor to an actual
-recipe", and no amount of prompt tuning substitutes for that.
+Why this is the same class of bug as the images. The image work ended at
+"look at the actual photo", because a plausible-looking answer sails
+through every check that does not compare it to the real thing. The recipe
+equivalent is "anchor to an actual recipe", and no amount of prompt tuning
+substitutes for that.
 
 Directions, roughly cheapest first:
 - Anchor to a source. TheMealDB already returns full ingredients and
@@ -45,322 +48,50 @@ that dish. No prompt change ships on a claim that it "looks better".
 RECOMMENDED NEXT FIVE (best value for effort, in order)
 ════════════════════════════════════════════════════════════════════
 1. R-1 (L): recipes anchored to real sources, not invented per request
-2. Cook mode (M, P-2): the one moment the app still abandons the user
-3. A-5 (M) split discover.tsx / recipes.tsx before they get harder to touch
-4. E-1 (S-M) error monitoring: the Aug 17 outage was reported by a user,
+2. E-1 (S-M) error monitoring: the Aug 17 outage was reported by a user,
    not by us; this is the gap that made that possible
+3. Cook mode (M, P-2): the one moment the app still abandons the user
+4. A-5 (M) split discover.tsx / recipes.tsx before they get harder to touch
 5. UI-5 (S) unify the four ad-hoc toast patterns
    (UI-6 dark-mode decision drops to sixth)
 
 ════════════════════════════════════════════════════════════════════
-SHIPPED 2026-08-25: recipe image matching + guest mode
+BLOCKING A PUBLIC / STORE LAUNCH (all need Jerry, not code)
 ════════════════════════════════════════════════════════════════════
-Recipe hero images were "never right, frequently something completely
-random". Not a generation problem: /images/search matches a dish name to
-an existing stock photo, and both rungs of the cascade took whatever came
-back first.
-  - TheMealDB search.php?s= is a substring LIKE over meal titles and the
-    code used meals[0] unverified. Confirmed against the live API:
-    s=Beef Stew -> "Lemongrass beef stew with noodles" (a Vietnamese
-    noodle bowl); s=Chicken Curry -> "Katsu Chicken curry"; s=Chicken ->
-    30 hits, first is "Chicken Handi".
-  - Pexels: per_page=1 on a loose multi-word query, used unconditionally.
-  - Wrong URLs were cached 7 days, so one bad match served every user for
-    a week.
-Fixed by verifying every candidate: MealDB titles must be a word-subset
-of our dish name (exact match wins; one-word titles must match exactly);
-Pexels returns 15 and each is scored against its own alt text with a 0.5
-floor plus a narrowed retry; below the floor we return {url: null} and
-show the placeholder. Cache key prefixed img:v2: so the poisoned week
-clears on deploy - bump _CACHE_VERSION on any future matching change.
-The root cause was that AI dish names are marketing copy, so the
-generator now emits image_query ("Coq au Vin" -> "braised chicken red
-wine") which the app passes as ?hint=; MealDB still searches the real
-name. Locked by tests/test_image_match.py (17) and
-tests/test_image_endpoint.py (16), both offline and in CI.
-
-Guest mode: "Look around first" on the landing page lets people try the
-app with no account. The backend already allowed the core loop
-anonymously; only the frontend router blocked it. One API change:
-/recipes/generate was require_user_id and is the "show me the steps" call
-behind every meal card, so it dead-ended guests - it writes nothing, and
-the user id was only ever the rate-limit key, so it now falls back to IP
-like /meals/generate does. Pantry, saved recipes and history swap to
-GuestGate; profile stays usable (it is local state that feeds generation)
-with the server save skipped. Sign-up runs a server-aware handoff: empty
-account -> push local up, existing account -> adopt the server's copy.
-Locked by tests/test_guest_endpoints.py (15) and a Playwright pass over
-the production web build (27 checks).
-Caught during that browser pass: gating Pantry orphaned the shopping
-list, because the shopping tab is href:null and only reachable from the
-Pantry header cart. GuestGate now takes a headerRight slot and Pantry
-passes its cart through.
-Follow-up the same day: Beef Bulgogi and Beef Bibimbap came back with
-visually identical heroes. Not a scoring miss - Pexels 5774004 and 5774005
-are consecutive frames of one Luis Becerra shoot whose alt text names
-bibimbap AND bulgogi beef, so both scored ~1.0 for both dishes and each
-dish took its top scorer. Correct photos, wrong pair. Scoring cannot fix
-that, so a chosen photo (and its shoot, via photographer_id) is now
-claimed for its dish in the TTL cache; a later dish skips claimed ones,
-ties break on a stable sha1(dish|photo_id) shuffle, and if everything is
-claimed it falls back to the best scorer rather than showing nothing.
-per_page raised 15 -> 30 so an unclaimed alternative usually exists.
-Locked by tests/test_image_distinct.py (8), built from the real payloads.
-
-Second follow-up: 红烧排骨 (braised pork RIBS) was shown a braised pork
-BELLY photo. Scoring counted every query word the same, so `braised` and
-`pork` matched and `ribs`, the only word that makes it that dish, counted
-for no more than either: 0.67, accepted. Same class of miss was live for
-chicken tikka masala, which was being served a photo of chicken biryani.
-Fixed by weighting: cooking method, staple, vessel, broad protein and
-cuisine count 1, anything that actually identifies a dish counts 4. Pork
-belly now scores 0.33 and biryani 0.38, both rejected, while the right
-photo scores 1.0 and outranks the near misses. A query with no
-distinctive word behaves exactly as before.
-Found while fixing it: the narrow-and-retry step scored candidates
-against its own shortened term list, so retrying "braised pork ribs" as
-"braised pork" re-accepted the very photo the first pass rejected. Query
-terms and scoring terms are now separate arguments; a retry broadens what
-we ASK Pexels (now "ribs food", the distinctive words only) and never
-what we ACCEPT.
-Also confirmed: _normalize keeps [a-z0-9], so a Chinese dish name yields
-no tokens at all and returns null. image_query being English is not a
-nicety for zh users, it is their only search signal. The prompt's old
-examples actively taught the model to throw the identifying word away
-("Bibimbap" -> "korean rice bowl vegetables"); it now must keep the cut,
-form or dish name and is forbidden from swapping it for a broader word.
-Locked by tests/test_image_specificity.py (8) and 9 more checks in
-test_image_match.py.
-
-Third follow-up, and the end of the text-matching road: "Red Braised Pork
-Ribs" was shown a rack of ribs on an American barbecue. The photo shares
-every word that matters (pork, ribs) and differs only by cooking method,
-which is true of thousands of dishes and so cannot be weighted heavily
-without rejecting everything. It scores 0.83 even WITH the weighting fix.
-Alt text is one line written by whoever uploaded the photo; no amount of
-tuning turns it into a description of what the picture looks like.
-So the pipeline now looks at the image. Text scoring picks the shortlist,
-the top 3 go to the vision model concurrently, and only a photo it agrees
-shows the dish is served. It is a veto and never an approval: a broken or
-unreachable model returns unverified and the text choice stands, since a
-flaky vision call must not strip every recipe of its image. All three
-rejected means no hero, with no fallback to unchecked candidates. A
-verified MealDB name match skips the gate, being a photo of that exact
-recipe. IMAGE_VISION_CHECK=0 turns it off.
-Locked by tests/test_image_vision.py (13, model stubbed). The model's
-JUDGMENT is not testable offline: run scripts/check_dish_photo.py with a
-real key to see it working on the dishes that have gone wrong so far.
-
-First live run of the vision gate (scripts/check_dish_photo.py, real key):
-3 of 5 stock lookups were still wrong and the gate approved all three.
-Colombian rib roast for a Chinese red braise, PANEER tikka masala for
-CHICKEN tikka masala, a bibimbap bowl for bulgogi. Every one of those was
-listed in the prompt as a reject condition. The lesson: asking a 27B
-model "would a person accept this photo" with a confidence field gets a
-confident yes every time. A lenient binary is not a filter.
-Rewritten as a discriminative rating. The model describes the photo
-first, then answers same_main_ingredient and same_style as separate
-booleans, then gives a 0-10 fit with explicit anchors. Usable requires
-both booleans and fit >= 6. Fit is now the primary ranking key, so
-candidates compete against each other rather than each being waved
-through alone.
-Same run exposed a second thing: "Red Braised Pork Ribs" and "红烧排骨"
-are the same dish under two names, and the claim system pushed the second
-off the good photo onto a worse one. Distinctness now only breaks ties, a
-dish may reuse a claimed photo when the best free alternative is worse by
-more than _FIT_TOLERANCE (2 bands).
-Also seeded _no_reasoning_effort with qwen: the first image check after
-every deploy was burning three concurrent 400s learning it again.
-STILL UNVERIFIED: whether the rewritten prompt actually rejects those
-three. Re-run scripts/check_dish_photo.py (fresh cache per run now) and
-read the fit lines.
-
-CORRECTION to the entry above: the gate was never rubber-stamping. It
-was never running. Second live run showed every candidate coming back
-"fit 0/10, photo shows 'unverified'", which is the sentinel for the call
-having thrown. The vision model reasons before answering and Groq bills
-that as completion tokens; max_tokens was set to 400, about the size of
-the <think> block alone. Every reply truncated before its JSON, every
-parse raised, and the fail-open path returned approved every time. Two
-releases shipped a no-op whose own logs read "kept".
-The previous entry's conclusion, that a 27B model waved through Colombian
-ribs and paneer, was wrong: the model never answered. The prompt rewrite
-it triggered is still an improvement and stays, but it fixed something
-that was not the problem.
-Fixed: _VISION_CHECK_MAX_TOKENS = 4000, truncation detected by name,
-every failure logged at WARNING with the raw reply, and the router says
-plainly when a photo went out unchecked. verify_dish_photo returns
-shows == UNVERIFIED so callers can tell "model said fine" from "model
-never answered". scripts/check_dish_photo.py --debug prints raw replies.
-The real lesson is not the token budget. A check that fails open and
-fails silently is indistinguishable from one that works, and 178 passing
-assertions did not notice because they all stubbed the model with
-well-formed replies. tests/test_vision_contract.py now feeds it the
-shapes a reasoning model actually produces.
-STILL UNVERIFIED: whether the model, once it can actually reply, rejects
-the Colombian ribs and the paneer.
-
-Third live run, gate finally executing, and it works. Red Braised Pork
-Ribs 10/10 on an actual red braise, with the Colombian rib roast rejected
-at 4/10 ("Western presentation, roasted new potatoes") and a foil-wrapped
-rack with fries at 0/10. Beef Bulgogi 8/10 on sliced beef, correctly
-rejecting BOTH bibimbap bowls at 4/10 via the rice-bowl rule. 红烧排骨 got
-the same photo as its English name, so the fit-tolerance change works.
-Three things that run exposed:
-1. 4000 tokens still truncated one reply. The model rambles hardest on
-   the ambiguous photos the check exists for; replies ran 1.8k-13.7k
-   chars. Now 8000, plus a prompt line telling it not to re-examine.
-2. Both photos Pexels titles "paneer tikka masala" went to the vision
-   model, which read one as chicken and gave it 10/10. Caption and pixels
-   disagree about the protein and one of them is wrong. _contradicts now
-   drops a candidate whose caption names a different main ingredient
-   before spending a vision call, so the shortlist goes to photos where
-   both signals agree (20446401, chicken, also rated 10/10).
-3. Cost is real now: 3 candidates x ~800-3400 output tokens per novel
-   dish, roughly 3 cents worst case. Cached 7 days, capped 60/hr/IP. The
-   brevity instruction and the contradiction guard both cut it. Dials are
-   _VISION_CANDIDATES and IMAGE_VISION_CHECK.
-
-Fourth round, on Jerry's report that 红烧排骨 came back as a Sichuan
-chilli-oil braise and that the check added 10-15s of wait:
-- Prewarm. /meals/generate and /meals/swap now start resolving photos for
-  the dishes they just produced, fire-and-forget, so the vetting overlaps
-  with the user reading the card instead of sitting between the tap and
-  the hero. /images/search is normally a cache hit now.
-- The vision check reads the recipe's own description. It was judging
-  against a generic idea of the name, which is how a chilli-oil braise
-  scored 10/10 for a recipe whose text says 色泽红亮，酱香浓郁.
-- Pexels locale: tried, broke everything, reverted within the hour. It
-  returns captions in the requested language, _normalize keeps only
-  [a-z0-9], so every caption scored 0.00 and four dishes lost their
-  shortlist entirely before a single vision call. Diagnosed from the fact
-  that Bibimbap also went to zero, and its query names no protein so the
-  contradiction guard could not have been the cause. Do not retry without
-  a way to score a non-Latin caption.
-  The deeper miss: it was an untestable parameter added on a hunch and
-  shipped in the same commit as tested work, so a live run was the only
-  thing that could catch it.
-- Generated images as the LAST rung, using the Gemini key already sitting
-  unused in .env, stored in a public Supabase bucket. Only fires when no
-  real photo survives vetting, because a made-up picture must never
-  displace a photograph of real food.
-Note the coupling: generation only helps when the gate REJECTS
-everything. A photo the gate wrongly accepts is never replaced, so the
-description change is what makes the generation fallback reachable.
-
-Asked about scraping 下厨房: not doing it. Those photos belong to the
-users who uploaded them, 下厨房 holds a licence to display them and cannot
-pass it on, and hot-linking their CDN from a public app is both
-infringement and trivially blockable. It stays a good reference for what
-a dish should LOOK like, which is how it was used here.
-Sources still worth trying, both blocked from the dev sandbox so
-untested: Wikimedia Commons (genuinely free-licensed, real regional
-photos, some need CC BY-SA attribution) and Openverse (aggregates
-Flickr/Commons, keyless API, returned 403 from here).
-
-First fully working run (2026-08-25, real keys, whole cascade):
-- Red Braised Pork Ribs / 红烧排骨 -> 10/10 on the sesame-and-corn braise,
-  with the Colombian rib roast rejected at 2/10 ("lacks the deep, dark
-  soy sheen of Hong Shao") and the foil-wrapped rack with fries at 4/10.
-  The description reaching the model is visible in its reasoning.
-- Chicken Tikka Masala -> GENERATED. The contradiction guard dropped both
-  paneer-captioned photos, the gate rejected the remaining flat-lay at
-  4/10, and Gemini produced one. The hybrid works end to end.
-- Beef Bulgogi -> 10/10 on sliced beef, both rice bowls rejected at 2/10.
-- Beef Bibimbap -> 10/10. Shakshuka / Pad Thai / Coq au Vin -> MealDB.
-Two problems that run exposed, both fixed: the generated image was 882KB
-(now downscaled to 1280px q82, roughly stock-photo size), and Groq
-returned 429s under three concurrent checks (now a process-wide ceiling
-of 4 in flight, since prewarm overlaps dishes).
-
-STILL OPEN, and it is a judgement call rather than a bug: Jerry says the
-19831877 braise is "similar but definitely not the one". It genuinely is
-红烧排骨, and the model rates it 10/10, but it is a saucy sesame-and-corn
-version rather than the canonical dark glossy plate. Pexels only offers
-three candidates for this dish and none is the canonical one, so this is
-supply, not matching. Options if it still grates: check more than
-_VISION_CANDIDATES so a better one deeper in the results can surface, or
-let a high-confidence generated image outrank a merely-good stock photo
-for cuisines where the library is thin. The second one trades away the
-"a real photo always wins" rule, so it needs a deliberate decision.
-
-DECISION 2026-08-25: the Pexels stage and its vision gate are gone.
-Jerry looked at the generated Chicken Tikka Masala and it was better
-than any of the three stock candidates had been: charred tandoori
-chicken, creamy tomato sauce, naan and lime, nothing synthetic-looking.
-Given that, the machinery built to stop bad stock photos stopped earning
-its keep. The cascade is now TheMealDB, then generate.
-What that deletes: ~400 lines of scoring, claiming, vetting and
-de-duplication, three vision calls per dish, the 10-15s wait, the Groq
-429s, the Pexels attribution obligation, and four test files.
-What it keeps: MealDB's name-verified rule, which is now the ONLY search
-in the cascade and the only thing between a recipe and a photo of a
-different dish.
-Why it also fixes 红烧排骨, which nothing else could: the model rated that
-Sichuan photo 10/10 and was right to, so no threshold separated it from a
-good match. MealDB has no entry, so it generates instead.
-Cost moves from three reasoning calls to one image call per novel dish,
-paid once ever: the storage path is derived from the dish name and
-_existing_generated HEADs it before generating, so a redeploy does not
-re-buy the whole catalogue.
-
-Open follow-ups: generated images carry no visible marker (a user cannot
-tell which heroes are photographs, which is worth deciding on given the
-app's claim to be about real cooking)
-for it); guests are invisible server-side, so there is no funnel data.
-Matching is now strict enough that some dishes will legitimately get no
-photo. The hero is conditional so a blank reads fine; if too many come
-back empty the levers are _DISTINCT_WEIGHT (4), _PEXELS_FLOOR (0.5) or
-_VISION_CANDIDATES (3), not the retry.
-Cost and latency are the thing to watch: a novel dish now costs up to 3
-vision calls and a few seconds. Cached 7 days per dish, capped at 60/hr
-per IP, and the whole gate is one env var away from off.
+- GET THE LEGAL TEXT REVIEWED. constants/legal.ts renders a DRAFT banner on
+  every document and stays that way until a lawyer sees it. Storing
+  allergies and body measurements makes this non-optional.
+- Supabase Auth > URL Configuration > Redirect URLs must include
+  https://wotoeat.com/auth/reset-password (and
+  http://localhost:8081/auth/reset-password for local testing), or password
+  reset silently falls back to the Site URL and stays broken in production.
+- Check whether custom SMTP is configured. Supabase's built-in sender is
+  rate-limited and they say not to use it in production.
+- Check whether email confirmation is required on sign-up. If it is,
+  sign-up.tsx never tells the user to look in their inbox.
+- A working Support URL for App Store review. Ko-fi and LinkedIn do not
+  count; reviewers click it and expect a way to contact a human.
+- Play Data Safety form: declare health data, and match the privacy policy
+  exactly. Mismatches are a common rejection.
+- Apple privacy manifest (PrivacyInfo.xcprivacy) with required-reason API
+  declarations. AsyncStorage writes to UserDefaults, which is on the list.
+- Check Supabase backup retention. The health profiles live there and the
+  free tier retains very little.
+- Turn on GitHub secret scanning, push protection, and private
+  vulnerability reporting (SECURITY.md points people at it).
+- Decide whether `sex` and `weight_kg` are needed at all. "Only collect
+  necessary data" bites hardest on Article 9 fields, and the calorie
+  estimate may not need them.
 
 ════════════════════════════════════════════════════════════════════
-INCIDENT 2026-08-17: Groq decommissioned both models (RESOLVED)
+OPEN ENGINEERING DEBT
 ════════════════════════════════════════════════════════════════════
-Every AI endpoint returned 503. Cause was not capacity: Groq removed
-llama-3.3-70b-versatile AND meta-llama/llama-4-scout-17b-16e-instruct
-from the account. A removed model 404s as model_not_found -> APIStatusError
--> GroqTransientError -> the routers' blanket 503. Meal generation, swap,
-recipe generate/parse, shopping generation and receipt scanning were all
-down; only the non-AI paths still worked.
-Fixed by: text default -> openai/gpt-oss-120b, vision default ->
-qwen/qwen3.6-27b (the only image-input model Groq still offers), plus
-_clean_json now strips <think> preambles (both new models are reasoning
-models; qwen always emits one, which broke every JSON parse).
-Verified live against all six AI paths + the live receipt test.
-Second-order problem found while measuring: gpt-oss bills reasoning as
-completion tokens, so at Groq's default effort an elaborate recipe
-(cassoulet, 6 servings) spent ~2500 of its 4500 budget thinking and
-truncated mid-JSON into a 422. Raising the budget did not help, it just
-expanded to fill it. Fixed properly with reasoning_effort=low
-(GROQ_REASONING_EFFORT), which dropped worst-case budget use from 98% to
-42% and roughly halved cost and latency. Models that reject the param
-(qwen, compound, allam) self-heal at runtime so a model swap still works.
-Measured after: meal generate 1.9s avg uncached, recipe generate 4.0s,
-text flows 0.4-0.6x the old cost. Receipt scan is ~4x the old cost
-(qwen output is $3/M vs Scout's $0.34/M) but it is capped at 10/hr/user.
-Follow-ups this exposed:
-- E-4 (Groq model fallback chain) is no longer hypothetical. Promote it.
-- Nothing alerts on this. Every AI feature was dead until a user
-  reported it. Pairs with E-1 (error monitoring).
-- Check Railway does NOT pin GROQ_TEXT_MODEL / GROQ_VISION_MODEL to the
-  dead models; an env override there beats the code default.
-
-════════════════════════════════════════════════════════════════════
-OPEN ENGINEERING DEBT (from the 2026-07-08 review + audit)
-════════════════════════════════════════════════════════════════════
-FIX-1..FIX-10, A-2 and A-4 all shipped 2026-08-18 and have been removed
-from this file; see git history for what they were. What is left is the
-work that needs a real design decision rather than a patch:
-
 - A-1 (M) Sync Supabase calls inside async endpoints block the
   single-worker event loop during DB I/O (every routers/*.py db.* call).
   One slow query stalls all concurrent requests. Wrap in
   run_in_threadpool, or make those endpoints plain def so FastAPI
-  threads them. Deliberately not done in the 08-18 sweep: it touches
-  every router and wants load testing, not a blind refactor.
+  threads them. It touches every router and wants load testing, not a
+  blind refactor.
 - A-3 (M) Dynamic zh translation scrapes an unofficial Google endpoint
   (services/translate.ts) with MyMemory fallback; either can break any
   day. Sturdier: a backend /translate endpoint on Groq with the SQLite
@@ -379,10 +110,18 @@ CARRY-OVER (from earlier sessions, still open)
 - Rotate the Railway Postgres password and UWaterloo API key (leaked to
   plaintext config; 10 minutes; do this first)
 - Verify on a real phone: "Done shopping" (Shopping tab) and "I cooked
-  this" (meal detail) shipped recently and were only verified by tests
+  this" (meal detail) shipped a while back and were only verified by tests
+- Verify Railway does NOT pin GROQ_TEXT_MODEL / GROQ_VISION_MODEL to a
+  decommissioned model; an env override there beats the code default and
+  looks exactly like a capacity outage
 - Extract scaleIngredientStr from discover.tsx so it is unit-testable
   (pantryNameMatches already moved to utils/pantryMatch.ts). Pairs with A-5.
 - Branch protection on main once CI has been trusted for a while
+- Generated hero images carry no visible marker, so a user cannot tell
+  which heroes are photographs and which were drawn. Worth deciding before
+  promoting the app, given its own claim to be about real cooking.
+- Guests are invisible server-side, so there is no funnel data on how many
+  try the app and how many convert.
 
 ════════════════════════════════════════════════════════════════════
 UI / UX PLAN
@@ -393,11 +132,9 @@ UI-3 (S-M) Typography ramp
     Display, warm food-brand feel), keep system font for body. Define the
     ramp in useTheme fontSize tokens so it applies everywhere at once.
 
-UI-4 shipped 2026-08-18: FadeSlideIn on appended/swapped meal cards,
-    Collapsible on the filter panel (animates both ways now), press-scale
-    on the shared Button, spring pop on the shopping checkbox. Not done:
-    a shared-element transition into the detail sheet, which would need
-    the modal restructured.
+UI-4b (M) Shared-element transition into the detail sheet
+    The rest of the motion pass shipped. This one needs the modal
+    restructured, which is why it did not.
 
 UI-5 (S) Unify toasts
     cartBanner, savedBanner, share-copied checkmarks, and ErrorBanner are
@@ -414,7 +151,9 @@ UI-6 (S) Dark mode decision
 
 UI-7 (S) Landing and brand assets
     - Transparent-background logo export (current PNG has baked-in cream)
-    - Regenerate app icon / adaptive icon / favicon / splash from it
+    - Regenerate app icon / adaptive icon / favicon / splash from it.
+      All six are currently the same byte-identical 298KB PNG, which makes
+      the favicon roughly 300x bigger than it needs to be.
     - Subtle entrance animation on the landing logo
 
 UI-8 (M) Onboarding polish
@@ -422,21 +161,30 @@ UI-8 (M) Onboarding polish
     First-run experience is the highest-leverage screen for a new user.
 
 UI-9 (S) Installable PWA
-    public/ has only og.png. Add manifest.json (name, icons, standalone
-    display, theme colour) so phone-web users can add wotoEAT to their
-    home screen and lose the browser chrome. Cheap store-app feel without
-    app stores.
+    public/ has og.png, robots.txt and sitemap.xml but no manifest.json.
+    Add one (name, icons, standalone display, theme colour) so phone-web
+    users can add wotoEAT to their home screen and lose the browser
+    chrome. Cheap store-app feel without app stores.
 
-UI-10 (S-M) Accessibility and consistency sweep
-    Contrast check the cream/green pairs, confirm 44pt targets on the
-    small icon buttons (share/trash on Shopping, steppers), Dynamic Type
-    spot check, pull-to-refresh on Today/Recipes/Pantry for consistency.
+UI-10 (S-M) Accessibility sweep, part two
+    Icon-only controls are labelled and images have alt text. Still open:
+    contrast-check the cream/green pairs against WCAG AA (4.5:1 body,
+    3:1 large) in BOTH themes, starting with c.textMuted and
+    c.textPlaceholder on c.surface and c.bg; confirm 44pt targets on the
+    small icon buttons (share/trash on Shopping, the steppers); Dynamic
+    Type spot check; a keyboard-only web pass (tab order, visible focus
+    rings, Escape closing modals, skip-to-content), none of which RN Web
+    gives for free; pull-to-refresh on Today/Recipes/Pantry.
 
 UI-11 (decision) Today-card imagery
     Guardrail says no images on Today cards (perf). Middle ground worth
     considering: show a thumbnail ONLY when the image is already in cache
     from a previously opened detail sheet (zero new fetches), or add
     slot-coloured abstract accents instead. Decide, then document.
+
+UI-12 (S) Localise the native header titles
+    app/_layout.tsx hardcodes "Meal Detail", "Add Recipe", "Scan Receipt",
+    "Shared Recipe" and "Back" in English, in an otherwise bilingual app.
 
 ════════════════════════════════════════════════════════════════════
 PRODUCT FEATURES
@@ -480,22 +228,34 @@ P-8 (M-L) Daily dinner reminder (notifications)
     Needs expo-notifications + EAS native build (no web equivalent).
     Retention driver, but only worth it once native builds ship.
 
-P-9 (M) Store-readiness pack (only when app-store launch is real)
-    Account deletion in Profile (App Store hard requirement), data
-    export, Apple/Google sign-in, privacy policy URL.
+P-9 (M) Store-readiness leftovers
+    Account deletion, the privacy policy URL and the legal pages shipped.
+    Still missing: data export (GDPR portability, the other half of the
+    erasure right), and Apple / Google sign-in, which Apple requires as an
+    option wherever a third-party social login is offered. There is no
+    social login today, so that one is conditional.
+
+P-10 (S) Servings preference has no way to change it
+    The store's `servings` is read on every generate but `setServings` has
+    no caller, so it is permanently 1. Either wire a control into Profile
+    or delete the field and the preference it implies.
 
 ════════════════════════════════════════════════════════════════════
 ENGINEERING / INFRA
 ════════════════════════════════════════════════════════════════════
-E-1 (S-M) Error monitoring
-    No crash/error visibility today beyond Railway logs. Sentry on both
-    halves (sentry-expo, sentry-sdk[fastapi]) with the DSNs in env vars.
-    Do this before inviting more users than friends.
+E-1 (S-M) Error monitoring  ** highest-value open item **
+    No crash or error visibility today beyond Railway logs. Nothing
+    aggregates client crashes or backend 500s, which is why the Aug 17
+    outage was reported by a user. Sentry on both halves (sentry-expo,
+    sentry-sdk[fastapi]) with the DSNs in env vars. Do this before
+    inviting more users than friends.
 
 E-2 (M) Privacy-light usage analytics
     Feature-level counters only (generated, confirmed, cooked, scanned,
     shared), no personal data. This is what turns future debates like
     Phase 3 ("will anyone use it?") into lookups instead of guesses.
+    NOTE: the Cookies document currently states the app has no analytics
+    of any kind. Adding this means updating that document too.
 
 E-3 (M) Staging environment
     Push-to-main deploys production with no intermediate step. A staging
@@ -503,25 +263,38 @@ E-3 (M) Staging environment
     step would make risky changes safe. Alternative smaller step: turn on
     branch protection and work through PRs.
 
-E-4 (S) Groq model fallback chain  ** PROMOTED: this outage happened **
+E-4 (S) Groq model fallback chain  ** an outage already happened **
     _create_with_retry handles 429s, but a model deprecation or outage
     is a hard 503. Env-driven ordered fallback list (text + vision) in
-    ai/claude.py; log when running on fallback.
-    2026-08-17: Groq removed both models at once and took every AI
-    feature down (see INCIDENT above). A fallback list would have
-    degraded instead of dying. Note the vision side has no real
-    fallback today: qwen3.6 is the only image-input model Groq offers,
-    so a second vision provider (AWS Textract) is the honest answer
-    there. Pair with E-1 so the next one pages us instead of a user.
-
-E-5 (S) Schema hygiene
-    Drop the dead user_preferences and daily_plans tables from schema.sql
-    (zero code references, documented as dead) so new environments stop
-    creating them.
+    ai/claude.py; log when running on fallback. In Aug 2026 Groq removed
+    both models at once and took every AI feature down; a fallback list
+    would have degraded instead of dying. The vision side has no real
+    fallback today: qwen3.6 is the only image-input model Groq offers, so
+    a second provider (AWS Textract) is the honest answer there. Pair
+    with E-1 so the next one pages us instead of a user.
 
 E-6 (S) Dependency hygiene
-    Monthly: npm audit / pip list --outdated pass, Expo SDK upgrades on
-    their cadence. Put a reminder in the check skill or a scheduled task.
+    Dependabot now opens grouped monthly PRs for npm, pip and actions.
+    Still manual: actually reviewing and merging them, and Expo SDK
+    upgrades, which Dependabot cannot do safely on its own.
+
+E-7 (S) SEO loose ends
+    The homepage now exports real content, one h1, JSON-LD and a
+    canonical. Still open, in rough value order:
+    - og.png is 1024x1024, so link previews render a small square card.
+      A 1200x630 export would let twitter:card become
+      summary_large_image (both are in +html.tsx).
+    - Verify the site in Google Search Console and submit
+      https://wotoeat.com/sitemap.xml. Nothing gets indexed quickly
+      without it, and no code change substitutes.
+    - /auth/* and the app tabs still export an empty first <title> and
+      are crawlable. They should carry robots noindex rather than
+      titles; they are not landing pages.
+    - vercel.json's catch-all rewrite serves +not-found.html with a 200
+      for any unknown path, which reads to Google as a soft 404. A
+      custom +not-found route with a noindex tag would fix it.
+    - No backlinks anywhere. This is the actual ranking ceiling, and it
+      is a promotion problem, not a code problem.
 
 ════════════════════════════════════════════════════════════════════
 DEFERRED / STANDING DECISIONS (do not rebuild blindly)
@@ -533,3 +306,17 @@ DEFERRED / STANDING DECISIONS (do not rebuild blindly)
 - No gradients, no emojis in UI: product rules, documented in CLAUDE.md.
 - seenMeals/no-repeat and same-day stream persistence are features, not
   bugs (CLAUDE.md).
+- No stock-photo search. The Pexels stage and its vision gate were removed
+  2026-08-25 after a chain of misses that ended in a supply problem no
+  matching logic could solve; the cascade is TheMealDB, then generate.
+  Full reasoning in CLAUDE.md's Image Search section.
+- No Content-Security-Policy header. The Metro web bundle needs
+  unsafe-inline and unsafe-eval, so a shipped CSP would permit exactly
+  what a CSP exists to stop. Revisit if the bundle stops needing them.
+- No Google "preferred sources" badge. It feeds Top Stories and
+  Discover, Google's own docs scope it to news publishers, and the
+  widget is a third-party script on every page load, which would end
+  the app's no-tracking position and its no-cookie-banner argument.
+- Not scraping 下厨房. Those photos belong to the users who uploaded them,
+  下厨房 holds a licence it cannot pass on, and hot-linking their CDN from
+  a public app is both infringement and trivially blockable.

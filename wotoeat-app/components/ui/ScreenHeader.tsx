@@ -41,18 +41,19 @@ export function ScreenHeader({ title, greeting, subtitle, right, onBack }: Props
             <Ionicons name="chevron-back" size={22} color={c.text} />
           </TouchableOpacity>
         ) : (
-          <Image source={require("@/assets/logo.png")} style={styles.brandMark} resizeMode="contain" />
+          <Image source={require("@/assets/logo.png")} style={styles.brandMark} resizeMode="contain"
+            alt="" accessibilityElementsHidden importantForAccessibility="no" />
         )}
         <View style={styles.titles}>
           {greeting ? (
             <>
-              <Text style={[styles.greeting, { color: c.text }]} numberOfLines={1}>{greeting}</Text>
+              <Text style={[styles.greeting, { color: c.text }]} numberOfLines={1} accessibilityRole="header">{greeting}</Text>
               {subtitle ? (
                 <Text style={[styles.subtitle, { color: c.textMuted }]} numberOfLines={1}>{subtitle}</Text>
               ) : null}
             </>
           ) : (
-            <Text style={[styles.title, { color: c.text }]} numberOfLines={1}>{title}</Text>
+            <Text style={[styles.title, { color: c.text }]} numberOfLines={1} accessibilityRole="header">{title}</Text>
           )}
         </View>
       </View>

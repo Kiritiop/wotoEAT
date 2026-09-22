@@ -83,7 +83,7 @@ export function PantryTagPicker({ visible, currentPantry, onClose, onSave, langu
       <SafeAreaView style={[styles.safe, { backgroundColor: c.bg }]}>
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: c.border }]}>
-          <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={language === "zh" ? "关闭" : "Close"} onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Ionicons name="close" size={24} color={c.textMuted} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: c.text }]}>
@@ -125,7 +125,7 @@ export function PantryTagPicker({ visible, currentPantry, onClose, onSave, langu
                           autoFocus
                           returnKeyType="done"
                         />
-                        <TouchableOpacity onPress={() => addCustom(cat.key)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <TouchableOpacity accessibilityRole="button" accessibilityLabel={language === "zh" ? "添加" : "Add"} onPress={() => addCustom(cat.key)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                           <Ionicons name="checkmark-circle" size={20} color={c.primary} />
                         </TouchableOpacity>
                       </View>

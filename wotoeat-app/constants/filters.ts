@@ -222,7 +222,7 @@ export const CATEGORY_LABELS: Record<string, { en: string; zh: string }> = {
 };
 
 /** Lowercase canonical English item name → category key. */
-export const ITEM_CATEGORY: Record<string, string> = (() => {
+const ITEM_CATEGORY: Record<string, string> = (() => {
   const map: Record<string, string> = {};
   for (const cat of PANTRY_CATEGORIES) {
     for (const item of cat.items) map[item.toLowerCase()] = cat.key;
@@ -239,7 +239,7 @@ export function categoryForItem(name: string): string {
  * the pantry itemsZh pairs so legacy Chinese-stored pantry names can be shown
  * in English (unified language display).
  */
-export const TAG_EN: Record<string, string> = (() => {
+const TAG_EN: Record<string, string> = (() => {
   const map: Record<string, string> = {};
   for (const [en, zh] of Object.entries(TAG_ZH)) {
     if (!(zh in map)) map[zh] = en;
@@ -258,7 +258,7 @@ export function toCanonicalEnglish(name: string): string {
   return TAG_EN[name.trim()] ?? name;
 }
 
-export const CUISINE_ZH: Record<string, string> = {
+const CUISINE_ZH: Record<string, string> = {
   "Any": "不限",
   "Chinese": "中式",
   "Japanese": "日式",

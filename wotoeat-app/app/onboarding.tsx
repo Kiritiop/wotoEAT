@@ -59,7 +59,8 @@ export default function OnboardingScreen() {
 
       <View style={styles.body}>
         {/* Icon */}
-        <Image source={require("@/assets/logo.png")} style={styles.iconWrap} resizeMode="contain" />
+        <Image source={require("@/assets/logo.png")} style={styles.iconWrap} resizeMode="contain"
+          alt="wotoEAT" accessibilityLabel="wotoEAT" />
 
         {/* Title */}
         <Text style={[styles.title, { color: c.text }]}>{t("onboarding_welcome")}</Text>

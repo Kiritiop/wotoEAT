@@ -20,6 +20,8 @@ export type Rating = "up" | "down";
  * field lists. A function, not a constant, so no two call sites can ever end up
  * holding the same array instance.
  */
+const today = () => new Date().toISOString().slice(0, 10);
+
 const dayScopedReset = (): Pick<
   AppState,
   "meals" | "mealsDate" | "seenMeals" | "cookedMeals" | "selectedRecipes"
@@ -62,8 +64,9 @@ interface AppState {
   mealsDate: string | null;
   addMeal: (meal: DailyPlanMeal) => void;
   replaceMeal: (oldName: string, meal: DailyPlanMeal) => void;
-  removeMeal: (name: string) => void;
   clearMeals: () => void;
+  /** Clear the day-scoped slice iff it belongs to a previous day. */
+  clearMealsIfStale: () => void;
 
   // ── Seen meals today (so generation/swap never repeats a shown dish) ───────
   seenMeals: string[];
@@ -76,13 +79,11 @@ interface AppState {
   // ── Meal ratings ──────────────────────────────────────────────────────────
   ratings: Record<string, Rating>;
   setRating: (mealName: string, rating: Rating) => void;
-  clearRatings: () => void;
 
   // ── Selected meals for shopping list ─────────────────────────────────────
   selectedRecipes: Recipe[];
   addRecipe: (recipe: Recipe) => void;
   removeRecipe: (title: string) => void;
-  clearSelectedRecipes: () => void;
 
   // ── Generation ingredient preferences (persisted — survive restarts) ──────
   // "Include tags" free-text tags + pantry items the user requires in meals.
@@ -162,16 +163,20 @@ export const useAppStore = create<AppState>()(
       addMeal: (meal) =>
         set((state) => ({
           meals: [...state.meals, meal],
-          mealsDate: new Date().toISOString().slice(0, 10),
+          mealsDate: today(),
         })),
       replaceMeal: (oldName, meal) =>
         set((state) => ({
           meals: state.meals.map((m) => (m.name === oldName ? meal : m)),
-          mealsDate: new Date().toISOString().slice(0, 10),
+          mealsDate: today(),
         })),
-      removeMeal: (name) =>
-        set((state) => ({ meals: state.meals.filter((m) => m.name !== name) })),
       clearMeals: () => set(dayScopedReset()),
+      // Keyed on mealsDate alone, NOT on meals.length. A day whose cards were
+      // all removed still leaves seenMeals, cookedMeals and selectedRecipes
+      // behind; gating on a non-empty stream meant those survived the rollover
+      // and yesterday's dishes stayed in avoid_meals forever.
+      clearMealsIfStale: () =>
+        set((state) => (state.mealsDate && state.mealsDate !== today() ? dayScopedReset() : state)),
 
       // ── Seen meals ───────────────────────────────────────────────────────
       seenMeals: [],
@@ -200,7 +205,6 @@ export const useAppStore = create<AppState>()(
           const entries = [...Object.entries(rest), [mealName, rating] as const];
           return { ratings: Object.fromEntries(entries.slice(-100)) };
         }),
-      clearRatings: () => set({ ratings: {} }),
 
       // ── Selected recipes ──────────────────────────────────────────────────
       selectedRecipes: [],
@@ -214,7 +218,6 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           selectedRecipes: state.selectedRecipes.filter((r) => r.title !== title),
         })),
-      clearSelectedRecipes: () => set({ selectedRecipes: [] }),
 
       // ── Generation ingredient preferences ────────────────────────────────
       requiredIngredients: [],
@@ -295,13 +298,20 @@ export const useAppStore = create<AppState>()(
       planServings: 1,
       setPlanServings: (n) => set({ planServings: n }),
 
-      // ── Sign-out reset ────────────────────────────────────────────────────
-      // Only clear session-specific data. Preserve device preferences
-      // (language, servings, hasOnboarded, recipeLabels) so they survive
-      // logout and are ready immediately on next sign-in.
+      // ── Sign-out / erasure reset ──────────────────────────────────────────
+      // Clears session data and keeps device preferences (language, servings,
+      // hasOnboarded, recipeLabels) so they survive logout.
+      //
+      // `profile` IS cleared, and that is deliberate on both paths it serves.
+      // On erasure: "Delete my data" wipes the server, and leaving allergies,
+      // weight and height sitting in AsyncStorage would mean the deletion only
+      // half happened, with the next profile save uploading them straight back.
+      // On sign-out: it is health data on a possibly shared device, and the
+      // next sign-in refetches it from the server anyway.
       resetAll: () =>
         set({
           ...dayScopedReset(),
+          profile: DEFAULT_PROFILE,
           ratings: {},
           pantry: [],
           shoppingList: null,
@@ -329,8 +339,7 @@ export const useAppStore = create<AppState>()(
       // as the store rehydrates. Runs before React renders — works on web and native.
       onRehydrateStorage: () => (state) => {
         if (!state) return;
-        const today = new Date().toISOString().slice(0, 10);
-        if (state.meals.length > 0 && state.mealsDate !== today) {
+        if (state.mealsDate && state.mealsDate !== today()) {
           Object.assign(state, dayScopedReset());
         }
       },

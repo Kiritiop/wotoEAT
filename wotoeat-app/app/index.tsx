@@ -13,6 +13,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, Redirect } from "expo-router";
+import Head from "expo-router/head";
+import { LEGAL_SLUGS, legalDoc } from "@/constants/legal";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { supabase } from "@/lib/supabase";
@@ -42,14 +44,24 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 export default function LandingScreen() {
   const router = useRouter();
   const c = useTheme();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const styles = useMemo(() => makeStyles(c), [c]);
   const [showMore, setShowMore] = useState(false);
   const { isGuest, setIsGuest } = useAppStore();
   // Landing is for new/signed-out users only. Returning users with a persisted
-  // session auto-login and go straight to the app — hold rendering (blank cream
-  // screen) until the stored session is read so they never see a landing flash.
-  const [hasSession, setHasSession] = useState<boolean | null>(null);
+  // session auto-login and go straight to the app, so on the CLIENT rendering is
+  // held (blank cream screen) until the stored session is read and they never
+  // see a landing flash.
+  //
+  // During the static web export there is no window and getSession never
+  // resolves, so holding there shipped a dist/index.html with an EMPTY body:
+  // crawlers and link previews fetched the homepage and got nothing at all.
+  // Seeding false off-window puts the real hero, features and CTAs in the
+  // prerendered HTML. The client still starts at null, so the no-flash
+  // behaviour above is unchanged once the bundle has booted.
+  const [hasSession, setHasSession] = useState<boolean | null>(
+    typeof window === "undefined" ? false : null,
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -75,6 +87,17 @@ export default function LandingScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      {/* The helmet provider emits a <title> into every exported page whether
+          a route fills it or not, and an EMPTY one lands ahead of the static
+          tags in +html.tsx. First title wins with search engines, so the
+          homepage fills its own. */}
+      <Head>
+        <title>wotoEAT: AI meal planner for what is already in your fridge</title>
+        <meta
+          name="description"
+          content="Tell wotoEAT what is in your pantry and it returns a real, cookable dish in one tap, with the shopping list for anything missing. Free, bilingual, allergy-aware."
+        />
+      </Head>
       {/* Top bar: language toggle only — the brand lives in the hero below */}
       <View style={styles.topBar}>
         <LanguageToggle />
@@ -89,8 +112,11 @@ export default function LandingScreen() {
             "what to eat" wordmark), so no redundant text lockup. Placed on the
             cream page bg so its baked-in cream background blends edge-free. ── */}
         <View style={styles.hero}>
-          <Image source={require("@/assets/logo.png")} style={styles.heroLogo} resizeMode="contain" />
-          <Text style={[styles.heroTitle, { color: c.text }]}>{t("landing_hero_title")}</Text>
+          <Image source={require("@/assets/logo.png")} style={styles.heroLogo} resizeMode="contain"
+          alt="wotoEAT" accessibilityLabel="wotoEAT" />
+          <Text style={[styles.heroTitle, { color: c.text }]} accessibilityRole="header">
+            {t("landing_hero_title")}
+          </Text>
           <Text style={[styles.heroSub, { color: c.textMuted }]}>{t("landing_hero_sub")}</Text>
         </View>
 
@@ -178,6 +204,23 @@ export default function LandingScreen() {
                   <TouchableOpacity onPress={() => Linking.openURL("https://ko-fi.com/kiritiop")}>
                     <Text style={[styles.creatorLink, { color: c.primary }]}>Ko-fi</Text>
                   </TouchableOpacity>
+                </View>
+
+                {/* Legal links must be reachable before anyone signs up. */}
+                <View style={styles.creatorLinks}>
+                  {LEGAL_SLUGS.map((slug, i) => (
+                    <View key={slug} style={styles.creatorLinks}>
+                      {i > 0 && <Text style={[styles.creatorDot, { color: c.textMuted }]}>·</Text>}
+                      <TouchableOpacity
+                        accessibilityRole="link"
+                        onPress={() => router.push(`/legal/${slug}` as any)}
+                      >
+                        <Text style={[styles.creatorLink, { color: c.primary }]}>
+                          {t(legalDoc(slug, language)!.titleKey)}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
                 </View>
               </View>
             </View>

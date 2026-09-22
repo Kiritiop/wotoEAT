@@ -30,7 +30,7 @@ export default function RootLayout() {
   const [ready, setReady] = useState(false);
   const router = useRouter();
   const segments = useSegments();
-  const { setProfile, setHasOnboarded, hasOnboarded, setAuthReady, setShoppingList, clearMeals, isGuest, setIsGuest } = useAppStore();
+  const { setProfile, setHasOnboarded, hasOnboarded, setAuthReady, setShoppingList, clearMeals, clearMealsIfStale, isGuest, setIsGuest } = useAppStore();
   const theme = useTheme();
   const [fontsLoaded] = useFonts({
     Nunito_400Regular,
@@ -58,9 +58,7 @@ export default function RootLayout() {
       if (event === "SIGNED_OUT") {
         clearMeals();
       } else if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
-        const { meals, mealsDate } = useAppStore.getState();
-        const today = new Date().toISOString().slice(0, 10);
-        if (meals.length > 0 && mealsDate !== today) clearMeals();
+        clearMealsIfStale();
       }
       setAuthReady(true);
       setReady(true);
@@ -78,9 +76,7 @@ export default function RootLayout() {
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
       if (state !== "active") return;
-      const { meals, mealsDate, clearMeals: clear } = useAppStore.getState();
-      const today = new Date().toISOString().slice(0, 10);
-      if (meals.length > 0 && mealsDate !== today) clear();
+      useAppStore.getState().clearMealsIfStale();
     });
     return () => sub.remove();
   }, []);
@@ -182,15 +178,24 @@ export default function RootLayout() {
     const inOnboarding = seg0 === "onboarding";
     // Root index (landing page) — valid unauthenticated destination
     const atLanding = seg0 === undefined || seg0 === "index";
+    // Legal documents are public: linked from the landing page, and on web they
+    // are opened by direct URL. Gating them behind a session would mean a
+    // privacy policy you must sign in to read.
+    const inLegal = seg0 === "legal";
+    // Password recovery hands the user a real session before they have set a
+    // password, so the "signed in and sitting in /auth" rule below would throw
+    // them into the app with their old password still active. This route has
+    // to outrank it.
+    const inReset = seg0 === "auth" && (segments[1] as string | undefined) === "reset-password";
     // A guest is unauthenticated but has explicitly asked to look around, so
     // the app treats them like a signed-in user for routing. Every screen they
     // can reach either works anonymously (discover, shopping) or swaps itself
     // for a sign-up prompt (pantry, recipes, history) — see GuestGate.
     const admitted = !!session || isGuest;
 
-    if (!admitted && !inAuth && !atLanding) {
+    if (!admitted && !inAuth && !atLanding && !inLegal) {
       router.replace("/");
-    } else if (session && (inAuth || atLanding)) {
+    } else if (session && (inAuth || atLanding) && !inReset) {
       // Signed-in users skip the landing page entirely (web reopens land on "/")
       if (!hasOnboarded) {
          
@@ -198,7 +203,7 @@ export default function RootLayout() {
       } else {
         router.replace("/(tabs)/discover");
       }
-    } else if (session && !inAuth && !inOnboarding && !hasOnboarded) {
+    } else if (session && !inAuth && !inOnboarding && !inLegal && !hasOnboarded) {
 
       router.replace("/onboarding" as any);
     }
@@ -231,14 +236,6 @@ export default function RootLayout() {
           <Stack.Screen name="auth" />
           <Stack.Screen name="onboarding" />
           <Stack.Screen
-            name="meal/[id]"
-            options={{
-              headerShown: true,
-              title: "Meal Detail",
-              headerBackTitle: "Back",
-            }}
-          />
-          <Stack.Screen
             name="recipe/upload"
             options={{
               headerShown: true,
@@ -254,6 +251,7 @@ export default function RootLayout() {
               headerBackTitle: "Back",
             }}
           />
+          <Stack.Screen name="legal/[doc]" />
           <Stack.Screen
             name="share/[id]"
             options={{

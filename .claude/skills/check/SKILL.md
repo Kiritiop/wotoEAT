@@ -4,7 +4,7 @@ description: Run the full wotoEAT verification suite (frontend typecheck + lint,
 ---
 
 Run every step even if an earlier one fails, then report all failures together.
-All paths are relative to the repo root `/Users/Kiritiop/wotoEAT`.
+All paths are relative to the repo root.
 
 ## Steps
 

@@ -1,0 +1,151 @@
+/**
+ * Draft legal copy, kept as data so one screen can render all four documents.
+ *
+ * NOT REVIEWED BY A LAWYER. Every screen that renders these shows
+ * `legal_draft_banner` above the text, and that banner stays until a real
+ * review happens. The Privacy document is the one that matters most here:
+ * wotoEAT stores allergies, dietary restrictions, weight, height, age and sex,
+ * which is GDPR Article 9 special-category data and CPRA sensitive personal
+ * information. Those carry obligations a generic template does not cover.
+ *
+ * Sections are [heading, body] so the renderer stays a map() with no markdown
+ * parser. Keep both languages in step; `tests/unit/legal.test.ts` pins that.
+ */
+export type LegalDoc = { titleKey: LegalTitleKey; sections: [string, string][] };
+export type LegalSlug = "privacy" | "terms" | "refund" | "cookies" | "delete-account";
+type LegalTitleKey = "legal_privacy" | "legal_terms" | "legal_refund" | "legal_cookies" | "legal_delete_account";
+
+// Order is the order they are listed in the app.
+// Legal documents are expected to say when they last changed. One date for all
+// five: they are written and revised together, so per-document bookkeeping would
+// only create a way for them to disagree. Bump it whenever you edit any text
+// below.
+export const LEGAL_LAST_UPDATED = "2026-09-21";
+
+export const LEGAL_SLUGS: LegalSlug[] = ["privacy", "terms", "refund", "cookies", "delete-account"];
+
+const EN: Record<LegalSlug, LegalDoc> = {
+  privacy: {
+    titleKey: "legal_privacy",
+    sections: [
+      ["What we collect", "Account: your email address, handled by our authentication provider (Supabase). We never see or store your password.\n\nHealth profile, only what you choose to enter: age, sex, weight, height, activity level, health goals, dietary restrictions, allergies, and calorie or protein targets.\n\nApp content: your pantry items, saved recipes, meal history, and shopping lists.\n\nReceipt photos are sent to our AI provider for text extraction and are not stored by us afterwards."],
+      ["Health and dietary data", "Allergies, dietary restrictions and body measurements are sensitive data under GDPR Article 9 and the California Consumer Privacy Act. We ask for them only to generate meals that suit you, and by entering them you explicitly consent to that use. Every field is optional and the app works without them. You can clear them at any time from the Profile tab."],
+      ["Why we use it", "To generate meal suggestions and recipes, to keep allergens and restrictions out of what we suggest, to subtract pantry items from your shopping list, and to keep your data in sync across your devices. We do not sell your data, we do not share it for advertising, and we do not build advertising profiles."],
+      ["Who else sees it", "Groq processes the prompt content needed to generate a meal, recipe or shopping list, which includes your health profile and pantry. Supabase stores your account and data. Google's Gemini generates a dish photo from a recipe description when no real photo exists; no personal data is sent. TheMealDB is queried by dish name only.\n\nWe use no analytics, advertising or tracking services of any kind."],
+      ["How long we keep it", "Until you delete it. Profile, pantry, saved recipes and meal history stay on our servers while your account exists. Shared recipe links are public snapshots and remain until removed on request. The AI response cache holds generated content, not personal data, for one hour."],
+      ["Your rights", "You can access, correct, export or delete your data. \"Delete my data\" in the Profile tab removes your health profile, pantry, saved recipes and meal history from our servers immediately. To delete your account entirely, or for any other request, contact us at the address below."],
+      ["Guest mode", "If you use the app without an account, everything stays on your device and never reaches our servers, apart from the meal request itself. We do not know you exist until you sign up."],
+      ["Children", "wotoEAT is not intended for children under 13, and we do not knowingly collect their data."],
+      ["Contact", "wzirui102348@gmail.com"],
+    ],
+  },
+  terms: {
+    titleKey: "legal_terms",
+    sections: [
+      ["Recipes are AI-generated", "Every meal suggestion, recipe, ingredient list and nutrition figure in this app is produced by a language model. It can be wrong. Treat all of it as a starting point, not as instruction you can follow without checking."],
+      ["Allergies and dietary restrictions", "When you enter allergies or dietary restrictions, we instruct the model to treat them as absolute constraints, and we test that instruction. We cannot guarantee the result. Check every ingredient yourself before cooking or eating. If you have a severe allergy, do not rely on this app to keep you safe."],
+      ["Not medical or nutritional advice", "Calorie counts, macros and health-goal suggestions are estimates generated by a model. They are not dietary, medical or nutritional advice, and they are not a substitute for a doctor or registered dietitian. Talk to a professional before making decisions about your health."],
+      ["Food safety", "We do not check cooking times, temperatures or storage advice for food-safety correctness. Follow recognised food-safety guidance for your region, especially for meat, fish, eggs and reheating."],
+      ["Your account", "Keep your credentials secure and do not use the app to break the law or to abuse the service. We may suspend accounts that do. You keep ownership of the content you enter."],
+      ["Shared links", "A share link makes that recipe publicly readable by anyone who has the URL. Do not put anything private in a recipe you share."],
+      ["Availability", "The service is provided as is, with no warranty. It depends on third-party AI providers and may be unavailable, rate-limited or degraded at any time."],
+      ["Liability", "To the maximum extent the law allows, we are not liable for any loss arising from your use of the app, including any allergic reaction, illness or injury. Some jurisdictions do not allow these limits, in which case they apply only as far as permitted."],
+      ["Contact", "wzirui102348@gmail.com"],
+    ],
+  },
+  refund: {
+    titleKey: "legal_refund",
+    sections: [
+      ["The app is free", "wotoEAT is free to use. There are no paid plans, no subscriptions and no in-app purchases, so there is nothing to refund."],
+      ["Donations", "Any contribution made through our Ko-fi page is a voluntary donation, not a purchase, and it buys no feature or service. If you donated by mistake, contact us and we will refund it."],
+      ["If this changes", "If paid features are ever added, this page will set out the refund terms before you can pay for anything."],
+      ["Contact", "wzirui102348@gmail.com"],
+    ],
+  },
+  cookies: {
+    titleKey: "legal_cookies",
+    sections: [
+      ["No tracking", "wotoEAT uses no analytics, no advertising, no tracking pixels and no third-party cookies. Nothing follows you across sites, so there is no consent banner because there is nothing to consent to."],
+      ["What is stored on your device", "A sign-in token, so you stay signed in. Your preferences and app data (language, profile, pantry, meal stream, shopping list) stored locally so the app works offline and starts fast. Both are strictly necessary for the app to function and neither is shared."],
+      ["Clearing it", "Signing out removes the token and your session data from the device. Clearing your browser or app storage removes the rest."],
+      ["Contact", "wzirui102348@gmail.com"],
+    ],
+  },
+  "delete-account": {
+    titleKey: "legal_delete_account",
+    sections: [
+      ["Deleting from inside the app", "Open the Profile tab and scroll to Your Data. \"Delete my data\" clears your health profile, pantry, saved recipes, meal history and shopping lists but keeps your account. \"Delete my account\" does both, and removes the account itself. Neither can be undone."],
+      ["If you no longer have the app", "Email wzirui102348@gmail.com from the address on the account and ask for it to be deleted. We will confirm and delete it within 30 days."],
+      ["What gets deleted", "Your health profile (including allergies, dietary restrictions and body measurements), pantry items, saved recipes, meal history, shopping lists, and your account and sign-in credentials."],
+      ["What is kept, and why", "Recipes you chose to share are public snapshots someone may already hold a link to. They stay online but are disconnected from your account, so nothing links them back to you. Ask us and we will remove a specific share too."],
+      ["Contact", "wzirui102348@gmail.com"],
+    ],
+  },
+};
+
+const ZH: Record<LegalSlug, LegalDoc> = {
+  privacy: {
+    titleKey: "legal_privacy",
+    sections: [
+      ["我们收集什么", "账号：你的电子邮箱，由认证服务商 Supabase 处理。我们不会看到或存储你的密码。\n\n健康档案，仅限你主动填写的内容：年龄、性别、体重、身高、活动水平、健康目标、饮食限制、过敏原，以及热量或蛋白质目标。\n\n应用内容：你的食材库、收藏食谱、用餐记录和购物清单。\n\n小票照片会发送给 AI 服务商用于文字识别，之后我们不会保存。"],
+      ["健康与饮食数据", "过敏原、饮食限制和身体数据属于 GDPR 第 9 条规定的特殊类别数据，也属于加州消费者隐私法下的敏感个人信息。我们收集这些信息仅用于生成适合你的餐点，填写即表示你明确同意该用途。所有字段均为可选，不填也能正常使用。你可以随时在“我的”页面清除。"],
+      ["用途", "生成餐点建议和食谱；让建议避开你的过敏原和饮食限制；从购物清单中扣除你已有的食材；在你的多台设备间同步数据。我们不出售你的数据，不为广告目的共享，也不建立广告画像。"],
+      ["谁还能接触到", "Groq 处理生成餐点、食谱或购物清单所需的提示内容，其中包含你的健康档案和食材库。Supabase 存储你的账号和数据。当没有真实照片时，Google Gemini 会根据食谱描述生成菜品图片，不会发送任何个人数据。TheMealDB 仅按菜名查询。\n\n我们不使用任何分析、广告或追踪服务。"],
+      ["保存多久", "直到你删除为止。只要账号存在，档案、食材库、收藏食谱和用餐记录就保留在我们的服务器上。分享链接是公开快照，需来信申请才会移除。AI 响应缓存保存的是生成内容而非个人数据，保留一小时。"],
+      ["你的权利", "你可以访问、更正、导出或删除你的数据。“我的”页面中的“删除我的数据”会立即从服务器移除你的健康档案、食材库、收藏食谱和用餐记录。如需彻底注销账号或提出其他请求，请通过下方邮箱联系我们。"],
+      ["访客模式", "若你未注册即使用本应用，除生成餐点的请求本身外，所有数据都留在你的设备上，不会上传到我们的服务器。在你注册之前，我们并不知道你的存在。"],
+      ["儿童", "wotoEAT 不面向 13 岁以下儿童，我们也不会在知情的情况下收集其数据。"],
+      ["联系方式", "wzirui102348@gmail.com"],
+    ],
+  },
+  terms: {
+    titleKey: "legal_terms",
+    sections: [
+      ["食谱由 AI 生成", "本应用中的所有餐点建议、食谱、食材清单和营养数据均由语言模型生成，可能出错。请将其视为参考起点，而非可以直接照做的指示。"],
+      ["过敏原与饮食限制", "当你填写过敏原或饮食限制时，我们会要求模型将其作为绝对约束处理，并对该指令进行测试，但我们无法保证结果。烹饪或食用前请务必自行核对每一种食材。若你有严重过敏，请勿依赖本应用保障安全。"],
+      ["非医疗或营养建议", "热量、营养素和健康目标建议均为模型生成的估算值，不构成饮食、医疗或营养建议，也不能替代医生或注册营养师。在做出健康决策前请咨询专业人士。"],
+      ["食品安全", "我们不会核验烹饪时间、温度或储存建议是否符合食品安全要求。请遵循你所在地区的食品安全规范，尤其是处理肉类、鱼类、蛋类和剩菜复热时。"],
+      ["你的账号", "请妥善保管账号凭据，不得利用本应用从事违法行为或滥用服务，否则我们可能暂停你的账号。你填写的内容归你所有。"],
+      ["分享链接", "分享链接会让该食谱对任何持有该网址的人公开可见。请勿在分享的食谱中放入私密信息。"],
+      ["服务可用性", "本服务按“现状”提供，不作任何担保。服务依赖第三方 AI 供应商，可能随时不可用、受限流或性能下降。"],
+      ["责任限制", "在法律允许的最大范围内，我们不对你使用本应用所产生的任何损失承担责任，包括任何过敏反应、疾病或伤害。若你所在司法辖区不允许此类限制，则该限制仅在允许范围内适用。"],
+      ["联系方式", "wzirui102348@gmail.com"],
+    ],
+  },
+  refund: {
+    titleKey: "legal_refund",
+    sections: [
+      ["本应用免费", "wotoEAT 免费使用，没有付费方案、订阅或应用内购买，因此不存在退款事项。"],
+      ["捐赠", "通过 Ko-fi 页面所作的任何支持均为自愿捐赠，并非购买，不会换取任何功能或服务。若你误捐，请联系我们，我们会退还。"],
+      ["若政策变更", "若未来新增付费功能，本页面会在你能够付费之前先行说明退款条款。"],
+      ["联系方式", "wzirui102348@gmail.com"],
+    ],
+  },
+  cookies: {
+    titleKey: "legal_cookies",
+    sections: [
+      ["无追踪", "wotoEAT 不使用分析工具、广告、追踪像素或第三方 Cookie。没有任何东西跨站点追踪你，因此也没有同意横幅，因为没有需要你同意的内容。"],
+      ["设备上存储了什么", "登录令牌，用于保持登录状态。你的偏好和应用数据（语言、档案、食材库、当日餐点、购物清单）保存在本地，使应用可离线工作并快速启动。两者都是应用运行所必需的，且都不会被共享。"],
+      ["如何清除", "退出登录会从设备移除令牌和会话数据。清除浏览器或应用存储可移除其余内容。"],
+      ["联系方式", "wzirui102348@gmail.com"],
+    ],
+  },
+  "delete-account": {
+    titleKey: "legal_delete_account",
+    sections: [
+      ["在应用内删除", "打开“我的”页面，滚动到“你的数据”。“删除我的数据”会清除你的健康档案、食材库、收藏食谱、用餐记录和购物清单，但保留账号。“删除我的账号”会同时删除数据并注销账号。两者都无法撤销。"],
+      ["如果你已卸载应用", "请用账号邮箱发信至 wzirui102348@gmail.com 申请删除。我们会确认并在 30 天内完成删除。"],
+      ["哪些内容会被删除", "你的健康档案（包括过敏原、饮食限制和身体数据）、食材库、收藏食谱、用餐记录、购物清单，以及你的账号和登录凭据。"],
+      ["哪些内容会保留，以及原因", "你主动分享的食谱是公开快照，他人可能已持有链接。它们会继续在线，但会与你的账号解除关联，不再指向你。如需删除某个具体分享，请联系我们。"],
+      ["联系方式", "wzirui102348@gmail.com"],
+    ],
+  },
+};
+
+export function legalDoc(slug: LegalSlug, language: string): LegalDoc | undefined {
+  return (language === "zh" ? ZH : EN)[slug];
+}
+
+// Exported for the unit test: both languages must cover the same documents
+// with the same section count, so a translation can't silently lose a clause.
+export const LEGAL_BY_LANG = { en: EN, zh: ZH };

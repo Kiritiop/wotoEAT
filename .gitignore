@@ -20,6 +20,9 @@ __pycache__/
 *.pyd
 wotoeat-api/venv/
 
+# Local Claude worktrees (scratch copies of the repo)
+.claude/worktrees/
+
 # IDE
 .vscode/
 .idea/

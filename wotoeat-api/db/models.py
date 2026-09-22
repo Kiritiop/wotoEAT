@@ -108,11 +108,6 @@ class PantryItem(BaseModel):
     category: Optional[str] = None  # display category override; null → derived from name
 
 
-class PantryItemDB(PantryItem):
-    id: Optional[str] = None
-    user_id: Optional[str] = None
-
-
 class UpsertPantryRequest(BaseModel):
     items: list[PantryItem]
 
@@ -235,6 +230,9 @@ class MealGenerateRequest(BaseModel):
     flavour_preference: Optional[str] = None
     required_ingredients: Optional[str] = Field(default=None, max_length=2000)
     meal_style: str = "full"
+    # Closed-world pantry mode: the dish may use only pantry items plus
+    # salt/pepper/oil/water. Ignored when the pantry is empty.
+    pantry_only: bool = False
     # Names of meals already shown today — never re-suggest these.
     avoid_meals: list[str] = Field(default_factory=list, max_length=300)
 
@@ -250,6 +248,9 @@ class SwapMealRequest(BaseModel):
     max_prep_time_mins: Optional[int] = None
     required_ingredients: Optional[str] = Field(default=None, max_length=2000)
     meal_style: str = "full"
+    # Closed-world pantry mode: the dish may use only pantry items plus
+    # salt/pepper/oil/water. Ignored when the pantry is empty.
+    pantry_only: bool = False
     # Names of meals already shown today — never re-suggest these.
     avoid_meals: list[str] = Field(default_factory=list, max_length=300)
 

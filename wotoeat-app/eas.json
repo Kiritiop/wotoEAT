@@ -8,16 +8,9 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_API_URL": "https://mealmind-production-dc38.up.railway.app"
-      }
+      "distribution": "internal"
     },
-    "production": {
-      "env": {
-        "EXPO_PUBLIC_API_URL": "https://mealmind-production-dc38.up.railway.app"
-      }
-    }
+    "production": {}
   },
   "submit": {
     "production": {}

@@ -12,8 +12,8 @@ per-half working guides with the non-negotiable rules.
 database and auth on Supabase, AI on Groq. A push to `main` deploys both
 halves automatically. There is no staging environment. GitHub Actions CI
 (`.github/workflows/ci.yml`) runs the backend offline tests, frontend
-typecheck + lint, and an emoji scan on every push and PR, but it does not
-block the auto-deploys, so local verification is still the release gate.
+typecheck + lint + `npm test`, and an emoji scan on every push and PR, but it
+does not block the auto-deploys, so local verification is still the release gate.
 Never push unverified changes.
 
 **How to work here:**
@@ -50,8 +50,6 @@ open ends of the product loop):
 - `meal_history` is write-only; it is never fed back into generation
   (per-device `ratings` are the only feedback signal, capped at 100).
 - Ratings are device-local, never persisted server-side.
-- `user_preferences` and `daily_plans` are dead tables in schema.sql, kept
-  for reference; zero code references.
 - The landing logo PNG has a baked-in cream background; a transparent export
   would be the ideal polish.
 - Generated header images have no visible marker. Every dish TheMealDB does not
@@ -77,13 +75,17 @@ Backend secrets live only in Railway; Vercel gets only `EXPO_PUBLIC_*` vars
 (they are public); EAS needs its env vars set separately or store builds ship
 broken (see Deployment below).
 
-**Known open issues:** `todo.txt` has the authoritative queue. The 2026-07-08
-review's FIX-1 through FIX-10, plus A-2 and A-4, all shipped on 2026-08-18;
-recipe-image matching and guest mode shipped on 2026-08-25. What remains is the
-larger architectural work (A-1 event-loop blocking, A-3 translation scraping,
-A-5 splitting the two monolith screens) and the product roadmap. Nothing in the
-queue is a known live defect right now.
-When any item ships, update todo.txt and this section together.
+**Known open issues:** `todo.txt` has the authoritative queue, and it holds
+ONLY open work. Shipped items are deleted from it rather than archived in it,
+so git history is where you look for what a past round did and why; the
+conclusions worth keeping live in this file instead. What remains is the larger
+architectural work (A-1 event-loop blocking, A-3 translation scraping, A-5
+splitting the two monolith screens), a set of launch blockers that need Jerry
+rather than code (legal review, Supabase redirect allowlist, store metadata),
+and the product roadmap. Nothing in the queue is a known live defect right now;
+the highest-value open item is E-1, error monitoring, since nothing currently
+aggregates client crashes or backend 500s.
+When any item ships, delete it from todo.txt and update this section together.
 
 ## Overview
 
@@ -134,7 +136,7 @@ wotoEAT/
 
 - **Backend → Railway** (`wotoeat-api/`, Procfile: uvicorn). Backend env vars live in the Railway service settings. `SUPABASE_KEY` there must be the **service-role** key — the anon key makes pantry writes fail with RLS errors (silently, in the fire-and-forget paths).
 - **Web frontend → Vercel** (`wotoeat-app/`, build = `vercel-build` script → `expo export --platform web`). Vercel needs only `EXPO_PUBLIC_API_URL` (Railway backend URL), `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`. **Never add the service-role key to Vercel** — all `EXPO_PUBLIC_*` values are baked into the public JS bundle.
-- **Native builds → EAS** (`build:ios` / `build:android` scripts). Changes to native permissions in app.json (e.g. camera for receipt scanning) only take effect in a fresh EAS build; Expo Go and web are unaffected. **⚠ eas.json only bakes `EXPO_PUBLIC_API_URL`** — `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, and `EXPO_PUBLIC_WEB_URL` must be provided as EAS environment variables (`eas env:create`, or added to the eas.json `env` blocks) or a store build ships with **auth completely broken** (empty Supabase config) and native share links rendering as relative paths. Verify with `eas env:list` before building.
+- **Native builds → EAS** (`build:ios` / `build:android` scripts). Changes to native permissions in app.json (e.g. camera for receipt scanning) only take effect in a fresh EAS build; Expo Go and web are unaffected. **⚠ eas.json bakes NOTHING.** `EXPO_PUBLIC_API_URL` used to be hardcoded there; it was removed when the repo was prepared for open sourcing, since a fork would otherwise build against this project's backend. All four of `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY` and `EXPO_PUBLIC_WEB_URL` must now be EAS environment variables (`eas env:create`). Without `EXPO_PUBLIC_API_URL` the build throws at startup (`services/api.ts` only falls back to localhost under `__DEV__`); without the Supabase pair auth is **completely broken**; without `EXPO_PUBLIC_WEB_URL` native share links render as relative paths. **Run `eas env:list` before every store build.**
 
 ---
 
@@ -209,10 +211,11 @@ vars the code reads via `os.getenv`). Note: `wotoeat-api/.gitignore` needs the
 | `POST /pantry/scan-receipt` | `routers/pantry.py` | Extract food items from a receipt photo (requires auth; rate-limited 10/hr per user; annotate-only — writes nothing) |
 | `GET /profile/` | `routers/profile.py` | Get health profile |
 | `PUT /profile/` | `routers/profile.py` | Upsert health profile |
+| `DELETE /profile/account` | `routers/profile.py` | **Account deletion** — runs the erasure below, then deletes the Supabase auth user via the admin API (needs the service-role key). Required in-app by Apple 5.1.1(v) and Google Play; data-only deletion satisfies neither. Data goes first so a mid-way failure can't strand rows whose user id no longer resolves |
+| `DELETE /profile/data` | `routers/profile.py` | **Erasure** — deletes this user's rows from `user_profiles`, `pantry`, `saved_recipes`, `meal_history`, `shopping_lists` and anonymises their `shared_items` (requires auth). Does NOT delete the Supabase auth account. Partial failure returns 500 rather than reporting success |
 | `POST /shopping/generate` | `routers/shopping.py` | Generate shopping list from recipes minus pantry (also best-effort inserts a `shopping_lists` history row if authed — never read back). Optional auth; rate-limited 40/hr per identity (`shopping-ai`) |
 | `GET /shopping/current` | `routers/shopping.py` | Get the persisted "current" shopping list (requires auth; read on app startup) |
 | `PUT /shopping/current` | `routers/shopping.py` | Upsert the "current" shopping list (requires auth; debounced 2s save from the Shopping tab). Cross-device sync via AppState in `shopping.tsx`: going to background **flushes** a pending debounced save (JS timers don't run backgrounded); returning to foreground **drops any stale pending save and re-fetches** the server's latest so another device's check-offs aren't clobbered. |
-| `GET /shopping/history` | `routers/shopping.py` | List saved shopping lists (optional auth; **no frontend caller**) |
 | `PATCH /recipes/{id}/labels` | `routers/recipes.py` | Update recipe labels (favorite, mine, etc.) |
 | `GET /images/search` | `routers/images.py` | Food image cascade — TheMealDB → Pexels → Unsplash. Takes `q` (dish name) + optional `hint` (the generator's `image_query`). Every candidate is verified against the dish; returns `{url: null}` rather than a wrong photo. SQLite-cached; rate-limited 100 novel lookups/hr per IP |
 | `POST /share` | `routers/share.py` | Create a public share (`{kind:"recipe"\|"meal", payload}`) → `{id}`; optional auth; rate-limited 30/hr per client |
@@ -235,7 +238,7 @@ vars the code reads via `os.getenv`). Note: `wotoeat-api/.gitignore` needs the
 - `parse_recipe(html)` → `dict` (no `language` arg — recipes are parsed in their source language and localized client-side by the dynamic-translation layer; `ParseRecipeRequest.language` is still accepted for API-contract compatibility but unused)
 - `generate_recipe_by_name(dish_name, language, servings, force_refresh)` → `dict` (cached 7 days; `force_refresh=True` bypasses cache — used by the Regenerate button)
 - `generate_shopping_list(recipes, pantry, language)` → `dict`
-- `swap_meal(slot, current_plan, filters)` → `dict` (`current_plan` optional; exclusion is driven by `filters["avoid_meals"]` = today's seen list; filters also include cuisine, flavour, max_prep_time_mins, required_ingredients, meal_style)
+- `swap_meal(slot, current_plan, filters)` → `dict` (`current_plan` optional; exclusion is driven by `filters["avoid_meals"]` = today's seen list; filters also include cuisine, flavour, max_prep_time_mins, required_ingredients, meal_style, pantry_only)
 - `transcribe_receipt(image_b64)` → `list[str]` — receipt scan stage 1 on `_VISION_MODEL`; raises `ValueError("no_receipt"|"unreadable_receipt")`
 - `normalize_receipt_items(lines, pantry_names, language)` → `list[dict]` — receipt scan stage 2 on the text model; nulls any hallucinated `matches_pantry` not exactly in `pantry_names`; raises `ValueError("no_food_items"|"unreadable_receipt")`
 - `scan_receipt(image_b64, pantry_names, language)` → `{"items": [...]}` — orchestrates both stages; **never cached** (receipts are unique)
@@ -254,7 +257,7 @@ Internal helpers:
 
 Key models:
 - `HealthProfile` — age, sex, weight_kg, height_cm, activity_level, health_goals, dietary_restrictions, allergies, calorie_goal, protein_goal_g, use_imperial, cuisine_preferences, flavour_preference, preferred_max_prep_mins
-- `MealGenerateRequest` — profile, pantry, cuisine_preference, max_prep_time_mins, language, recent_ratings, servings (default **1**), slots, flavour_preference, **required_ingredients** (comma-separated tags/ingredients the user requires), meal_style, **avoid_meals** (names already shown today — never re-suggested; IS part of the meal-plan cache key)
+- `MealGenerateRequest` — profile, pantry, cuisine_preference, max_prep_time_mins, language, recent_ratings, servings (default **1**), slots, flavour_preference, **required_ingredients** (comma-separated tags/ingredients the user requires), meal_style, **pantry_only** (bool, default False), **avoid_meals** (names already shown today — never re-suggested; IS part of the meal-plan cache key)
 - `SwapMealRequest` — same swap filters; `current_plan` now **optional** (exclusion is driven by `avoid_meals`)
 - `CreateShareRequest` / `CreateShareResponse` / `SharedItem` — sharing: `{kind:"recipe"|"meal", payload}` in, `{id}` out; `SharedItem` = `{kind, payload}`
 - `GeneratedMeal` — slot, name, cuisine, description, prep_time_mins, calories_per_serving, difficulty, components (vegetable/protein/staple), uses_pantry_items, tags, ingredients, steps, protein_g, carbs_g, fat_g, fiber_g
@@ -268,9 +271,7 @@ Key models:
 | `saved_recipes` | Full recipe JSON per user |
 | `meal_history` | Daily meal batches (user_id, date, meals JSON). Written by suggest/generate/swap **iff authed && response not cached**; read by History/Recipes tabs; never fed back into generation. |
 | `user_profiles` | Health profile per user (read once at app startup; generation uses the locally-cached profile sent in the request body) |
-| `user_preferences` | **Dead table** — defined in schema.sql only; zero code references. The *feature* (a user's preferred include-ingredients for generation) lives device-local instead: `requiredIngredients`/`selectedPantryItems` persisted in the Zustand store. |
-| `daily_plans` | **Dead** — legacy daily-plan era; defined in schema.sql only, zero code references |
-| `shopping_lists` | **Partially live**: the `name="current"` row is actively read/written via `GET/PUT /shopping/current`; `POST /shopping/generate` also best-effort inserts history rows that are never read. A partial unique index (`shopping_current_unique`, in schema.sql — **run it in Supabase to apply**) enforces one "current" row per user; the upsert falls back to update on a lost insert race, and reader/updater order by `created_at` asc so they agree on the canonical row. |
+| `shopping_lists` | Holds exactly one `name="current"` row per user, read/written via `GET/PUT /shopping/current`. It used to also accumulate history rows from `POST /shopping/generate` that nothing ever read; that write, `GET /shopping/history` and both DB helpers were deleted. A partial unique index (`shopping_current_unique`, in schema.sql — **run it in Supabase to apply**) enforces one "current" row per user; the upsert falls back to update on a lost insert race, and reader/updater order by `created_at` asc so they agree on the canonical row. |
 | `shared_items` | Public meal/recipe shares: `(id, kind, payload jsonb, user_id nullable, created_at)`. Written by `POST /share` (service-role); read by `GET /share/{id}` (public; RLS policy `shared_public` allows SELECT). `user_id` nullable — anon shares allowed. |
 
 ---
@@ -308,16 +309,17 @@ npx expo start --web  # browser
 | `app/onboarding.tsx` | `/onboarding` | First-run profile setup |
 | `app/auth/sign-in.tsx` | `/auth/sign-in` | Email + password sign-in |
 | `app/auth/sign-up.tsx` | `/auth/sign-up` | Registration |
-| `app/auth/forgot-password.tsx` | `/auth/forgot-password` | Password reset |
+| `app/auth/forgot-password.tsx` | `/auth/forgot-password` | Request a password-reset email |
+| `app/auth/reset-password.tsx` | `/auth/reset-password` | Set the new password after clicking the email link |
 | `app/(tabs)/discover.tsx` | `/(tabs)/discover` | **Main screen** — meal generation (growing stream, no daily plan), filters, meal cards (tab: "Today") |
 | `app/(tabs)/recipes.tsx` | `/(tabs)/recipes` | Saved recipes, meal history, AI recipe generation (tab: "My Recipes") |
 | `app/(tabs)/pantry.tsx` | `/(tabs)/pantry` | Pantry management + shopping list generation (tab: "Pantry") |
 | `app/(tabs)/profile.tsx` | `/(tabs)/profile` | Health profile, dietary preferences, language toggle (tab: "Profile") |
 | `app/(tabs)/shopping.tsx` | `/(tabs)/shopping` | Shopping list view — **hidden tab** (`href: null`), opened via the cart icon on Pantry |
 | `app/(tabs)/history.tsx` | `/(tabs)/history` | Past meal history — **hidden tab** (`href: null`), navigated programmatically |
-| `app/meal/[id].tsx` | `/meal/[id]` | Meal detail — registered, but **no internal navigation path** (deep-link/URL only) |
 | `app/recipe/upload.tsx` | `/recipe/upload` | Recipe import from URL — **reachable via the "Import from URL" button on the Recipes tab** (paste URL → AI parses → save) |
 | `app/pantry/scan.tsx` | `/pantry/scan` | Receipt scanning — capture/pick photo → editable review → merge into pantry (opened from the Pantry tab) |
+| `app/legal/[doc].tsx` | `/legal/<doc>` | **Public** privacy / terms / refund / cookies, content from `constants/legal.ts`, `<doc>` is the slug. Reachable signed-out, as a guest, and by direct URL (`vercel.json` rewrite) |
 | `app/share/[id].tsx` | `/share/<id>` | **Public read-only** shared meal/recipe view (`GET /share/{id}`); opened from a shared link (web primary, native deep link) |
 
 Only 4 tabs are visible in the tab bar: Today, Pantry, My Recipes, Profile.
@@ -357,8 +359,8 @@ Persisted to AsyncStorage under key `wotoeat-store`. Fields:
 - `shoppingList` — current shopping list (grouped)
 - `recipeLabels` — `Record<recipeId, label[]>` for favoriting/tagging saved recipes
 - `servings` / `planServings` — user preferred servings (**default 1**) + the servings count the current stream was generated for
-- Store actions: `addMeal`, `replaceMeal` (swap, by name), `removeMeal`, `clearMeals`, `addSeenMeals`
-- **One day-scoped reset**: `meals`/`mealsDate`/`seenMeals`/`cookedMeals`/`selectedRecipes` are cleared by four places (language change, `clearMeals`, `resetAll`, date-rollover rehydrate). They share the `dayScopedReset()` helper at the top of the store instead of four hand-maintained field lists. Add any new day-scoped field there and all four sites pick it up. It is a function, not a constant, so no two call sites share an array instance.
+- Store actions: `addMeal`, `replaceMeal` (swap, by name), `clearMeals`, `clearMealsIfStale` (date-rollover reset — see Meal Stream Reset), `addSeenMeals`. `removeMeal`, `clearRatings` and `clearSelectedRecipes` were removed as dead code; nothing outside the store had ever called them.
+- **One day-scoped reset**: `meals`/`mealsDate`/`seenMeals`/`cookedMeals`/`selectedRecipes` are cleared by four places (language change, `clearMeals`, `resetAll`, date-rollover via `clearMealsIfStale`). They share the `dayScopedReset()` helper at the top of the store instead of four hand-maintained field lists. Add any new day-scoped field there and all four sites pick it up. It is a function, not a constant, so no two call sites share an array instance.
 
 ### Services (`services/api.ts`)
 All HTTP via Axios instance with:
@@ -419,9 +421,79 @@ Key functions: `generateMeals` (now takes `avoid_meals`), `swapMeal` (no `curren
 - **Meal style**: Full Meal vs Main Dish (Main Dish enforces no carbohydrate staples — protein/veg only, suitable to eat alongside rice)
 - **Include tags**: text input accumulator (chip-based); combined with pantry selections → `required_ingredients`
 - **From pantry**: tap pantry items to require them in the meal
+- **Pantry only**: closed-world toggle (`pantryOnly`, local state in `discover.tsx`) sent as `pantry_only`. The dish may use ONLY pantry items plus salt, pepper, cooking oil and water; anything else, including an optional garnish, is forbidden. No real dish fits the pantry → the prompt returns `no_match` → 422, and Today shows a pantry-specific message rather than the required-tags one. Shown only when the pantry is non-empty, and ignored server-side on an empty pantry (otherwise every generate would fail).
 - **Cuisine**: multi-select from `CUISINES` list
 - **Flavour**: single-select from `FLAVOUR_OPTIONS` (spicy, sweet, savory, mild, sour)
 - **Prep time**: preset caps (any, ≤15min, ≤30min, ≤1hr)
+
+---
+
+## Web-only CSS (`app/+html.tsx`)
+
+Three things live in that file's `css` string that have no React Native
+equivalent, so they cannot move into a component:
+
+- **Viewport sizing** (`100dvh`), the original reason the file exists.
+- **Hover feedback.** react-native-web renders Touchables as plain divs, so on
+  a desktop pointer every control felt dead. One `@media (hover: hover)` rule
+  covers `[role="button"]` and `[role="link"]`, which is why the
+  accessibility-label pass that added those roles was a prerequisite.
+- **A print stylesheet.** People print recipes. The shell sets
+  `height: 100dvh` + `overflow: hidden`, which means a printer would otherwise
+  only ever receive the visible viewport and nothing below it. The print block
+  releases both.
+
+## Security headers (`vercel.json`)
+
+`X-Frame-Options: DENY`, `X-Content-Type-Options`, `Referrer-Policy`,
+`Permissions-Policy` (camera/mic/geolocation all denied — the camera is native
+only) and HSTS with preload.
+
+**There is deliberately no CSP.** The Metro web bundle needs `unsafe-inline`
+and `unsafe-eval`, so a CSP that actually shipped would permit exactly what a
+CSP exists to stop, while adding a way to break the app on an Expo upgrade.
+Revisit only if the bundle stops requiring them.
+
+## Web crawling and SEO
+
+`wotoeat-app/public/` is copied to the export root, so its files are served at
+the site root (`/og.png`, `/robots.txt`, `/sitemap.xml`). Static files win over
+`vercel.json`'s catch-all rewrite, so no rewrite entry is needed for them.
+
+**`robots.txt` disallows `/share/`, and that is the point of the file.** A
+`/share/<uuid>` link is a private-by-obscurity snapshot meant for the person it
+was sent to; nothing else keeps those out of a search index. `sitemap.xml`
+therefore lists only `/` and the five `/legal/*` documents, never share pages.
+If a share URL is ever linked publicly, that rule is the only thing standing
+between one user's shared recipe and Google.
+
+Page metadata (title, description, og:*, JSON-LD `WebApplication`) is static in
+`app/+html.tsx`, because crawlers and messenger previews do not run JS. The one
+exception is `<link rel="canonical">`: every route is exported from that single
+shell, so a static href would be wrong on all but one page. A four-line inline
+script builds it from `location`, which Google's renderer picks up.
+
+**The landing page must render during the static export.** `app/index.tsx`
+holds rendering until `supabase.auth.getSession()` resolves, so returning users
+never see a landing flash. That promise never resolves in the prerender, and
+for months the site shipped a `dist/index.html` with an empty `<body>`: the
+homepage Google fetched had no content, no heading and no copy. `hasSession` is
+therefore seeded `false` when there is no `window`, which puts the real hero,
+features and CTAs in the exported HTML while leaving the client behaviour
+untouched. Anything that reintroduces a hold on the landing's first render
+un-indexes the site, silently.
+
+**Titles come from `expo-router/head`, not from screen options.** The helmet
+provider emits a `<title>` into every exported page whether a route fills it or
+not, and the empty one lands *ahead* of the static tags in `+html.tsx`. First
+title wins with search engines, so `app/index.tsx` and `app/legal/[doc].tsx`
+each render their own `<Head>`. Setting `title` in the `Stack` `screenOptions`
+does not reach the exported HTML; it was tried and reverted.
+
+**Headings**: react-native-web turns `accessibilityRole="header"` into `<h1>`
+(and `aria-level` into `h2`-`h6`). The landing hero title and `ScreenHeader`'s
+title/greeting carry it, which gives every page exactly one `h1`. Adding it to
+a second element on the same screen would break that.
 
 ---
 
@@ -450,7 +522,7 @@ Key functions: `generateMeals` (now takes `avoid_meals`), `swapMeal` (no `curren
 ## Pantry & Shopping
 
 ### Pantry Tab
-- The saved list is a **`SectionList` grouped by category** (`categoryForItem` → `PANTRY_CATEGORIES` keys, "Other"/其他 bucket last). Categories live in `constants/filters.ts` (`PANTRY_CATEGORIES`, `ITEM_CATEGORY`, `CATEGORY_LABELS`); `PantryTagPicker` imports `PANTRY_CATEGORIES` from there (single source of truth). Display names resolve via a `name → display` map (`displayByName`) since `SectionList` indices are per-section.
+- The saved list is a **`SectionList` grouped by category** (`categoryForItem` → `PANTRY_CATEGORIES` keys, "Other"/其他 bucket last). Categories live in `constants/filters.ts` (`PANTRY_CATEGORIES`, `CATEGORY_LABELS`; the `ITEM_CATEGORY` / `TAG_EN` / `CUISINE_ZH` lookups back `categoryForItem` / `toCanonicalEnglish` / `translateCuisine` and are module-private); `PantryTagPicker` imports `PANTRY_CATEGORIES` from there (single source of truth). Display names resolve via a `name → display` map (`displayByName`) since `SectionList` indices are per-section.
 - Add items by **name only** (via `PantryTagPicker` category multi-select with custom entries) — there is no quantity/unit anywhere in the pantry stack.
 - Add + "Scan receipt" render via the shared `Button` primitive (primary + secondary); Scan pushes `/pantry/scan` (see Receipt Scanning section).
 - **Shopping is a single surface** (the `shopping.tsx` tab). The Pantry header **cart button navigates there** (`router.push("/(tabs)/shopping")`) — it no longer opens a duplicated in-Pantry modal. The cart badge still shows `selectedRecipes.length`.
@@ -597,6 +669,22 @@ Meals and recipes can be shared as browsable links anyone can open.
 - Onboarding: first-run screen (`hasOnboarded` flag in store) prompts profile setup before sending to the main tabs.
 - **Landing is for signed-out users only**: a returning user with a persisted session auto-logs-in and goes straight to Discover. `app/index.tsx` holds rendering (blank cream screen) until `supabase.auth.getSession()` resolves, then `<Redirect>`s to `/(tabs)/discover` if a session exists (no landing flash); the root layout's redirect effect also sends `session && atLanding` → discover/onboarding as a backstop.
 - Sign-out calls `supabase.auth.signOut()` then `resetAll()` to clear store.
+- **Password reset goes through the web, on every platform.** `forgot-password`
+  passes `passwordResetRedirectUrl()` (`services/api.ts`) as `redirectTo`, which
+  always resolves to a `https://<web>/auth/reset-password` URL, never a deep
+  link. It used to pass the bare `wotoeat://reset-password`: no browser can open
+  a custom scheme, and no such route existed, so password recovery dead-ended on
+  every platform and no one could recover an account. One web route is the whole
+  fix; handling recovery inside the native app would mean parsing the token out
+  of the deep link by hand, because `detectSessionInUrl` is web-only.
+  **The returned URL must be in Supabase's Auth > URL Configuration redirect
+  allowlist**, or Supabase silently ignores it and uses the project Site URL.
+  Recovery hands the user a real session *before* they set a password, so the
+  root layout's redirect effect exempts this route via `inReset`; without that
+  the "signed in and sitting in /auth" rule throws them into the app with their
+  old password still live. The screen refuses to show the form when no recovery
+  session arrives (expired or reused link) instead of offering a save that
+  cannot succeed.
 
 ### Guest mode (try before signing up)
 
@@ -655,16 +743,94 @@ they reach the tabs.
 
 - `mealsDate` is stored alongside the `meals` stream.
 - **Same-day persistence is a feature**: the stream (and `seenMeals`) survives app restarts within the same day — losing `seenMeals` would let the AI re-suggest dishes already shown today. Clearing is date-aware everywhere:
-  - Cold start: `onRehydrateStorage` (runs before React renders) clears iff `mealsDate !== today`.
-  - Warm reopen: an `AppState` "active" listener in `_layout.tsx` does the same date check — iOS/Android keep the app in memory for days, so rehydrate alone missed the overnight-background case.
-  - Auth: `SIGNED_IN`/`INITIAL_SESSION` also clear only on a date mismatch (on web, `SIGNED_IN` can re-fire on tab refocus — an unconditional clear wiped live streams). Only `SIGNED_OUT` clears unconditionally; a user switch is always bracketed by it (sign-out also runs `resetAll`).
+  - **The date check lives in exactly one place**: the store's `clearMealsIfStale()`, which resets the day-scoped slice iff `mealsDate` is set and is not today. All three callers below go through it. It is keyed on `mealsDate` ALONE — an earlier version also required `meals.length > 0`, which meant a day whose cards had all been removed kept its `seenMeals`, `cookedMeals` and `selectedRecipes` past midnight, so yesterday's dishes stayed in `avoid_meals` indefinitely and yesterday's confirmations stayed in the shopping flow. Don't reintroduce a `meals.length` guard.
+  - Cold start: `onRehydrateStorage` (runs before React renders).
+  - Warm reopen: an `AppState` "active" listener in `_layout.tsx` — iOS/Android keep the app in memory for days, so rehydrate alone missed the overnight-background case.
+  - Auth: `SIGNED_IN`/`INITIAL_SESSION` (on web, `SIGNED_IN` can re-fire on tab refocus — an unconditional clear wiped live streams). Only `SIGNED_OUT` clears unconditionally, via `clearMeals()`; a user switch is always bracketed by it (sign-out also runs `resetAll`).
+
+---
+
+## Legal, privacy, and the allergy disclaimer
+
+Added when the app was prepared for public release. Three pieces:
+
+- **`components/ui/AiSafetyNote.tsx`** — rendered at the end of the meal detail
+  modal (`discover.tsx`), the recipe detail modal (`recipes.tsx`) and the public
+  share page. It escalates: with no allergies saved it is a muted note that
+  recipes are AI-generated; with allergies saved it becomes an error-toned
+  warning that names them. This is the app's most important safety surface,
+  because `_profile_constraints_block` is a prompt instruction, not a guarantee,
+  and the person reading the screen may be the one who is allergic. **Any new
+  screen that shows a generated recipe needs this component.**
+- **`constants/legal.ts`** — four documents (privacy, terms, refund, cookies) in
+  both languages as `[heading, body]` pairs, so `app/legal/[doc].tsx` renders
+  them with a `map()` and no markdown parser. **None of it has been reviewed by
+  a lawyer**, which is why every render shows `legal_draft_banner`; remove that
+  banner only after a real review. `tests/unit/legal.test.ts` pins that both
+  languages carry the same documents with the same section counts, so a
+  translation cannot silently drop a clause.
+- **`DELETE /profile/account`** — deletes the data, then the Supabase auth
+  user. Apple 5.1.1(v) and Google Play both require an in-app *account*
+  deletion path, and Play additionally wants a web page for people who already
+  uninstalled, which is the fifth legal document (`/legal/delete-account`).
+  The data goes first deliberately: once the auth user is gone its id no longer
+  resolves, so the reverse order would strand rows nobody can reach.
+- **`DELETE /profile/data`** — the erasure path. wotoEAT stores allergies,
+  dietary restrictions and body measurements, which are GDPR Article 9
+  special-category data and CPRA sensitive personal information, so a working
+  delete is an obligation and not a nicety. `db.delete_user_data` returns a
+  per-table status instead of raising on the first failure, and the router turns
+  any `failed` into a 500: silently reporting a partial erasure as success is
+  the failure mode that matters. The Profile control calls `resetAll()` too,
+  since wiping the server while AsyncStorage keeps the same data is not a
+  deletion. It deliberately does NOT delete the Supabase auth account (that
+  needs the admin API and would sign the user out mid-request); account closure
+  is a support request, as the Privacy document says.
+
+There is **no analytics, advertising or tracking anywhere in the app**, which is
+why there is no cookie banner: the only client-side storage is the Supabase auth
+token and the Zustand store, both strictly necessary. Keep it that way, or the
+Cookies document and the consent position both stop being true.
+
+**Accessibility**: every icon-only control carries an `accessibilityLabel`
+(a `TouchableOpacity` whose only child is an `Ionicons` is invisible to a screen
+reader otherwise), and the `a11y_*` locale keys exist for the generic ones.
+Decorative images (the header brand mark, the dish hero photo, both sitting
+beside text that already names them) are hidden with `alt=""` +
+`accessibilityElementsHidden`; the logo on landing/auth/onboarding is named
+because there it is the only content. Add a label to any new icon-only button.
+
+---
+
+## Dead code removed 2026-09-21
+
+Listed so nobody reintroduces them thinking they were an oversight:
+
+- **`app/meal/[id].tsx`** (271 lines). Its own docstring said it received a
+  meal from Discover, but Discover never navigated there and nothing else did
+  either. Meal detail is a bottom sheet inside `discover.tsx`, and its URL
+  import half is `app/recipe/upload.tsx`. Its route registration and its
+  `vercel.json` rewrite went with it.
+- **`constants/conversions.ts`** (`toGrams`, `intuitiveHint`). Zero importers.
+  A leftover of the quantity-based pantry; the pantry is name-only by
+  decision, so there is nothing to convert.
+- **`GET /shopping/history`**, `save_shopping_list`, `get_shopping_lists`, and
+  the best-effort insert in `POST /shopping/generate`. No client ever called
+  the endpoint and nothing ever read the rows, so the write was pure cost.
+  **If you want shopping history, note there is no back-data.**
+- **`user_preferences` and `daily_plans`** dropped from `schema.sql` with
+  their RLS lines and index, so new environments stop creating them.
+- **`PantryItemDB`** in `db/models.py`, and `clearTranslationCache` in
+  `services/translate.ts`. Both defined, neither referenced.
+- **`anthropic`** from `requirements.txt`. This runs on Groq; only the
+  filename `ai/claude.py` is left over from the Claude era.
 
 ---
 
 ## Known Patterns / Conventions
 
 - **Numeric text inputs**: parse with an explicit radix (`parseInt(v, 10)`) and reject `NaN` before storing — `keyboardType` is ignored on web (this app ships to Vercel), so a user can type/paste non-numeric text. The profile fields (age/calorie/protein) and the recipe-edit calories field guard `Number.isNaN(n)`; don't store a raw `parseInt` result, or `NaN` leaks into state and renders as the literal "NaN" (and serializes to `null` on save).
-- **Rate limiting (every AI / external-cost endpoint)**: all paid-AI and external-API endpoints go through `ai.sqlite_cache.rate_limit_check(key, action, max, window)`. Key = `user_id` for authed-only endpoints, else `user_id or request.client.host` for optional-auth ones (anon falls back to IP). The Procfile runs uvicorn with `--proxy-headers --forwarded-allow-ips="*"`, so behind Railway's proxy `request.client.host` is the real client rather than the 100.64.0.x internal address; **keep those flags** or every anonymous user silently shares one bucket again. Current caps: meals generate+swap share **150/hr** (`meal-ai`); shopping generate **40/hr** (`shopping-ai`); recipe parse **20/hr per IP**; recipe generate **30/hr**; receipt scan **10/hr**; share create **30/hr**; image search **100 novel lookups/hr per IP** (cache hits exempt). Don't leave a new AI endpoint unlimited — it's an unauthenticated cost/abuse vector. **Request models also bound their prompt-feeding fields** (`db/models.py`: meal/swap pantry ≤500, avoid_meals ≤300, slots ≤3, required_ingredients ≤2000 chars; shopping recipes ≤20; parse url ≤2000; dish_name ≤200; share payload ≤100KB in the router) so a single request can't stuff megabytes into a paid completion — give any new AI-bound field a sane `Field(max_length=…)`.
+- **Rate limiting (every AI / external-cost endpoint)**: all paid-AI and external-API endpoints go through `ai.sqlite_cache.rate_limit_check(key, action, max, window)`. Key = `user_id` for authed-only endpoints, else `user_id or request.client.host` for optional-auth ones (anon falls back to IP). The Procfile runs uvicorn with `--proxy-headers --forwarded-allow-ips="*"`, so behind Railway's proxy `request.client.host` is the real client rather than the 100.64.0.x internal address; **keep those flags** or every anonymous user silently shares one bucket again. Current caps: meals generate+swap share **150/hr** (`meal-ai`); shopping generate **40/hr** (`shopping-ai`); recipe parse **20/hr per IP**; recipe generate **30/hr**; receipt scan **10/hr**; share create **30/hr**; image search **100 novel lookups/hr per IP** (cache hits exempt). Don't leave a new AI endpoint unlimited — it's an unauthenticated cost/abuse vector. Both SQLite tables are swept by `_purge_if_due` (hourly per process, called from `cache_set` and `rate_limit_check`): expired `cache` rows, and `rate_limits` rows whose window is over 24h old. The rate-limit sweep matters because anonymous callers are keyed by IP, so without it every visitor that ever hit an AI endpoint left a row behind forever. **Request models also bound their prompt-feeding fields** (`db/models.py`: meal/swap pantry ≤500, avoid_meals ≤300, slots ≤3, required_ingredients ≤2000 chars; shopping recipes ≤20; parse url ≤2000; dish_name ≤200; share payload ≤100KB in the router) so a single request can't stuff megabytes into a paid completion — give any new AI-bound field a sane `Field(max_length=…)`.
 - **Backend error handling**: `ValueError` → HTTP 422; `GroqTransientError` (RateLimitError/APIConnectionError/APIStatusError) → HTTP 503; uncaught exceptions → HTTP 500. **Never leak `{exc}` in client responses** — routers route their generic `except Exception` through `utils/errors.server_error(context, exc, message)`, which logs the full exception with traceback server-side (logger `wotoeat`) and returns a fixed, user-safe `detail`. The 422 (`ValueError`) and 503 (`GroqTransientError`) bodies are kept verbatim because the frontend keys off them (`no_receipt`/`no_food_items`/`unreadable_receipt` in `scan.tsx`; `no dish`/`required tags` in `discover.tsx`); the user-facing `/recipes/parse` fetch-failure 422 is also kept (it surfaces the user's own bad/blocked URL).
 - **AI JSON parsing**: all AI-returning helpers in `ai/claude.py` parse via `_parse_ai_json(text)`, which wraps `json.loads(_clean_json(...))` and converts a truncated/garbled reply's `JSONDecodeError` (a `ValueError` subclass) into a clean `ValueError("The AI response was incomplete. Please try again.")` — otherwise the router would surface a raw `422: Expecting value: line 1 column N`. The receipt transcribe/normalize helpers keep their own try/except that maps parse failures to `unreadable_receipt`.
 - **`EXPO_PUBLIC_API_URL` is required in production builds**: `services/api.ts` falls back to `http://localhost:8000` only when `__DEV__`, and throws otherwise. A Vercel or EAS build missing the var used to look like a total backend outage ("network error" everywhere) instead of a misconfigured build.
@@ -681,7 +847,7 @@ they reach the tabs.
 - **AI JSON cleaning**: `_clean_json()` strips markdown fences that some models prepend, **and any `<think>…</think>` reasoning preamble** (it keeps everything after the last `</think>`, which also survives a swallowed opening tag). Both current Groq models are reasoning models; qwen always emits a think block before the JSON, and without the strip every receipt scan fails as `unreadable_receipt` and every recipe/shopping call 422s as "response was incomplete". Locked by `tests/test_clean_json.py`.
 - **Semantic pantry matching**: `_MATCHING_RULES` in `prompts.py` teaches the AI to match ingredient types (e.g. "巴沙鱼" satisfies "white fish").
 - **Shopping list category**: meals use `meal-{meal.name}` as the shopping list category key (names are unique within a day via seen-meals exclusion).
-- **Pantry priority**: `meal_generate_prompt` has a `PANTRY PRIORITY` block instructing the AI to prefer dishes that reuse pantry ingredients and to fill `uses_pantry_items` (without violating other filters). The pantry list is surfaced explicitly (no longer buried in `display_filters`).
+- **Pantry priority vs pantry-only**: `meal_generate_prompt` emits ONE pantry block, chosen by `pantry_only`. Off (default) it is `PANTRY PRIORITY`: prefer dishes that reuse pantry ingredients and fill `uses_pantry_items`, without violating other filters. On (and pantry non-empty) it is `PANTRY ONLY MODE` instead: a hard closed-world constraint, every ingredient must be a pantry item or one of salt/pepper/cooking oil/water, and it explicitly overrides the AUTHENTICITY block's closest-real-dish fallback so an unsatisfiable pantry returns `no_match` rather than a dish needing a shop. The two are mutually exclusive by construction; `tests/test_meal_prompt.py` pins that, the four basics, and the empty-pantry degradation. Either way the pantry list is surfaced explicitly (both `pantry` and `pantry_only` are excluded from `display_filters`).
 - **Dietary safety + goal tailoring** (`_profile_constraints_block`): the profile's `allergies` and `dietary_restrictions` are stated as ABSOLUTE hard constraints that override every taste/pantry/required-tag preference (allergen derivatives spelled out — "peanuts" also rules out peanut oil/satay; "shellfish" rules out shrimp/crab/lobster); a required tag conflicting with a safety constraint must return `no_match` rather than suggest a violating dish. `health_goals`/`calorie_goal`/`protein_goal_g` shape dish choice (weight-loss → lower-cal/high-fibre/veg-forward; build-muscle → 30g+ protein). The hierarchy is **safety > active filters > pantry/goal preference**. This is the highest-trust behaviour: a user fills in allergies/restrictions expecting them honoured, so they are emphasised, not left buried in the filters JSON. Applies to both generate and swap (swap reuses the same prompt). Don't weaken the safety override.
 - **Tags always English**: the AI is instructed to return tags in English regardless of response language. Frontend translates via `TAG_ZH` at render time.
 - **Pantry names are canonical English** (same convention as tags): receipt scan returns `name` always-English plus `name_zh` for display; `PantryTagPicker` built-ins already store English (its zh labels are display-only). All pantry-name display goes through `usePantryDisplay`, which **first normalizes to canonical English** via `TAG_EN`/`toCanonicalEnglish` (reverse map built from `TAG_ZH` + `PANTRY_CATEGORIES` itemsZh) so the library is single-language — then EN passes through / ZH resolves curated `TAG_ZH` → dynamic translation → raw. User-typed names (picker custom items, scan edits, renames) are stored literally; if not in the reverse map they display as typed.

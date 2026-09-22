@@ -1,0 +1,21 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /wotoeat-app
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      # Expo pins its own dependency versions; one grouped PR per month beats
+      # twenty individual ones that each break the lockfile on their own.
+      expo:
+        patterns: ["expo", "expo-*", "@expo/*", "react-native*"]
+  - package-ecosystem: pip
+    directory: /wotoeat-api
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

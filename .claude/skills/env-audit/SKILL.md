@@ -14,7 +14,7 @@ common cause of "it works locally but production is broken" in this project.
 | Railway service settings | Same set as the api .env.example | Service-role key here too; anon key silently breaks pantry writes via RLS |
 | `wotoeat-app/.env` (local) | Everything in `wotoeat-app/.env.example` | `EXPO_PUBLIC_API_URL` = localhost:8000 or Railway URL |
 | Vercel env | `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_WEB_URL` | NEVER any secret: EXPO_PUBLIC_* is baked into the public bundle |
-| EAS env | Same four as Vercel | eas.json only bakes API_URL; missing the rest ships store builds with auth broken |
+| EAS env | Same four as Vercel | eas.json bakes NOTHING since the open-source prep; ALL four must be set via `eas env:create` or the store build throws on startup or ships with auth broken |
 
 ## Steps
 

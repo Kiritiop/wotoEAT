@@ -36,17 +36,6 @@ async def generate(
 
     shopping_list = ShoppingList(**result)
 
-    if user_id:
-        try:
-            db.save_shopping_list(
-                user_id=user_id,
-                name="Shopping List",
-                items=result,
-                recipe_ids=[],
-            )
-        except Exception:
-            pass
-
     return shopping_list
 
 
@@ -72,13 +61,3 @@ async def save_current(
     except Exception as exc:
         raise server_error("shopping.save_current", exc, "Could not save shopping list.")
 
-
-@router.get("/history", response_model=list[dict])
-async def history(user_id: str | None = Depends(get_optional_user_id)):
-    """GET /shopping/history — returns the user's past shopping lists."""
-    if not user_id:
-        return []
-    try:
-        return db.get_shopping_lists(user_id)
-    except Exception as exc:
-        raise server_error("shopping.history", exc, "Could not load shopping lists.")

@@ -18,7 +18,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { Button } from "@/components/ui/Button";
-import { saveProfile, apiErrorMessage } from "@/services/api";
+import { saveProfile, deleteMyData, deleteMyAccount, apiErrorMessage } from "@/services/api";
 import { supabase } from "@/lib/supabase";
 import {
   HEALTH_GOAL_OPTIONS,
@@ -32,6 +32,7 @@ import type { Language } from "@/store/useAppStore";
 
 import type { ActivityLevelValue } from "@/constants/profileOptions";
 import { confirmAction } from "@/utils/confirm";
+import { LEGAL_SLUGS, legalDoc } from "@/constants/legal";
 
 export default function ProfileScreen() {
   const { profile, setProfile, language, setLanguage, isGuest } = useAppStore();
@@ -39,6 +40,8 @@ export default function ProfileScreen() {
   const { t } = useTranslation();
   const c = useTheme();
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleted, setDeleted] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
@@ -144,6 +147,58 @@ export default function ProfileScreen() {
       cancelLabel: t("cancel"),
       destructive: true,
     }, () => void doSignOut());
+  }
+
+  async function handleDeleteData() {
+    // Erasure for GDPR Article 9 data, so it clears the local copy too —
+    // wiping the server while the device keeps the allergies and body
+    // measurements in AsyncStorage would not be a deletion.
+    const doDelete = async () => {
+      setDeleting(true);
+      setError(null);
+      try {
+        await deleteMyData();
+        useAppStore.getState().resetAll();
+        setDeleted(true);
+      } catch (e) {
+        setError(apiErrorMessage(e, t("delete_data_error")));
+      } finally {
+        setDeleting(false);
+      }
+    };
+    confirmAction({
+      title: t("delete_data"),
+      message: t("delete_data_confirm"),
+      confirmLabel: t("delete_data"),
+      cancelLabel: t("cancel"),
+      destructive: true,
+    }, () => void doDelete());
+  }
+
+  async function handleDeleteAccount() {
+    // Required in-app by Apple 5.1.1(v) and Google Play. Signs out afterwards
+    // because the account the cached JWT points at no longer exists.
+    const doDelete = async () => {
+      setDeleting(true);
+      setError(null);
+      try {
+        await deleteMyAccount();
+        await supabase.auth.signOut().catch(() => {});
+        useAppStore.getState().resetAll();
+        router.replace("/");
+      } catch (e) {
+        setError(apiErrorMessage(e, t("delete_account_error")));
+      } finally {
+        setDeleting(false);
+      }
+    };
+    confirmAction({
+      title: t("delete_account"),
+      message: t("delete_account_confirm"),
+      confirmLabel: t("delete_account"),
+      cancelLabel: t("cancel"),
+      destructive: true,
+    }, () => void doDelete());
   }
 
   const styles = useMemo(() => makeStyles(c), [c]);
@@ -282,7 +337,7 @@ export default function ProfileScreen() {
                   {t("use_imperial")}
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => toggleSection("body_metrics")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel={expandedSections["body_metrics"] ? t("a11y_collapse") : t("a11y_expand")} onPress={() => toggleSection("body_metrics")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Ionicons name={expandedSections["body_metrics"] ? "chevron-up" : "chevron-down"} size={16} color={c.textMuted} />
               </TouchableOpacity>
             </View>
@@ -663,10 +718,47 @@ export default function ProfileScreen() {
             />
           </View>
         ) : (
-          <TouchableOpacity style={[styles.signOutBtn, { backgroundColor: c.errorBg }]} onPress={handleSignOut}>
-            <Ionicons name="log-out-outline" size={18} color={c.error} />
-            <Text style={[styles.signOutText, { color: c.error }]}>{t("sign_out")}</Text>
-          </TouchableOpacity>
+          <>
+            <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border, marginTop: 10 }]}>
+              <Text style={[styles.sectionTitle, { color: c.text, marginBottom: 6 }]}>{t("danger_zone")}</Text>
+              <Text style={[styles.deleteHint, { color: c.textMuted }]}>{t("delete_data_hint")}</Text>
+              {deleted ? (
+                <Text style={[styles.deleteDone, { color: c.primary }]}>{t("delete_data_done")}</Text>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.signOutBtn, { backgroundColor: c.errorBg, marginTop: 12 }]}
+                  onPress={handleDeleteData}
+                  disabled={deleting}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("delete_data")}
+                >
+                  <Ionicons name="trash-outline" size={18} color={c.error} />
+                  <Text style={[styles.signOutText, { color: c.error }]}>
+                    {deleting ? t("saving") : t("delete_data")}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              <Text style={[styles.deleteHint, { color: c.textMuted, marginTop: 16 }]}>
+                {t("delete_account_hint")}
+              </Text>
+              <TouchableOpacity
+                style={[styles.signOutBtn, { backgroundColor: c.errorBg, marginTop: 12 }]}
+                onPress={handleDeleteAccount}
+                disabled={deleting}
+                accessibilityRole="button"
+                accessibilityLabel={t("delete_account")}
+              >
+                <Ionicons name="close-circle-outline" size={18} color={c.error} />
+                <Text style={[styles.signOutText, { color: c.error }]}>{t("delete_account")}</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity style={[styles.signOutBtn, { backgroundColor: c.errorBg }]} onPress={handleSignOut}>
+              <Ionicons name="log-out-outline" size={18} color={c.error} />
+              <Text style={[styles.signOutText, { color: c.error }]}>{t("sign_out")}</Text>
+            </TouchableOpacity>
+          </>
         )}
 
         {/* About the Creator */}
@@ -692,6 +784,22 @@ export default function ProfileScreen() {
             <Ionicons name="cafe-outline" size={18} color={c.primary} />
             <Text style={[styles.aboutLink, { color: c.primary }]}>{t("about_support")} · ko-fi.com/kiritiop</Text>
           </TouchableOpacity>
+
+          <View style={[styles.aboutDivider, { borderColor: c.border }]} />
+
+          {LEGAL_SLUGS.map((slug) => (
+            <TouchableOpacity
+              key={slug}
+              style={styles.aboutRow}
+              accessibilityRole="link"
+              onPress={() => router.push(`/legal/${slug}` as any)}
+            >
+              <Ionicons name="document-text-outline" size={18} color={c.primary} />
+              <Text style={[styles.aboutLink, { color: c.primary }]}>
+                {t(legalDoc(slug, language)!.titleKey)}
+              </Text>
+            </TouchableOpacity>
+          ))}
 
           <View style={[styles.aboutDivider, { borderColor: c.border }]} />
           <Text style={[styles.aboutCopyright, { color: c.textMuted }]}>{t("about_copyright")}</Text>
@@ -782,5 +890,7 @@ function makeStyles(c: ReturnType<typeof useTheme>) {
     aboutLink: { fontSize: 14, fontWeight: "500", textDecorationLine: "underline" },
     aboutDivider: { borderTopWidth: 1, marginVertical: 10 },
     aboutCopyright: { fontSize: 12, textAlign: "center" },
+    deleteHint: { fontSize: 12, lineHeight: 17 },
+    deleteDone: { fontSize: 13, fontWeight: "600", marginTop: 12 },
   });
 }

@@ -16,6 +16,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { Button } from "@/components/ui/Button";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 
 export default function SignUpScreen() {
   const c = useTheme();
@@ -72,7 +73,8 @@ export default function SignUpScreen() {
         <LanguageToggle />
       </View>
       <View style={styles.inner}>
-        <Image source={require("@/assets/logo.png")} style={styles.logoWrap} resizeMode="contain" />
+        <Image source={require("@/assets/logo.png")} style={styles.logoWrap} resizeMode="contain"
+          alt="wotoEAT" accessibilityLabel="wotoEAT" />
         <Text style={[styles.title, { color: c.text }]}>{t("create_account")}</Text>
         <Text style={[styles.subtitle, { color: c.textMuted }]}>{t("start_discovering")}</Text>
 
@@ -87,19 +89,17 @@ export default function SignUpScreen() {
           value={email}
           onChangeText={setEmail}
         />
-        <TextInput
+        <PasswordInput
           style={[styles.input, { borderColor: c.border, backgroundColor: c.surface, color: c.text }]}
           placeholder={`${t("password")} (min 6)`}
-          placeholderTextColor={c.textPlaceholder}
-          secureTextEntry
+          textContentType="newPassword"
           value={password}
           onChangeText={setPassword}
         />
-        <TextInput
+        <PasswordInput
           style={[styles.input, { borderColor: c.border, backgroundColor: c.surface, color: c.text }]}
           placeholder={t("confirm_password")}
-          placeholderTextColor={c.textPlaceholder}
-          secureTextEntry
+          textContentType="newPassword"
           value={confirm}
           onChangeText={setConfirm}
         />

@@ -46,6 +46,20 @@ check("pantry block present when given", "PANTRY PRIORITY" in p_pan)
 check("pantry items listed", "eggs, tomato" in p_pan)
 check("no pantry block when empty", "PANTRY PRIORITY" not in p)
 
+# Pantry-only mode replaces pantry priority with a closed-world constraint and
+# carries its own no_match contract. Meaningless without a pantry, so it must
+# emit nothing when the pantry is empty (otherwise every generate would fail).
+p_only = meal_generate_prompt(dict(BASE, pantry=["eggs", "tomato"], pantry_only=True), "en")
+check("pantry-only block present", "PANTRY ONLY MODE" in p_only)
+check("pantry-only replaces priority block", "PANTRY PRIORITY" not in p_only)
+check("pantry-only items listed", "eggs, tomato" in p_only)
+check("pantry-only allows the four basics", "salt, pepper, cooking oil, water" in p_only)
+check("pantry-only no_match contract", '"error": "no_match"' in p_only)
+check("pantry-only overrides closest-dish fallback", "closest-real-dish fallback" in p_only)
+check("pantry-only ignored with empty pantry",
+      "PANTRY ONLY MODE" not in meal_generate_prompt(dict(BASE, pantry_only=True), "en"))
+check("pantry priority unchanged when flag off", "PANTRY ONLY MODE" not in p_pan)
+
 # Main-dish mode forbids staples; absent in full-meal mode.
 p_main = meal_generate_prompt(dict(BASE, meal_style="main_dish"), "en")
 check("main-dish block present", "MAIN DISH MODE" in p_main)

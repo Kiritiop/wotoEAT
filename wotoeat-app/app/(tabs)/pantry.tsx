@@ -257,12 +257,16 @@ function PantryScreen() {
                 />
                 <TouchableOpacity
                   onPress={() => commitRename(item.name)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("save")}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
                   <Ionicons name="checkmark-circle" size={22} color={c.primary} />
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => { setEditingName(null); setDeleteError(null); }}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("cancel")}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   style={{ marginLeft: 12 }}
                 >

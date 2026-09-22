@@ -265,6 +265,7 @@ export async function generateMeals(
   required_ingredients?: string,
   meal_style?: string,
   avoid_meals?: string[],
+  pantry_only?: boolean,
 ): Promise<{ plan: DailyMealPlan; cached: boolean }> {
   const res = await api.post("/meals/generate", {
     profile,
@@ -279,6 +280,7 @@ export async function generateMeals(
     required_ingredients,
     meal_style,
     avoid_meals,
+    pantry_only,
   });
   return res.data;
 }
@@ -294,6 +296,7 @@ export async function swapMeal(
   required_ingredients?: string,
   meal_style?: string,
   avoid_meals?: string[],
+  pantry_only?: boolean,
 ): Promise<DailyPlanMeal> {
   const res = await api.post("/meals/swap", {
     slot,
@@ -306,7 +309,29 @@ export async function swapMeal(
     required_ingredients,
     meal_style,
     avoid_meals,
+    pantry_only,
   });
+  return res.data;
+}
+
+/**
+ * Erasure for the health data the app stores (allergies, restrictions, body
+ * measurements). Clears profile, pantry, saved recipes, meal history and
+ * shopping lists server-side; shares are anonymised, and the auth account
+ * itself is not touched. Throws on partial failure so the caller can say so.
+ */
+export async function deleteMyData(): Promise<{ deleted: boolean }> {
+  const res = await api.delete("/profile/data");
+  return res.data;
+}
+
+/**
+ * Deletes the data AND the Supabase auth account. Apple 5.1.1(v) and Google
+ * Play both require an in-app account deletion path; deleteMyData alone does
+ * not satisfy either.
+ */
+export async function deleteMyAccount(): Promise<{ deleted: boolean }> {
+  const res = await api.delete("/profile/account");
   return res.data;
 }
 
@@ -392,6 +417,32 @@ export function shareWebUrl(id: string): string {
     base = window.location.origin;
   }
   return `${base}/share/${id}`;
+}
+
+/**
+ * Where Supabase sends someone back to after they click the password-reset
+ * email. Always a web URL, on every platform, and that is deliberate.
+ *
+ * The old value was the bare deep link `wotoeat://reset-password`: no browser
+ * can open it, and it matched no route on native either, so password recovery
+ * dead-ended everywhere. Sending everyone to the web page instead means one
+ * code path. A native user taps the link, their mobile browser opens the reset
+ * screen, and they sign in to the app with the new password. Handling recovery
+ * inside the native app would mean parsing the token out of the deep link by
+ * hand, since `detectSessionInUrl` is web-only.
+ *
+ * Returns undefined when no web origin is known, which makes Supabase fall
+ * back to the project's configured Site URL rather than to a broken link.
+ *
+ * Whatever this returns must be in Supabase's Auth > URL Configuration
+ * redirect allowlist, or Supabase silently ignores it and uses the Site URL.
+ */
+export function passwordResetRedirectUrl(): string | undefined {
+  let base = process.env.EXPO_PUBLIC_WEB_URL?.replace(/\/$/, "") ?? "";
+  if (!base && typeof window !== "undefined" && window.location?.origin) {
+    base = window.location.origin;
+  }
+  return base ? `${base}/auth/reset-password` : undefined;
 }
 
 export async function getCurrentShoppingList(): Promise<ShoppingList | null> {

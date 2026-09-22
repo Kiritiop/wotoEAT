@@ -16,6 +16,7 @@ import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Button } from "@/components/ui/Button";
+import { passwordResetRedirectUrl } from "@/services/api";
 
 export default function ForgotPasswordScreen() {
   const c = useTheme();
@@ -36,7 +37,7 @@ export default function ForgotPasswordScreen() {
     setLoading(true);
     try {
       const { error: supaErr } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: "wotoeat://reset-password",
+        redirectTo: passwordResetRedirectUrl(),
       });
       if (supaErr) {
         setError(supaErr.message);
@@ -63,7 +64,8 @@ export default function ForgotPasswordScreen() {
           <Text style={[styles.backText, { color: c.primary }]}>{t("back")}</Text>
         </TouchableOpacity>
 
-        <Image source={require("@/assets/logo.png")} style={styles.logoWrap} resizeMode="contain" />
+        <Image source={require("@/assets/logo.png")} style={styles.logoWrap} resizeMode="contain"
+          alt="wotoEAT" accessibilityLabel="wotoEAT" />
         <Text style={[styles.title, { color: c.text }]}>{t("reset_password")}</Text>
         <Text style={[styles.subtitle, { color: c.textMuted }]}>
           {t("reset_password_hint")}

@@ -120,7 +120,7 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
             <Ionicons name="search" size={18} color={c.primary} />
           </View>
           <Text style={[styles.headerTitle, { color: c.text }]}>{t("find_recipe")}</Text>
-          <TouchableOpacity onPress={handleClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={t("a11y_close")} onPress={handleClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Ionicons name="close" size={22} color={c.textMuted} />
           </TouchableOpacity>
         </View>
@@ -148,7 +148,7 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
                 editable={!isGenerating && phase !== "saving"}
               />
               {dishName.length > 0 && !isGenerating && phase !== "saving" && (
-                <TouchableOpacity onPress={() => setDishName("")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel={t("a11y_clear_text")} onPress={() => setDishName("")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                   <Ionicons name="close-circle" size={16} color={c.textMuted} />
                 </TouchableOpacity>
               )}
@@ -220,6 +220,8 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
                 <View style={styles.servingsStepper}>
                   <Text style={[styles.servingsStepperLabel, { color: c.textMuted }]}>{t("serving_size")}</Text>
                   <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel={t("a11y_decrease_servings")}
                     onPress={() => { setPreviewServings(Math.max(1, previewServings - 1)); Haptics.selectionAsync(); }}
                     disabled={previewServings <= 1}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -230,6 +232,8 @@ export default function FindRecipeModal({ visible, onClose, onSaved }: Props) {
                     {strings.servings_people(previewServings)}
                   </Text>
                   <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel={t("a11y_increase_servings")}
                     onPress={() => { setPreviewServings(Math.min(20, previewServings + 1)); Haptics.selectionAsync(); }}
                     disabled={previewServings >= 20}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
