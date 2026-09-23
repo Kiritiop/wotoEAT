@@ -186,7 +186,11 @@ export default function RootLayout() {
     // password, so the "signed in and sitting in /auth" rule below would throw
     // them into the app with their old password still active. This route has
     // to outrank it.
-    const inReset = seg0 === "auth" && (segments[1] as string | undefined) === "reset-password";
+    // Compared as a joined path rather than by indexing: without the generated
+    // typed-routes file (gitignored, so absent on a fresh CI checkout) useSegments
+    // is a 1-tuple and segments[1] is a type error. Local builds have the file and
+    // never see it, so CI is the only place this shows up.
+    const inReset = segments.join("/") === "auth/reset-password";
     // A guest is unauthenticated but has explicitly asked to look around, so
     // the app treats them like a signed-in user for routing. Every screen they
     // can reach either works anonymously (discover, shopping) or swaps itself
