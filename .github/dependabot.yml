@@ -5,16 +5,38 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 5
-    groups:
-      # Expo pins its own dependency versions; one grouped PR per month beats
-      # twenty individual ones that each break the lockfile on their own.
-      expo:
-        patterns: ["expo", "expo-*", "@expo/*", "react-native*"]
+    # Expo pins every one of these to the SDK release. Dependabot bumping them
+    # outside an SDK upgrade breaks the build, which is exactly what happened
+    # the first time this file ran: one PR bumping 19 of them at once, and the
+    # Vercel preview failed to build. Grouping them was the wrong fix; they
+    # should not be proposed at all. Upgrade them with Expo's own tooling:
+    #   npx expo install --check      (aligns versions with the current SDK)
+    #   npx expo install --fix        (applies the fixes)
+    # Dependabot Alerts still report vulnerabilities in these; this only stops
+    # it opening version-bump PRs.
+    ignore:
+      - dependency-name: "expo"
+      - dependency-name: "expo-*"
+      - dependency-name: "@expo/*"
+      - dependency-name: "react"
+      - dependency-name: "react-dom"
+      - dependency-name: "react-native"
+      - dependency-name: "react-native-*"
+      - dependency-name: "@react-native-*"
+
   - package-ecosystem: pip
     directory: /wotoeat-api
     schedule:
       interval: monthly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
+    # requirements.txt is a full pip freeze, so most entries are transitive
+    # (rich, click, docstring-parser and friends arrive via groq and supabase).
+    # Ungrouped, that is one PR per transitive package every month. One grouped
+    # PR keeps the security value without the noise.
+    groups:
+      python:
+        patterns: ["*"]
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
