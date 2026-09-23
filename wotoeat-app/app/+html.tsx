@@ -38,10 +38,10 @@ export default function Root({ children }: PropsWithChildren) {
           content="AI-powered meal planning: real dishes from what's in your pantry, tailored to your health goals and taste."
         />
         <meta property="og:image" content="https://wotoeat.com/og.png" />
-        <meta property="og:image:width" content="1024" />
-        <meta property="og:image:height" content="1024" />
-        <meta property="og:image:alt" content="wotoEAT" />
-        <meta name="twitter:card" content="summary" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content="wotoEAT: every meal, figured out." />
+        <meta name="twitter:card" content="summary_large_image" />
         <meta name="theme-color" content="#16A34A" />
         {/* Structured data. Static and site-level on purpose: it describes the
             app itself, which is the only thing here that is stable enough to
@@ -76,6 +76,12 @@ const SCHEMA = {
   applicationCategory: "LifestyleApplication",
   operatingSystem: "Web, iOS, Android",
   inLanguage: ["en", "zh-Hans"],
+  author: { "@type": "Person", name: "Jerry Wang" },
+  sameAs: [
+    "https://github.com/Kiritiop/wotoEAT",
+    "https://www.linkedin.com/in/wang-jerry/",
+    "https://ko-fi.com/kiritiop",
+  ],
   featureList: [
     "Generate a real, cookable dish from the ingredients you already have",
     "Scan a grocery receipt to fill your pantry",
@@ -84,7 +90,10 @@ const SCHEMA = {
   ],
 };
 
-const CANONICAL_SCRIPT = `(function(){try{var p=location.pathname.replace(/\\/+$/,"")||"/";var l=document.createElement("link");l.rel="canonical";l.href=location.origin+p;document.head.appendChild(l);}catch(e){}})();`;
+// Hardcodes the production origin rather than reading location.origin: the
+// same build is also served from mealmind-alpha.vercel.app, and a self-
+// canonical there would tell Google that copy is its own site.
+const CANONICAL_SCRIPT = `(function(){try{var p=location.pathname.replace(/\\/+$/,"")||"/";var l=document.createElement("link");l.rel="canonical";l.href="https://wotoeat.com"+p;document.head.appendChild(l);}catch(e){}})();`;
 
 const css = `
 html, body, #root {

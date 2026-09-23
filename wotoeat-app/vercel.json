@@ -12,6 +12,10 @@
       "destination": "/legal/[doc].html"
     },
     {
+      "source": "/what-to-eat",
+      "destination": "/what-to-eat.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/+not-found.html"
     }

@@ -17,9 +17,10 @@ does not block the auto-deploys, so local verification is still the release gate
 Never push unverified changes.
 
 **How to work here:**
-1. Before claiming anything is done: `npx tsc --noEmit` + `npm run lint` in
-   `wotoeat-app`, and the five offline test scripts in `wotoeat-api/tests`
-   (commands in `wotoeat-api/CLAUDE.md`). Then actually launch and click
+1. Before claiming anything is done: `npx tsc --noEmit` + `npm run lint` +
+   `npm test` in `wotoeat-app`, and the ten offline test scripts in
+   `wotoeat-api/tests` (commands in `wotoeat-api/CLAUDE.md`; `/check` runs the
+   lot and must stay identical to `ci.yml`). Then actually launch and click
    through the changed screen, on web at minimum.
 2. Make the smallest change that solves the problem. Do not reformat, rename,
    or restyle things you were not asked to touch. Many current behaviours are
@@ -163,9 +164,11 @@ Plain runnable scripts (no pytest dependency); each exits non-zero on failure.
   - `venv/bin/python tests/test_clean_json.py` — `_clean_json`/`_NUM_EXPR_RE`: resolves bare arithmetic in numeric positions, never mangles digits inside strings (URLs, "1/2 cup").
   - `venv/bin/python tests/test_models.py` — Pydantic validators that sanitize LLM output: `Ingredient.coerce_amount` (fraction parsing, non-positive/unparseable → None) and `ScannedItem.empty_to_none` ("null"/"none"/"" → None).
   - `venv/bin/python tests/test_profile_constraints.py` — `_profile_constraints_block`: allergies/restrictions emit the ABSOLUTE-hard-constraint block + `no_match` override; goals/calorie/protein emit the tailoring block; empty/blank profiles emit nothing; and the block is actually injected into `meal_generate_prompt`. Guards that meal generation can't silently stop honouring allergies.
-  - `venv/bin/python tests/test_meal_prompt.py` — `meal_generate_prompt`'s other behavioural blocks: AUTHENTICITY (always present, bans invented/generic dishes), the prep-time hard-cap rule, required-tags enforcement + `no_match` contract (iff set), PANTRY PRIORITY (iff pantry given), MAIN DISH mode (no staples), and avoid_meals folding into the disliked list.
-  - `venv/bin/python tests/test_image_match.py` — `/images/search` matching helpers: the MealDB subset rule (rejects the real "Beef Stew" → "Lemongrass beef stew with noodles" hit), the Pexels relevance floor, and query cleaning. **Keep green if you touch the cascade** — the failure mode is silent and user-visible.
-  - `venv/bin/python tests/test_image_endpoint.py` — the images router end to end with TheMealDB/Pexels mocked: cascade order, the `hint` parameter, cache keying, and the never-return-a-wrong-image contract.
+  - `venv/bin/python tests/test_meal_prompt.py` — `meal_generate_prompt`'s other behavioural blocks: AUTHENTICITY (always present, bans invented/generic dishes), the prep-time hard-cap rule, required-tags enforcement + `no_match` contract (iff set), PANTRY PRIORITY (iff pantry given), MAIN DISH mode (no staples), PANTRY ONLY MODE (and its empty-pantry degradation), the TASTE PROFILE block built from "up" ratings, and avoid_meals folding into the disliked list.
+  - `venv/bin/python tests/test_image_match.py` — `/images/search` matching helpers: the MealDB subset rule (rejects the real "Beef Stew" → "Lemongrass beef stew with noodles" hit) and query cleaning. **Keep green if you touch the cascade** — the failure mode is silent and user-visible.
+  - `venv/bin/python tests/test_image_cascade.py` — the images router end to end with TheMealDB and generation mocked: cascade order, the `hint` parameter, cache keying, never paying to generate the same dish twice, and the never-return-a-wrong-image contract.
+  - `venv/bin/python tests/test_image_prewarm.py` — `prewarm_dish_images` stays fire-and-forget: a failure there never delays or fails a meal response.
+  - `venv/bin/python tests/test_imagegen.py` — generation prompt building, the decoder, and the downscale step.
   - `venv/bin/python tests/test_guest_endpoints.py` — the anonymous-access contract guest mode depends on: which endpoints must work without a session (generate/swap/recipe-steps/shopping/images) and which must keep 401ing (pantry, profile, saved recipes, history, shopping sync). Adding `require_user_id` to one of the first group breaks guest mode silently.
 - **Live-LLM** (needs `GROQ_API_KEY`, mild flake): `venv/bin/python tests/test_receipt_normalize.py` — receipt Stage-2 prompt contract.
 
@@ -319,7 +322,8 @@ npx expo start --web  # browser
 | `app/(tabs)/history.tsx` | `/(tabs)/history` | Past meal history — **hidden tab** (`href: null`), navigated programmatically |
 | `app/recipe/upload.tsx` | `/recipe/upload` | Recipe import from URL — **reachable via the "Import from URL" button on the Recipes tab** (paste URL → AI parses → save) |
 | `app/pantry/scan.tsx` | `/pantry/scan` | Receipt scanning — capture/pick photo → editable review → merge into pantry (opened from the Pantry tab) |
-| `app/legal/[doc].tsx` | `/legal/<doc>` | **Public** privacy / terms / refund / cookies, content from `constants/legal.ts`, `<doc>` is the slug. Reachable signed-out, as a guest, and by direct URL (`vercel.json` rewrite) |
+| `app/what-to-eat.tsx` | `/what-to-eat` | **Public search-landing page** for the "what to eat generator" queries. Exists so there is a real URL whose text answers that query; the app shell alone gives Google one rankable page. Guest-mode CTA straight into Today |
+| `app/legal/[doc].tsx` | `/legal/<doc>` | **Public** privacy / terms / refund / cookies / delete-account, content from `constants/legal.ts`, `<doc>` is the slug. Reachable signed-out, as a guest, and by direct URL (`vercel.json` rewrite) |
 | `app/share/[id].tsx` | `/share/<id>` | **Public read-only** shared meal/recipe view (`GET /share/{id}`); opened from a shared link (web primary, native deep link) |
 
 Only 4 tabs are visible in the tab bar: Today, Pantry, My Recipes, Profile.
@@ -471,7 +475,30 @@ Page metadata (title, description, og:*, JSON-LD `WebApplication`) is static in
 `app/+html.tsx`, because crawlers and messenger previews do not run JS. The one
 exception is `<link rel="canonical">`: every route is exported from that single
 shell, so a static href would be wrong on all but one page. A four-line inline
-script builds it from `location`, which Google's renderer picks up.
+script builds it, hardcoding `https://wotoeat.com` rather than reading
+`location.origin`: the same build is also served at `mealmind-alpha.vercel.app`,
+and a self-canonical there would present that copy to Google as its own site.
+
+**The brand name has to appear in the page's TEXT.** "wotoEAT" is a coined word
+that Google spell-corrects to "weartoeat", an established Taiwanese clothing
+brand, so a search for it does not reach this site at all. For months the word
+existed on the landing page only inside the logo PNG and inside the collapsed
+"Learn more" section, so the rendered homepage contained zero instances of it.
+`landing_hero_sub` now leads with it in both languages. Do not edit that string
+back into something that drops the name. The JSON-LD `sameAs` list (GitHub,
+LinkedIn, Ko-fi) exists for the same reason: it is what ties the coined word to
+one entity.
+
+**A search-landing page needs its own `vercel.json` rewrite.** The catch-all
+sends anything unmatched to `+not-found.html`, so a route that exports fine
+still serves crawlers an empty not-found shell unless it is listed above the
+catch-all. `/what-to-eat` has one. Any future landing page needs the same line
+or the exported HTML is silently discarded.
+
+**Do not mass-generate pages from the recipe engine to farm long-tail
+queries.** It is scaled content abuse under Google's spam policy, and the
+penalty applies to the domain, not to the generated pages. Landing pages here
+are hand-written and few.
 
 **The landing page must render during the static export.** `app/index.tsx`
 holds rendering until `supabase.auth.getSession()` resolves, so returning users
@@ -762,7 +789,8 @@ Added when the app was prepared for public release. Three pieces:
   because `_profile_constraints_block` is a prompt instruction, not a guarantee,
   and the person reading the screen may be the one who is allergic. **Any new
   screen that shows a generated recipe needs this component.**
-- **`constants/legal.ts`** — four documents (privacy, terms, refund, cookies) in
+- **`constants/legal.ts`** — five documents (privacy, terms, refund, cookies,
+  delete-account; `LEGAL_SLUGS` is the list) in
   both languages as `[heading, body]` pairs, so `app/legal/[doc].tsx` renders
   them with a `map()` and no markdown parser. **None of it has been reviewed by
   a lawyer**, which is why every render shows `legal_draft_banner`; remove that

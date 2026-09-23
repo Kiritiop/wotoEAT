@@ -1,0 +1,26 @@
+# wotoEAT
+
+> A free AI meal planner that answers one question: what should I cook with
+> what I already have? Web, iOS and Android, English and Simplified Chinese.
+
+wotoEAT takes your health profile, your pantry contents and a few filters, and
+suggests one real, cookable dish at a time with the full recipe and macros.
+Confirmed meals become a shopping list with pantry items already subtracted.
+A grocery receipt can be photographed to fill the pantry. Allergies and dietary
+restrictions are treated as hard constraints on every suggestion.
+
+It is free, needs no credit card, and can be tried without an account.
+
+## Pages
+- [wotoEAT](https://wotoeat.com/): the app itself
+- [Privacy](https://wotoeat.com/legal/privacy)
+- [Terms](https://wotoeat.com/legal/terms)
+- [Refund policy](https://wotoeat.com/legal/refund)
+- [Cookies](https://wotoeat.com/legal/cookies)
+- [Delete your account](https://wotoeat.com/legal/delete-account)
+- [Source code](https://github.com/Kiritiop/wotoEAT)
+
+## Notes
+- Built by Jerry Wang. No analytics, advertising or tracking anywhere in the app.
+- Recipes are AI-generated. Anyone with a food allergy should check the
+  ingredients themselves before cooking.

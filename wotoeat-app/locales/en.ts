@@ -432,9 +432,27 @@ const en = {
   onboarding_bullet_3: "Smart shopping lists",
   onboarding_save_error: "Could not save your profile. Please check your connection and try again.",
 
+  // ── /what-to-eat landing ──────────────────────────────────────────────────
+  wte_meta_title: "What to Eat Generator: AI picks a real dish | wotoEAT",
+  wte_meta_desc: "A free what-to-eat generator that suggests one real, cookable dish from the ingredients you already have, with the recipe and a shopping list for anything missing.",
+  wte_h1: "What to eat generator",
+  wte_sub: "Stuck on what to eat? wotoEAT picks one real dish you can actually cook tonight, built around what is already in your kitchen. Free, no account needed to try.",
+  wte_how: "Not another spin wheel",
+  wte_b1_title: "A dish, not a category",
+  wte_b1_sub: "A random food wheel lands on \"Italian\". wotoEAT gives you the dish, the ingredient list, the steps and the macros.",
+  wte_b2_title: "It starts from your fridge",
+  wte_b2_sub: "Tell it what you have, or photograph a grocery receipt, and every suggestion is built around those ingredients first.",
+  wte_b3_title: "Allergies are hard rules",
+  wte_b3_sub: "Allergies and dietary restrictions override every other preference, including anything you asked for.",
+  wte_b4_title: "It never repeats itself",
+  wte_b4_sub: "Every dish it has already shown you today is excluded, so tapping again gives you something new instead of the same five meals.",
+  wte_cta: "Generate a meal",
+  wte_cta_sub: "No account, no credit card.",
+  wte_home: "More about wotoEAT",
+
   // ── Landing page ──────────────────────────────────────────────────────────
   landing_hero_title: "Every meal, figured out.",
-  landing_hero_sub: "AI-personalised meal plans. Generate today's recipes in one tap — from your health goals, the ingredients you have, and your taste.",
+  landing_hero_sub: "wotoEAT builds AI-personalised meal plans. Generate today's recipes in one tap, from your health goals, the ingredients you have, and your taste.",
   landing_f1_title: "Meal plans, decided for you",
   landing_f1_sub: "End the \"what's for dinner?\" dilemma — AI tailors your breakfast, lunch, and dinner.",
   landing_f2_title: "Rescue your leftovers",

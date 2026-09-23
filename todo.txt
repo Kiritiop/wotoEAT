@@ -281,9 +281,6 @@ E-6 (S) Dependency hygiene
 E-7 (S) SEO loose ends
     The homepage now exports real content, one h1, JSON-LD and a
     canonical. Still open, in rough value order:
-    - og.png is 1024x1024, so link previews render a small square card.
-      A 1200x630 export would let twitter:card become
-      summary_large_image (both are in +html.tsx).
     - Verify the site in Google Search Console and submit
       https://wotoeat.com/sitemap.xml. Nothing gets indexed quickly
       without it, and no code change substitutes.
@@ -293,8 +290,16 @@ E-7 (S) SEO loose ends
     - vercel.json's catch-all rewrite serves +not-found.html with a 200
       for any unknown path, which reads to Google as a soft 404. A
       custom +not-found route with a noindex tag would fix it.
+    - /what-to-eat has no internal link pointing at it; it is reachable
+      only through the sitemap. Fine for now, worth a link from the
+      landing page if it starts ranking.
     - No backlinks anywhere. This is the actual ranking ceiling, and it
-      is a promotion problem, not a code problem.
+      is a promotion problem, not a code problem. As of 2026-09-22 the
+      homepage is the ONLY indexed page, and the bare query "wotoeat"
+      is spell-corrected to "weartoeat" and does not reach the site.
+    - The logo PNG's baked-in cream fill shows as a faint square on the
+      1200x630 og.png. A transparent export fixes both that and the
+      landing hero.
 
 ════════════════════════════════════════════════════════════════════
 DEFERRED / STANDING DECISIONS (do not rebuild blindly)
