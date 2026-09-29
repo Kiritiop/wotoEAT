@@ -3,6 +3,10 @@
 An AI meal planner built around one question: **what should I cook with what I
 have?**
 
+
+https://github.com/user-attachments/assets/7198cdbf-e2e7-4198-9f31-5f381934a742
+
+
 Live at **[wotoeat.com](https://wotoeat.com)**. You can try it as a guest
 without making an account.
 
