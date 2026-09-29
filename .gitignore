@@ -33,3 +33,13 @@ Thumbs.db
 
 # Benchmark output: real generated images, not source.
 wotoeat-api/scripts/bench_out/
+
+# Local-only notes and tooling (kept on disk, not published)
+.claude/
+CLAUDE.md
+**/CLAUDE.md
+todo.txt
+wotoEAT_Blueprint.docx
+design/
+wotoeat-app/scripts/Modelfile
+brag-output*/

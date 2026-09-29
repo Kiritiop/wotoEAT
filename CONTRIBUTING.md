@@ -4,11 +4,10 @@ Thanks for taking a look. Issues and pull requests are both welcome.
 
 ## Before you start
 
-Read the "Known Patterns / Conventions" section of [CLAUDE.md](CLAUDE.md).
-A fair amount of this codebase looks odd until you know why, and most of those
-decisions have a specific failure behind them that is written down. If
-something seems wrong but is documented, open an issue and ask before changing
-it.
+Read "How it works" and the timeline in the [README](README.md). A fair
+amount of this codebase looks odd until you know why, and most of those
+decisions have a specific failure behind them. If something seems wrong on
+purpose, open an issue and ask before changing it.
 
 ## Setup
 
@@ -45,9 +44,8 @@ minimum. The tests do not cover rendering.
 - **Make the smallest change that solves the problem.** Do not reformat,
   rename or restyle code you were not asked to touch. A diff that is mostly
   noise is hard to review and hard to revert.
-- **Update the docs in the same commit.** If you change behaviour, change
-  `CLAUDE.md` (and the relevant sub-guide) with it. Those files being accurate
-  is a feature of this repo, not an afterthought.
+- **Update the docs in the same commit.** If you change behaviour or setup,
+  update the README with it.
 - Commit messages are short imperative sentences. Look at `git log` for the
   style.
 
