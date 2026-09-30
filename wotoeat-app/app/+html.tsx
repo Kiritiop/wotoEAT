@@ -56,6 +56,8 @@ export default function Root({ children }: PropsWithChildren) {
             one shell, so it cannot be a static href. Google renders JS before
             indexing, so injecting it here is enough. */}
         <script dangerouslySetInnerHTML={{ __html: CANONICAL_SCRIPT }} />
+        {/* Vercel Web Analytics */}
+        <script dangerouslySetInnerHTML={{ __html: VERCEL_ANALYTICS_SCRIPT }} />
         {/* Disable body scrolling — ScrollViews handle their own scrolling. */}
         <ScrollViewStyleReset />
         <style dangerouslySetInnerHTML={{ __html: css }} />
@@ -94,6 +96,9 @@ const SCHEMA = {
 // same build is also served from mealmind-alpha.vercel.app, and a self-
 // canonical there would tell Google that copy is its own site.
 const CANONICAL_SCRIPT = `(function(){try{var p=location.pathname.replace(/\\/+$/,"")||"/";var l=document.createElement("link");l.rel="canonical";l.href="https://wotoeat.com"+p;document.head.appendChild(l);}catch(e){}})();`;
+
+// Vercel Web Analytics inline injection
+const VERCEL_ANALYTICS_SCRIPT = `window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments);};`;
 
 const css = `
 html, body, #root {
