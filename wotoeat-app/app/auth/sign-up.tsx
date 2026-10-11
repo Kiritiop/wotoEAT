@@ -12,6 +12,7 @@ import {
 import { Link, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
+import { emailConfirmRedirectUrl } from "@/services/api";
 import { useTheme } from "@/hooks/useTheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageToggle } from "@/components/LanguageToggle";
@@ -49,7 +50,11 @@ export default function SignUpScreen() {
     }
     setLoading(true);
     try {
-      const { error: signUpError } = await supabase.auth.signUp({ email: cleanEmail, password });
+      const { error: signUpError } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password,
+        options: { emailRedirectTo: emailConfirmRedirectUrl() },
+      });
       if (signUpError) {
         setError(signUpError.message);
       } else {

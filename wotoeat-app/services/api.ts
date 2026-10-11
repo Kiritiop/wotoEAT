@@ -438,11 +438,26 @@ export function shareWebUrl(id: string): string {
  * redirect allowlist, or Supabase silently ignores it and uses the Site URL.
  */
 export function passwordResetRedirectUrl(): string | undefined {
+  const base = webBase();
+  return base ? `${base}/auth/reset-password` : undefined;
+}
+
+/**
+ * Where the sign-up confirmation link lands: the web root, for the same reason
+ * as password reset. `detectSessionInUrl` signs the user in there and the root
+ * layout's redirect takes them on to onboarding. Same allowlist rule applies.
+ */
+export function emailConfirmRedirectUrl(): string | undefined {
+  const base = webBase();
+  return base ? `${base}/` : undefined;
+}
+
+function webBase(): string {
   let base = process.env.EXPO_PUBLIC_WEB_URL?.replace(/\/$/, "") ?? "";
   if (!base && typeof window !== "undefined" && window.location?.origin) {
     base = window.location.origin;
   }
-  return base ? `${base}/auth/reset-password` : undefined;
+  return base;
 }
 
 export async function getCurrentShoppingList(): Promise<ShoppingList | null> {
