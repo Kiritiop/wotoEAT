@@ -550,16 +550,24 @@ function MealSlotCardInner({
 
                   {/* Hero image — shown only when a result is found */}
                   {mealImageUrl && (
-                    <Image
-                      source={{ uri: mealImageUrl }}
-                      style={cardStyles.modalHeroImage}
-                      alt=""
-                      accessibilityElementsHidden
-                      importantForAccessibility="no"
-                      contentFit="cover"
-                      transition={200}
-                      cachePolicy="memory-disk"
-                    />
+                    <View>
+                      <Image
+                        source={{ uri: mealImageUrl }}
+                        style={cardStyles.modalHeroImage}
+                        alt=""
+                        accessibilityElementsHidden
+                        importantForAccessibility="no"
+                        contentFit="cover"
+                        transition={200}
+                        cachePolicy="memory-disk"
+                      />
+                      {/* Only TheMealDB serves real photos; every other hero is generated. */}
+                      {!mealImageUrl.includes("themealdb.com") && (
+                        <View style={cardStyles.aiImageBadge}>
+                          <Text style={cardStyles.aiImageBadgeText}>{t("ai_image_label")}</Text>
+                        </View>
+                      )}
+                    </View>
                   )}
 
                   {/* Slot badge */}
@@ -1460,6 +1468,8 @@ const cardStyles = StyleSheet.create({
   modalActionBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, borderWidth: 1, borderRadius: 12, paddingVertical: 10 },
   modalActionText: { fontSize: 13, fontWeight: "600" },
   modalHeroImage: { width: "100%", height: 200 },
+  aiImageBadge: { position: "absolute", left: 10, bottom: 10, backgroundColor: "rgba(0,0,0,0.55)", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  aiImageBadgeText: { color: "#FFF", fontSize: 11, fontWeight: "600" },
 });
 
 function makeStyles(c: ReturnType<typeof useTheme>) {

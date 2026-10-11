@@ -366,6 +366,7 @@ const zh = {
   a11y_collapse: "收起",
   a11y_confirm: "确认",
   ai_recipe_note: "本食谱由 AI 生成，烹饪前请自行核对所有食材。",
+  ai_image_label: "AI 生成图片",
   ai_allergy_warning: "AI 生成的食谱。系统已被要求避开你的过敏原，但烹饪前请务必自行核对每一种食材：",
   legal_title: "法律条款",
   legal_privacy: "隐私政策",

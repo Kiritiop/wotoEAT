@@ -369,6 +369,7 @@ const en = {
   a11y_collapse: "Collapse section",
   a11y_confirm: "Confirm",
   ai_recipe_note: "Recipes here are AI-generated. Check ingredients yourself before cooking.",
+  ai_image_label: "AI-generated image",
   ai_allergy_warning: "AI-generated recipe. It was asked to avoid your allergens, but check every ingredient yourself before cooking:",
   legal_title: "Legal",
   legal_privacy: "Privacy Policy",
